@@ -97,6 +97,12 @@ void timer_change_frame(void) {
 void update_frame(void) {
     ////////////////////////////////////////////////////////////////////////////////////
     //
+    // --frame-stats: the load of the frame that has just ended (reads ports only)
+    //
+    framestats_frame ();
+
+    ////////////////////////////////////////////////////////////////////////////////////
+    //
     // profiler stats update
     //
     if ((profileflag == TRUE) && (csub != NULL)) {
@@ -131,6 +137,10 @@ void update_frame(void) {
     //
     // frame limit (used by scripted runs)
     //
+    if (v32trace_on == TRUE)
+    {
+        v32trace_frame ();
+    }
     frames_run = frames_run + 1;
     if ((max_frames != 0) && (frames_run >= max_frames))
     {

@@ -556,6 +556,8 @@ int32_t   main (int32_t  argc, char **argv)
     signal (SIGFPE,  sigcrash);
     signal (SIGABRT, sigcrash);
 
+    v32trace_init ();
+    v32trace_ready ();
     addrprof_init ();      // the page sizes are known once the BIOS, cart and card are loaded
 
     /*
@@ -931,6 +933,10 @@ int32_t   main (int32_t  argc, char **argv)
                     cpu_immediate      = REG(IV);
                 }
                 addrprof_count (REG(IP));
+                if (v32trace_on == TRUE)
+                {
+                    v32trace_instr ((uint32_t) REG(IP));
+                }
                 insn_count             = insn_count + 1;
                 decode (REG(IR), REG(IV), FREG(IV), decodeflags | FLAG_PROCESS);
 
@@ -1134,6 +1140,8 @@ int32_t   main (int32_t  argc, char **argv)
         exitstatus                  = quit_status;
     }
     addrprof_write ();
+    framestats_write ();
+    v32trace_write ();
     if (consoleflag == TRUE)
     {
         gpu_console_show (stdout);

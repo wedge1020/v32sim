@@ -67,6 +67,12 @@ software — and to automate cart testing.
 - **Debug files** (labels and line numbers) are loaded automatically (see
   [Debug Files](#debug-files)); `-n` turns that off
 
+- **Central tool repository**: the scripts, stock-emulator ("oracle") tools and test harnesses that other Vircon32 projects
+  use to test, debug, profile and simulate their programs live here too: see [docs/TOOLS.md](docs/TOOLS.md),
+  [docs/TESTING.md](docs/TESTING.md), [docs/PROFILING.md](docs/PROFILING.md), and for an agent working in another project
+  [docs/AGENTS-SNIPPET.md](docs/AGENTS-SNIPPET.md); `AGENTS.md` is for working on v32sim itself
+- **Frame statistics** (`--frame-stats=FILE`): per-frame CPU and GPU load as CSV, with a mean / p95 / max summary
+
 ## Table of Contents
 
 - [Project Layout](#project-layout)
@@ -115,6 +121,10 @@ software — and to automate cart testing.
 │                         lexer.c / parser.c / parser.h and the asm_* equivalents
 ├── bin/                  the compiled v32sim binary (generated)
 ├── bios/                 BIOS data files
+├── gen/                  flex/bison output, checked in (`make gen`), for builds without flex/bison
+├── tools/                scripts and oracle tools for testing other projects (docs/TOOLS.md)
+│   └── oracle/           C++ tools on the stock ConsoleLogic: refrun v32run v32prof v32shot v32peek sysprof
+├── AGENTS.md CLAUDE.md   notes for agents (CLAUDE.md imports AGENTS.md)
 ├── cart/                 cartridge data files
 └── screenshots/          reference screenshots
 ```
@@ -194,6 +204,8 @@ Mandatory arguments to long options are mandatory for short options too.
  -x, --exit-status         exit status tells how the program ended
  -q, --batch               scripting mode: no prompt, banners or instruction lines; stderr for diagnostics
      --profile-by=KIND     address (default) or function: what --profile-top/--profile-out aggregate
+     --frame-stats=FILE    one CSV row per frame (cycles, CPU %, GPU pixels, GPU %); summary on stderr at exit
+     --frame-stats-skip=N  leave the first N frames out of that summary
      --symbol-file=FILE    load data symbols (v32cc NAME.asm.sym) from FILE
  -h, --help                display this information
 FILE   is any path plus the filename desired
@@ -597,6 +609,14 @@ v32term's default key source will not see your keys.
     RAM dumps (a program that seeds itself from `TIM_CycleCounter` still differs
     between builds of different speed, as the cycle count differs).
 
+### Frame statistics
+
+`--frame-stats=FILE` writes one CSV row per frame, `frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end` (cycles against the 250,000
+budget, GPU pixels against the 9-screen capacity; `end` is `w` for a frame ended by `WAIT`, `b` when the budget ran out), and
+prints a summary (mean, 95th percentile, maximum, frames at 100%) to stderr when the run ends. `--frame-stats-skip=N`
+leaves the first N frames (the BIOS logo takes about 250) out of the summary. It only reads state; the numbers equal
+`v32prof`'s, frame for frame. See [docs/PROFILING.md](docs/PROFILING.md).
+
 ### Address profile
 
 `--profile-out=FILE` writes, when the run ends, how many times the instruction at each
@@ -628,6 +648,32 @@ run that reaches `HLT`:
   * `--fixed-cycles` makes a program's reads of `TIM_CycleCounter` return 0, so code that
     seeds from it behaves the same across builds; with `--fixed-clock` and `--seed` the
     profile is reproducible, byte for byte.
+
+### V32TRACE (traps and events of a translated cartridge)
+
+`--v32trace=PREFIX` makes the run a V32TRACE recorder (spec version 2, `V32TRACE-SPEC.md`). A translator (NEStoV32, GBtoV32, ...) writes
+`<cart>.v32trace.meta` and `<cart>.labels.txt` beside the cartridge; v32sim reads them (or `--v32trace-meta=FILE`, `--v32trace-labels=FILE`),
+watches the trap routines and events they name, and writes `PREFIX.traps.txt` (one TRAP/EVENT line per distinct trap or event, with the
+translator's captured state and the last guest blocks entered) and `PREFIX.blocks.txt` (guest blocks that ran, with instruction counts) whenever
+a new one is met and when the run ends. A translator's gap-filling tool reads those files, so a build-run-fix loop needs no emulator window.
+
+After a trap the cartridge is restarted 60 frames later (registers and stack reset, jump to the cartridge start or the meta file's `resume` label;
+RAM, GPU and SPU are kept) so one run can meet several gaps; the same trap three times in a row stops this. `--v32trace-norestart` keeps the cartridge in the trap.
+A meta file made for another build of the cartridge (`words` or `fnv1a` differ) is ignored with a note on stderr. Not implemented here: `series`,
+markers, the human report and host cost (the DesktopEmulator recorder has them). The simulator is not cycle-exact, so trust the guest address in a trap, not its frame number.
+
+### V32TRACE (traps and events of a translated cartridge)
+
+`--v32trace=PREFIX` makes the run a V32TRACE recorder (spec version 2, `V32TRACE-SPEC.md`). A translator (NEStoV32, GBtoV32, ...) writes
+`<cart>.v32trace.meta` and `<cart>.labels.txt` beside the cartridge; v32sim reads them (or `--v32trace-meta=FILE`, `--v32trace-labels=FILE`),
+watches the trap routines and events they name, and writes `PREFIX.traps.txt` (one TRAP/EVENT line per distinct trap or event, with the
+translator's captured state and the last guest blocks entered) and `PREFIX.blocks.txt` (guest blocks that ran, with instruction counts) whenever
+a new one is met and when the run ends. A translator's gap-filling tool reads those files, so a build-run-fix loop needs no emulator window.
+
+After a trap the cartridge is restarted 60 frames later (registers and stack reset, jump to the cartridge start or the meta file's `resume` label;
+RAM, GPU and SPU are kept) so one run can meet several gaps; the same trap three times in a row stops this. `--v32trace-norestart` keeps the cartridge in the trap.
+A meta file made for another build of the cartridge (`words` or `fnv1a` differ) is ignored with a note on stderr. Not implemented here: `series`,
+markers, the human report and host cost (the DesktopEmulator recorder has them). The simulator is not cycle-exact, so trust the guest address in a trap, not its frame number.
 
 ## Scripting
 
@@ -729,6 +775,12 @@ interactive prompt is unchanged.
 `tests/run_src_tests.sh [V32AS_DIR]` checks the source-level commands (54 checks) on
 `tests/src/bench.asm`, assembly written the way `v32lua -g` writes it, with `v32as` only: the
 cartridge is made by `tests/mkcart.py`, and the BIOS is `tests/gaps/bios.asm`.
+
+`tests/run_harness_tests.sh` (`V32TC`, `V32BIOS`, optionally `ORACLE` and `V32SRCMARK`) checks the scripts in `tools/` and their
+agreement with the stock console logic: self-check pass/fail on both engines, symbols from a stock-compiler `.asm`,
+`--frame-stats` against `v32prof`, gamepad replay against `v32peek`, source-level `bt` on a stock-compiled cartridge,
+golden-screen sessions, `v32sim-peek.sh`, `v32sim-addrprof.py` (13 checks). `make oracle COMPUTERSOFTWARE=DIR` builds
+the oracle tools. The recipes are in [docs/TESTING.md](docs/TESTING.md).
 
 ## IOPORTS
 

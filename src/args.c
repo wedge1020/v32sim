@@ -55,6 +55,12 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "quiet",          no_argument,       0, 'q' },
        { "profile-by",     required_argument, 0, 38  },
        { "symbol-file",    required_argument, 0, 39  },
+       { "v32trace",       required_argument, 0, 40  },
+       { "v32trace-meta",  required_argument, 0, 41  },
+       { "v32trace-labels",required_argument, 0, 42  },
+       { "v32trace-norestart", no_argument,   0, 43  },
+       { "frame-stats",    required_argument, 0, 44  },
+       { "frame-stats-skip", required_argument, 0, 45 },
        { "exit-status",    no_argument,       0, 'x' },
        { "help",           no_argument,       0, 'h' },
        { 0,                0,                 0,  0  }
@@ -253,6 +259,14 @@ void  process_args (int32_t  argc, int8_t **argv)
                 }
                 break;
 
+            case 44: // frame-stats
+                frame_stats_out    = optarg;
+                break;
+
+            case 45: // frame-stats-skip
+                frame_stats_skip   = (uint32_t) strtoul (optarg, NULL, 10);
+                break;
+
             case 34: // profile-out
                 profile_out        = optarg;
                 break;
@@ -299,6 +313,22 @@ void  process_args (int32_t  argc, int8_t **argv)
                 {
                     profile_by_function = FALSE;
                 }
+                break;
+
+            case 40: // v32trace
+                v32trace_out       = optarg;
+                break;
+
+            case 41: // v32trace-meta
+                v32trace_meta_file = optarg;
+                break;
+
+            case 42: // v32trace-labels
+                v32trace_label_file = optarg;
+                break;
+
+            case 43: // v32trace-norestart
+                v32trace_norestart = TRUE;
                 break;
 
             case 39: // symbol-file

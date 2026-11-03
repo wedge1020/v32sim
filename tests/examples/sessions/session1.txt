@@ -1,0 +1,4 @@
+# a session with no prompt: run, check, dump the screen (@run, = and @console work with any cartridge)
+@run 5
+=hello, v32sim
+@console

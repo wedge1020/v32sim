@@ -51,6 +51,13 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --profile-top=N       print the N hottest addresses to stderr when the run ends\n");
     fprintf (stdout, "     --profile-by=KIND     address (default) or function: with function, --profile-top and the text\n");
     fprintf (stdout, "                           --profile-out add up the addresses of each function (the closest label)\n");
+    fprintf (stdout, "     --frame-stats=FILE    write one CSV row per frame (cycles, CPU %%, GPU pixels, GPU %%) and print a summary\n");
+    fprintf (stdout, "                           (mean, p95, max, frames at 100%%) to stderr when the run ends\n");
+    fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
+    fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
+    fprintf (stdout, "                           routines and events, write PREFIX.traps.txt and PREFIX.blocks.txt; after a trap the\n");
+    fprintf (stdout, "                           cartridge restarts (--v32trace-norestart: stay in the trap); --v32trace-meta=FILE and\n");
+    fprintf (stdout, "                           --v32trace-labels=FILE name the files when they are not beside the cartridge\n");
     fprintf (stdout, "     --fixed-cycles        reads of TIM_CycleCounter return 0 (programs seeding from it repeat)\n");
     fprintf (stdout, "     --symbol-file=FILE    also read data symbols from FILE (v32cc's NAME.asm.sym format); the ones\n");
     fprintf (stdout, "                           next to the V32 file are read automatically\n");

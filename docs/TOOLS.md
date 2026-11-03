@@ -1,0 +1,68 @@
+# Tools: which one answers which question
+
+v32sim is the front end; everything else in `tools/` either prepares something for it or asks the stock console
+logic the same question as a second opinion. Every tool is also usable alone.
+
+## Two kinds of engine
+
+| | v32sim (`bin/v32sim`) | the oracle tools (`tools/oracle`) |
+|---|---|---|
+| what runs | its own CPU, memory, GPU and SPU models | the DesktopEmulator's `ConsoleLogic`, compiled unchanged, video/audio stubbed |
+| strength | interactive, scriptable (`--batch`), breakpoints, watchpoints, source-level debugging, keyboard, memory card + v32dev host, text console, screenshots | it **is** the reference: what the console does, quirks included |
+| use it to | debug, drive typed sessions, run test suites, profile | decide who is right when v32sim and a program disagree; differential tests |
+
+v32sim is verified against the oracle (`tests/run_gaps.sh`, `run_fuzz.sh`, `run_romcheck.sh`, and `run_harness_tests.sh` for
+the harness). When a cartridge behaves differently in v32sim than on the real emulator, run it on `v32run` or `refrun`
+first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS.md`, then report it).
+
+## I want to...
+
+| question | tool |
+|---|---|
+| build a cartridge with debug files from C or assembly | `tools/v32mkcart.sh` |
+| step through it, set breakpoints, watch a variable | `v32sim cart.v32` (README "The Debugger", "Source-Level Debugging") |
+| know if a self-checking cartridge passes | `tools/v32sim-selfcheck.sh CART...` (`--oracle` for the stock core) |
+| run it unattended and get an exit status | `v32sim --batch --fast -x --max-frames=N` ([TESTING.md](TESTING.md)) |
+| read a variable / buffer after N frames | `tools/v32sim-peek.sh` (or `--dump=N@SYMBOL`); `v32peek` on the oracle |
+| type at a shell/DOS/monitor and check the screen | `tools/v32sim-session.py` + `tools/v32sim-golden.sh`, or a hand-written `.cmd` ([TESTING.md](TESTING.md)) |
+| replay gamepad / keyboard / mouse input from a script | `tools/vprof2cmd.py` (v32prof scripts), `tools/v32io-script.py` (actions -> script), `kbd` commands |
+| see CPU and GPU load per frame, p95, frames over budget | `--frame-stats=FILE` ([PROFILING.md](PROFILING.md)); `v32prof` on the oracle |
+| find the hot functions | `--profile-by=function --profile-top=N`; `tools/v32sim-addrprof.py` across kernel / BIOS / loaded modules |
+| profile an OS: kernel plus programs swapped into a window | `tools/oracle` `sysprof` |
+| screenshot at chosen frames | `screenshot FILE` (PNG) in a session; `v32shot` (PPM) on the oracle |
+| trace the traps of a translated cartridge | `--v32trace=PREFIX` (`docs/V32TRACE-SPEC.md`) |
+| test v32dev / a host disk against the real `v32dev.py serve` | `tests/run_tests.sh`, `tests/v32sim_runner.sh` (a `dev_rom_runner` look-alike) |
+| build v32sim without flex/bison | `tools/build-nogen.sh` |
+| build the oracle tools | `tools/oracle/build.sh COMPUTERSOFTWARE [OUT]` |
+
+## The oracle tools
+
+All take a BIOS and a cartridge and run the console logic headless. Built by `tools/oracle/build.sh` (g++ with C++17;
+nothing else: no SDL, OpenGL or OpenAL).
+
+| tool | from | does |
+|---|---|---|
+| `refrun BIOS CART FRAMES [--date Y,D] [--time S] [--dump N@HEXADDR] [--pad]` | v32sim `tests/ref` | run, print RAM words; the oracle of the differential tests |
+| `v32run BIOS CART CARD\|- ADDRESS [FRAMES]` | v32cxx | run to HLT, print one RAM word and `halted=`; the oracle's `test_errors` check |
+| `v32prof BIOS CART CART.vbin.debug SCRIPT [heavy%] [csv]` | v32cxx | per-frame CPU/GPU load by script segment; cycles per function (all frames and heavy frames); scripted input |
+| `v32shot BIOS CART SCRIPT PREFIX FRAME...` | v32cxx | PPM screenshots at chosen frames, scripted input |
+| `v32peek BIOS CART SCRIPT FRAME ADDR COUNT...` | v32cxx | CPU state and RAM words at a frame, scripted input |
+| `sysprof BIOS CART KERNEL.map CART.asm FRAMES PROG.x:PROG.sym...` | v32nix | whole-system profile: BIOS, kernel and every user program resident in the swapped window, self and inclusive time |
+
+The input script of `v32prof`, `v32shot` and `v32peek` is frame-stamped (`320 press 1 left`, `end`); its format is in
+the header of `tools/oracle/v32prof.cpp`. `tools/vprof2cmd.py` turns the same script into v32sim commands.
+
+Other oracle runners exist in other projects: v32cc's `tools/vrun.cpp` (`vrun`, also `--keys`) and v32cc's
+`tools/cartrun.py`. They do what `v32run` does; see CONSOLIDATION.md for the plan to unify them.
+
+## Debug information (who writes what)
+
+| file | written by | read by v32sim for |
+|---|---|---|
+| `NAME.asm.sym` | `v32cc -g` | data symbols with sizes: `print counter`, `x/d buf`, `watch [n]`, `--dump=1@n` |
+| `NAME.vbin.debug` | `v32as -g` (or the stock `assemble -g program`) | labels, `break FILE:LINE`, `bt`, `--source` |
+| `NAME.vbin.vars` | `v32as -g` from `v32cc`'s `;@var` lines | locals (not read yet: TODO "Locals and values") |
+| `;@src FILE:LINE` lines in the `.asm` | `v32cc -g`, `v32lua -g`; for stock-compiler output `v32opt/scripts/v32srcmark.py` | the source-level modes |
+
+The stock `compile` / `assemble` write no enhanced debug info on their own. With the stock chain v32sim still finds data
+globals through the `%define global_NAME ADDRESS` lines the compiler writes into `NAME.asm`.

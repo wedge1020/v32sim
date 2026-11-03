@@ -105,6 +105,20 @@ debug: $(BIN)
 asan: CFLAGS += -g -fsanitize=address,undefined -fno-omit-frame-pointer
 asan: $(BIN)
 
+# refresh gen/, the flex/bison output that tools/build-nogen.sh (and the bootstrap archives of v32nix and V32DOS) build from
+# without needing flex or bison: run after editing a .l or .y file, and commit gen/
+gen: $(GENSRC) $(GENHDR)
+	@mkdir -p gen && cp $(GENSRC) $(GENHDR) gen/ && echo "refreshed gen/"
+
+# the tools that need the stock console logic: make oracle COMPUTERSOFTWARE=path/to/checkout
+oracle:
+	@test -n "$(COMPUTERSOFTWARE)" || { echo "make oracle COMPUTERSOFTWARE=<ComputerSoftware checkout>"; exit 2; }
+	tools/oracle/build.sh "$(COMPUTERSOFTWARE)" tools/oracle/bin
+
+# tests of the consolidated tools (needs V32TC, V32BIOS; ORACLE for the comparisons with the stock console logic)
+test-harness: $(BIN)
+	tests/run_harness_tests.sh
+
 version:
 	@echo "$(TARGET) $(VERSION_STRING)"
 
@@ -135,7 +149,7 @@ clean:
 	@rm -vf $(DEPS) $(GENSRC) $(GENHDR) $(BINDIR)/$(TARGET)
 	@rm -rf $(OBJDIR)
 
-.PHONY: all debug asan version install sysinstall clean archive
+.PHONY: all debug asan gen oracle test-harness version install sysinstall clean archive
 
 -include $(DEPS)
 

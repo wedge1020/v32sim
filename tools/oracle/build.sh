@@ -1,0 +1,73 @@
+#!/bin/sh
+# *****************************************************************************
+#  tools/oracle/build.sh -- build the tools that run on the stock Vircon32 console logic
+#
+#    tools/oracle/build.sh CHECKOUT [OUTDIR]
+#
+#  CHECKOUT is a https://github.com/vircon32/ComputerSoftware checkout (or the src/ComputerSoftware of a
+#  bootstrap archive). OUTDIR defaults to tools/oracle/bin. Built there:
+#
+#    refrun       headless run, prints RAM words: the oracle of the differential tests (tests/run_gaps.sh)
+#    v32run       headless run of a cartridge until HLT, prints one RAM word       (from v32c++)
+#    v32prof      per-frame CPU/GPU load and cycles per function, scripted input  (from v32c++)
+#    v32shot      screenshots (PPM) at chosen frames, scripted input             (from v32c++)
+#    v32peek      CPU state and RAM at a chosen frame, scripted input            (from v32c++)
+#    sysprof      whole-system profiler: BIOS, kernel and the programs in a swapped user window (from v32nix)
+#    compile assemble packrom   the stock toolchain, and include/ and StandardBios.v32 beside them
+#
+#  These are the DesktopEmulator's own ConsoleLogic compiled unchanged with every video/audio callback
+#  stubbed out, so they are the reference for what the console does. v32sim is the interactive and scriptable
+#  front end; use these to ask "does the real console agree?" (docs/TOOLS.md).
+#
+#  ONLY="refrun v32prof" builds just those. Needs g++ with C++17 and nothing else (no SDL, OpenGL, OpenAL:
+#  shim/SDL.h stands in for the one function the dev tools call). wav2vircon needs a real SDL2 and is built
+#  only when sdl2-config exists.
+#
+#  Revisions: the tools were verified against commit 5219741 (compiler v26.04.24); docs/V32SIMGAPS.md compares
+#  the console logic at e75b537. They build against either.
+# *****************************************************************************
+set -e
+HERE=$(cd "$(dirname "$0")" && pwd)
+SRC=$(cd "${1:?usage: build.sh COMPUTERSOFTWARE_CHECKOUT [OUTDIR]}" && pwd)
+OUT=${2:-$HERE/bin}; mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
+CXX=${CXX:-g++}
+ONLY=${ONLY:-"refrun v32run v32prof v32shot v32peek sysprof compile assemble packrom wav2vircon"}
+DT="$SRC/DevelopmentTools"; CL="$SRC/DesktopEmulator/ConsoleLogic"
+want() { case " $ONLY " in *" $1 "*) return 0;; esac; return 1; }
+
+FLAGS="-O2 -std=c++17 -w -I$HERE/shim -I$DT -I$SRC -I$DT/DevToolsInfrastructure -I$SRC/VirconDefinitions"
+INFRA="$DT/DevToolsInfrastructure/*.cpp"
+
+if want compile; then
+    echo "building compile..."
+    # Source list as in DevelopmentTools/CMakeLists.txt (globbing CCompiler/*.cpp picks up a stale file)
+    CC_FILES=""
+    for f in CNodes CTokens CheckBinaryOperations CheckNodes CheckUnaryOperations CompilerInfrastructure DataTypes \
+             DebugInfo EmitBinaryOperationNodes EmitExpressionNodes EmitNonExpressionNodes EmitUnaryOperationNodes \
+             Globals Main MemoryPlacement Operators RegisterAllocation SourceLocation StaticValue VirconCAnalyzer \
+             VirconCEmitter VirconCLexer VirconCParser VirconCPreprocessor; do CC_FILES="$CC_FILES $DT/CCompiler/$f.cpp"; done
+    $CXX $FLAGS -I$DT/CCompiler $CC_FILES $INFRA -o "$OUT/compile"
+fi
+if want assemble; then echo "building assemble..."; $CXX $FLAGS -I$DT/Assembler $DT/Assembler/*.cpp $INFRA -o "$OUT/assemble"; fi
+if want packrom; then
+    echo "building packrom..."
+    $CXX $FLAGS -I$DT/RomPacker -I$DT/ExternalLibraries/tinyxml2 $DT/RomPacker/*.cpp $INFRA \
+         $DT/ExternalLibraries/tinyxml2/tinyxml2.cpp -o "$OUT/packrom"
+fi
+if want wav2vircon; then
+    if command -v sdl2-config >/dev/null 2>&1; then
+        echo "building wav2vircon..."
+        $CXX -O2 -std=c++17 -w -I$DT -I$SRC -I$DT/DevToolsInfrastructure $(sdl2-config --cflags) -I$DT/WAV2Vircon \
+             $DT/WAV2Vircon/wav2vircon.cpp $INFRA $(sdl2-config --libs) -o "$OUT/wav2vircon"
+    else
+        echo "skipping wav2vircon: needs SDL2 (only needed to pack sounds)"
+    fi
+fi
+for t in refrun v32run v32prof v32shot v32peek sysprof; do
+    want $t || continue
+    echo "building $t..."
+    $CXX -O2 -std=c++17 -w -I"$CL" -I"$SRC/DesktopEmulator" -I"$SRC/VirconDefinitions" "$HERE/$t.cpp" "$CL"/*.cpp -o "$OUT/$t"
+done
+if want compile && [ -d "$DT/Data/include" ]; then rm -rf "$OUT/include"; cp -r "$DT/Data/include" "$OUT/include"; fi
+[ -f "$SRC/DesktopEmulator/Data/Bios/StandardBios.v32" ] && cp "$SRC/DesktopEmulator/Data/Bios/StandardBios.v32" "$OUT/StandardBios.v32"
+echo "done: $OUT"

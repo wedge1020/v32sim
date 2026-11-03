@@ -192,6 +192,8 @@ extern uint32_t   script_errors;               // command lines that failed to p
 extern uint32_t   check_failures;              // failed expect / timed-out until
 extern uint8_t    quit_status_set;             // 'quit N'
 extern uint8_t    quit_status;
+extern int8_t    *frame_stats_out;            // --frame-stats=FILE
+extern uint32_t   frame_stats_skip;           // --frame-stats-skip=N
 extern uint8_t    profile_by_function;         // --profile-by=function
 extern int8_t    *symbolfile;                  // --symbol-file=FILE
 extern uint8_t    exitstatus;
@@ -305,6 +307,18 @@ void      addrprof_init  (void);                               // address profil
 uint8_t   addrprof_enabled (void);
 void      addrprof_count (uint32_t);
 void      addrprof_write (void);
+void      framestats_frame (void);                             // per-frame CPU / GPU load (framestats.c)
+void      framestats_write (void);
+void      v32trace_init  (void);                               // V32TRACE (v32trace.c)
+void      v32trace_ready (void);
+void      v32trace_instr (uint32_t);
+void      v32trace_frame (void);
+void      v32trace_write (void);
+extern int8_t   *v32trace_out;
+extern int8_t   *v32trace_meta_file;
+extern int8_t   *v32trace_label_file;
+extern uint8_t   v32trace_norestart;
+extern uint8_t   v32trace_on;
 void      update_frame   (void);                              // updating FrameCounter
 uint32_t  word2int       (word_t *);
 float     word2float     (word_t *);

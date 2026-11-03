@@ -189,6 +189,9 @@ static uint32_t  sym_load_asm (FILE *fptr)
         }
         *end = '\0';
         for (p = end + 1; (*p == ' ') || (*p == '\t'); p = p + 1) ;
+        // the number ends at the first blank, comment or line end (fgets keeps the newline)
+        for (end = p; (*end != '\0') && (*end != ' ') && (*end != '\t') && (*end != '\r') && (*end != '\n') && (*end != ';'); end = end + 1) ;
+        *end = '\0';
         if (sym_parse_number (p, &value) == FALSE)
         {
             continue;

@@ -1,0 +1,7 @@
+0 connect 1 1
+300 press 1 left
+300 press 1 a
+305 release 1 left
+310 tap 1 a
+320 release 1 a
+330 press 1 a

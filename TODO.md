@@ -4,6 +4,9 @@ Status as of version `20261018-dev` plus the v32dev / v32io work.
 
 ## DONE (removed from this list)
 
+  * **V32TRACE (spec 2)** - `--v32trace=PREFIX`, `--v32trace-meta`, `--v32trace-labels`, `--v32trace-norestart`: traps, events, restart after a trap,
+    `traps.txt` and `blocks.txt` (`src/v32trace.c`). Missing: `series`, markers, report, an asm-based test in this repository (NEStoV32's `make test-trace` covers it).
+
   * **Command parsing** - regex front end replaced by `lexer.l`, `parser.y`
     and `command.c`.
   * **Version** - `VERSION` in `inc/version.h`; `--version`/`-V`.
@@ -50,7 +53,17 @@ Status as of version `20261018-dev` plus the v32dev / v32io work.
     held the instruction's own address, and `print/D` showed float immediates
     converted instead of reinterpreted.
 
+  * **Consolidation (2026-11-03)** - oracle tools, harness scripts, AGENTS/CLAUDE and docs from v32cxx, v32nix and V32DOS moved here
+    (`docs/CONSOLIDATION.md`); `--frame-stats` (first slice of VS-9: per-frame CPU/GPU load, equal to v32prof's);
+    `%define global_NAME` symbol fallback fixed (it never parsed a newline-terminated line). V32DOS's VS-1..VS-8 are done;
+    its `docs/PROPOSAL-STATUS.md` still says outstanding.
+
 ## STILL LACKING
+
+  * **Locals are now unblocked** - `v32as -g` writes `NAME.vbin.vars` (`var,START,END,NAME,BP+2,TYPE,-,0,FUNCTION`) from v32cc's `;@var`
+    lines. Read it for `info locals` and `print NAME` in the selected frame (see "Locals and values" below for the rest).
+  * **VS-9 beyond `--frame-stats`** - GPU/SPU counters, texture/region switches, `--profile-event`, `expect stats`, traces + replay.
+  * **One oracle runner** - `refrun`, `v32run`, v32cc's `vrun` do the same job; unify (CONSOLIDATION.md, open item 2).
 
   * **Locals and values (V32DBG section 4)** - `info locals`, `print NAME`/`display NAME` in the
     selected frame, `type=lua` rendering of boxed values and table walking. Needs the compilers to
