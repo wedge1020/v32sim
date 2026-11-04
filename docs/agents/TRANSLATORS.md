@@ -13,7 +13,8 @@ routines, events, what to capture, the guest block label pattern, `resume`, the 
 patched DesktopEmulator (`emulator/emulator-v32trace.patch` in GBtoV32) or `v32sim --v32trace=PREFIX` -- runs the cartridge and
 writes `PREFIX.traps.txt` (one `TRAP`/`EVENT` line per distinct hit: `cartframe`, captured guest state, the trail of guest blocks,
 and from 2.1 `segstart=` and `input=`, the gamepad history that leads back to the hit) and `PREFIX.blocks.txt` (instructions per
-guest block). The translator's **consumer** tools (`gapfill.py`, `trace2input.py`, `profmerge.py`) turn traps into profile roots and
+guest block); at the end of a session (and while it runs) also `PREFIX.trace.txt`, the human report (events, the session's
+`V32_INPUT=` line, CPU load, host cost, series, hot spots, markers); v32sim writes the same report, line for line. The translator's **consumer** tools (`gapfill.py`, `trace2input.py`, `profmerge.py`) turn traps into profile roots and
 rebuild. After a trap the recorder restarts the cartridge (60 frames later) so one run meets several gaps.
 
 ## With v32sim
@@ -21,6 +22,8 @@ rebuild. After a trap the recorder restarts the cartridge (60 frames later) so o
 ```
 printf 'run 3000\nquit\n' | v32sim -q --fast -B StandardBios.v32 --v32trace=out/round0 game.v32      # unattended gap hunt
 v32sim ... --input="$(sed -n 's/^TRAP .* input=\([^ ]*\).*/\1/p' out/round0.traps.txt | head -1)" ...  # back to the first hit
+v32sim ... --input=@out/round0.trace.txt ...                                        # the whole session again
+printf 'run 280\nmark start\nrun 600\nquit\n' | v32sim ... --v32trace=out/m game.v32               # a marker: report split at 280
 python3 tools/v32sim-corpus.py -F 1800 --input fixed carts/*.v32      # every cart: OK / TRAP / CPU_ERROR, load, screenshot
 ```
 

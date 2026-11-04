@@ -251,6 +251,7 @@ static int  lex_command (void)
         case CMD_UP:          return (T_UP);
         case CMD_DOWN:        return (T_DOWN);
         case CMD_LOCALS:      return (T_LOCALS);
+        case CMD_MARK:        BEGIN (PATH); return (T_MARK);
         default:
             snprintf (cmd -> badword, sizeof (cmd -> badword), "%s", yytext);
             return (T_BADCMD);

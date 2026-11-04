@@ -32,7 +32,7 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 | find the hot functions | `--profile-by=function --profile-top=N`; `tools/v32sim-addrprof.py` across kernel / BIOS / loaded modules |
 | profile an OS: kernel plus programs swapped into a window | `tools/oracle` `sysprof` |
 | screenshot at chosen frames | `screenshot FILE` (PNG) in a session; `v32shot` (PPM) on the oracle |
-| trace the traps of a translated cartridge | `--v32trace=PREFIX` (`docs/V32TRACE-SPEC.md`, 2.1); replay a hit with `--input` and its `input=` |
+| trace the traps of a translated cartridge | `--v32trace=PREFIX` (`docs/V32TRACE-SPEC.md`, 2.1); replay a hit with `--input` and its `input=`, a session with `--input=@PREFIX.trace.txt` |
 | test v32dev / a host disk against the real `v32dev.py serve` | `tests/run_tests.sh`, `tests/v32sim_runner.sh` (a `dev_rom_runner` look-alike) |
 | build v32sim without flex/bison | `tools/build-nogen.sh` |
 | build the oracle tools | `tools/oracle/build.sh COMPUTERSOFTWARE [OUT]` |
@@ -49,6 +49,7 @@ nothing else: no SDL, OpenGL or OpenAL).
 | `v32prof BIOS CART CART.vbin.debug SCRIPT [heavy%] [csv]` | v32cxx | per-frame CPU/GPU load by script segment; cycles per function (all frames and heavy frames); scripted input |
 | `v32shot BIOS CART SCRIPT PREFIX FRAME...` | v32cxx | PPM screenshots at chosen frames, scripted input |
 | `v32peek BIOS CART SCRIPT FRAME ADDR COUNT...` | v32cxx | CPU state and RAM words at a frame, scripted input |
+| `v32trace-ref BIOS CART SCRIPT FRAMES OUTDIR [--norestart]` | new | the DesktopEmulator V32TRACE recorder, headless (built only from a ConsoleLogic patched with GBtoV32's `emulator-v32trace.patch`); script lines may also be `FRAME mark NOTE` |
 | `sysprof BIOS CART KERNEL.map CART.asm FRAMES PROG.x:PROG.sym...` | v32nix | whole-system profile: BIOS, kernel and every user program resident in the swapped window, self and inclusive time |
 
 The input script of `v32prof`, `v32shot` and `v32peek` is frame-stamped (`320 press 1 left`, `end`); its format is in

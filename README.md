@@ -690,8 +690,18 @@ those files, so a build-run-fix loop needs no emulator window (GBtoV32's `make t
 After a trap the cartridge is restarted 60 frames later (registers and stack reset, jump to the cartridge start or the meta file's
 `resume` label; RAM, GPU and SPU are kept) so one run can meet several gaps; the same trap three times in a row stops this.
 `--v32trace-norestart` keeps the cartridge in the trap. A meta file made for another build of the cartridge (`words` or `fnv1a`
-differ) is ignored with a note on stderr. Not implemented here: `series`, markers, the human report and host cost (the
-DesktopEmulator recorder has them).
+differ) is ignored with a note on stderr.
+
+v32sim also writes the recorder's human report, `PREFIX.trace.txt` (spec 4.3), in the DesktopEmulator recorder's layout: `[events]`
+(new hits, restarts, give-up, CPU errors), `[input]` (the session's gamepad 1 as one `V32_INPUT=` line, with the restart frames),
+`[perf]` (CPU load averages, dropped-frame runs, the most expensive frames, a timeline), `[host]` (GPU quads and draw flushes per
+frame, the recorder's host-cost model, and every `series NAME ADDR` the meta file names), `[hot spots, whole session]` (the top
+labels and guest blocks) and `[markers]`. The `mark [NOTE]` command sets a marker (the recorder's F-key marker) at the current frame,
+with the meta file's plain captures in its note; the report then splits its numbers by the segments between markers. GBtoV32's
+`trace2input.py --session` reads it, and `--input=@PREFIX.trace.txt` replays its `V32_INPUT=` line. Checked line for line against
+the real recorder (`tools/oracle/v32trace-ref`, below) on GBtoV32's gap ROM in three scenarios (input with two markers, a repeated
+trap up to give-up, `--v32trace-norestart`): `traps.txt`, `blocks.txt` and `trace.txt` are equal, apart from the replay comment and
+the order of hot spots with equal counts (`run_harness_tests.sh`). Not implemented: `input2=` (a second gamepad).
 
 To get back to a hit, give its `input=` to `--input` (below): the gamepad is replayed by cartridge frame and the same trap comes
 back at the same `cartframe`. Checked against the stock console logic on GBtoV32's gap ROM: with A held from cart frame 40, the
@@ -702,7 +712,8 @@ trap routine starts in cart frame 41 in both.
 `--input=SCRIPT` holds gamepad buttons by **cartridge frame** (frame 0 is the first frame the cartridge runs, after the BIOS
 logo): `BUTTON[+BUTTON...]@FIRST-LAST[,...]` (or `@FRAME`), buttons `LEFT RIGHT UP DOWN START A B X Y L R` (`SELECT` is X, the
 recorders' name). This is the `V32_INPUT` syntax of the V32TRACE recorders and of the translators' profilers; `V32_INPUT` in the
-environment is used when `--input` is not given. `--input-port=N` picks the gamepad (default 0); it is connected. Changes happen
+environment is used when `--input` is not given. `--input=@FILE` takes the script from the `V32_INPUT=` line of FILE (a
+`.trace.txt` report). `--input-port=N` picks the gamepad (default 0); it is connected. Changes happen
 between frames, as the `gamepad` command makes them: a button held from frame F reads 1 in frame F.
 
 ## Scripting

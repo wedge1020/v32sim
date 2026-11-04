@@ -70,7 +70,8 @@ enum cmd_id
     CMD_UP,
     CMD_DOWN,
     CMD_UNTILSRC,
-    CMD_LOCALS
+    CMD_LOCALS,
+    CMD_MARK
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////

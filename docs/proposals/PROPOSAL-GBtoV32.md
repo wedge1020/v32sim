@@ -3,6 +3,8 @@
 From v32sim 20261103-dev, against GBtoV32 20261101-dev. Written 2026-11-04. What works and is relied on: **`make test-trace` passes
 18/18 with `V32SIM=` v32sim** (`tools/trace_loop.sh`, gap filling, key replay, the cart hash check); v32sim now writes V32TRACE 2.1's
 `segstart=` / `input=` and takes `--input=SCRIPT` (the `V32_INPUT` syntax), and `docs/V32TRACE-SPEC.md` in v32sim is the 2.1 text.
+Since 2026-11-04 v32sim also writes the human report (`.trace.txt`), series, markers and host cost; all three session files are equal
+to the patched DesktopEmulator's on the gap ROM (below).
 
 | id | sev | what | stopgap today |
 |---|---|---|---|
@@ -10,7 +12,7 @@ From v32sim 20261103-dev, against GBtoV32 20261101-dev. Written 2026-11-04. What
 | SG-2 | C | two different programs named `v32sim` | the scripts say "NOT the small bin/v32sim" |
 | SG-3 | C | the testing harness depends on `v32bench` and v32lua's headless `v32run`, the latter no longer builds | none |
 | SG-4 | C | the spec's "candidates for version 3" list has an item that is now done | none |
-| SG-5 | C | the V32TRACE recorder exists only as a patch | users build the patched emulator |
+| SG-5 | C | ~~the V32TRACE recorder exists only as a patch~~ **answered 2026-11-04: it stays an optional patch kept in GBtoV32** | v32sim writes the same files |
 
 ---
 
@@ -48,16 +50,35 @@ harness could call those and keep its Game Boy parts (Homebrew Hub download, `--
 ## SG-4  the spec text  (C)
 
 `V32TRACE-SPEC.md` 2.1, section 10 ("Candidates for version 3"): "`v32sim` writing `input=` too" is done (2026-11-03). The spec is byte-identical in
-GBtoV32 and NEStoV32 and "not to be edited here"; whoever owns it can strike the item and add a line on `--input`.
+GBtoV32 and NEStoV32 and "not to be edited here"; whoever owns it can strike the item and add a line on `--input`. Three more lines
+are now out of date: section 3's `series` row ("`v32sim` ignores it"), section 4's `.trace.txt` row ("DesktopEmulator only") and
+section 9's v32sim row ("Not: `series`, markers, the human report, host cost"). v32sim's copy is left byte-identical; the README says
+what v32sim does.
 
-## SG-5  the recorder patch  (C)
+## SG-5  the recorder patch  (C) -- answered
 
 `emulator/emulator-v32trace.patch` (v2 + v2.2, a test build that records by itself and disables restart) is the only DesktopEmulator
-recorder. Is it meant to go upstream (ComputerSoftware proposal SE-2), or stay a patch kept here?
+recorder. **Answer (2026-11-04): not meant to go upstream; it remains an optional patch kept in GBtoV32.** ComputerSoftware proposal
+SE-2 no longer lists it. v32sim's `tools/oracle/build.sh` builds `v32trace-ref` (the recorder, headless) when pointed at a
+ConsoleLogic with the patch applied, and `tests/run_harness_tests.sh` compares v32sim with it.
 
-## Questions
+One thing that would help the comparison: `v32trace-ref` drives the recorder through `V32Trace`'s public calls (`Arm`, the
+`OutputFolder`/`ContinueAfterTrap` fields, `AddMarker`, `EndSession`). If the patch's next version renames them, the harness section
+is skipped rather than failing (it builds only when `V32Trace.cpp` is there), but a note in the patch's header would keep them in step.
 
-1. `traps.txt` keeps the first `segstart`/`input` of a hit that repeats (count > 1). v32sim does the same; is that what the recorder
-   does too, or does it keep the last?
-2. Should v32sim write the human report (`.trace.txt`, spec 4.3) as well? `trace2input.py --session` needs it; for v32sim runs the
-   input is already known from the script, so it was left out.
+## Questions (both answered 2026-11-04)
+
+1. ~~Does the recorder keep the first or the last `segstart`/`input` of a repeated hit?~~ Checked in the patch: `CaptureHit` only
+   increments `Count` for a known hit and keeps the first occurrence's cart frame, segment start, captures and trail. v32sim does the
+   same; `traps.txt` is byte-equal to the recorder's, `count=3` of a give-up included.
+2. ~~Should v32sim write `.trace.txt`?~~ Yes: v32sim is meant to be an alternative to the stock DesktopEmulator, so it is used the
+   same way. **Done**: `PREFIX.trace.txt` in the recorder's layout, `mark [NOTE]` for markers, `series`, host cost (quads and flushes
+   per frame by the patch's model), `--input=@FILE` to replay a report's `V32_INPUT=` line; `trace2input.py --session` reads it.
+   Line-for-line equal to the recorder's report in three scenarios; the only differences are the replay comment (`v32sim
+   --input=@this_file` instead of the emulator's) and the order of hot spots with equal counts (`std::sort` is not stable).
+
+## A note for GBtoV32's scripts
+
+GBtoV32 reads `GBTOV32` as the path of its translator binary (`tools/gbbuild.sh`) and `V32SIM` as its mini interpreter. A harness
+that exports either for its own purposes breaks `BUILD.sh` ("Permission denied" running a directory); v32sim's harness now calls its
+variable `GBTOV32_TREE` and unsets both when it calls `BUILD.sh`. A clearer name (`GBTOV32_BIN`) would avoid the trap.

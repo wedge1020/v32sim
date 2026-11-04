@@ -8,7 +8,7 @@ instruction for instruction against `DesktopEmulator/ConsoleLogic` compiled head
 | id | sev | what | stopgap |
 |---|---|---|---|
 | SE-1 | **B** | `CFI` of NaN or out-of-range floats is C++ undefined behaviour: x86-64 and ARM64 builds of the emulator differ | v32lua's runner emulates one host's behaviour by choice (`V32_CFI`) |
-| SE-2 | C | the useful emulator patches live outside: V32TRACE recorder (GBtoV32), v32io and v32dev (v32io) | users build patched emulators |
+| SE-2 | C | the useful emulator patches live outside: v32io and v32dev (v32io) | users build patched emulators |
 | SE-3 | C | no headless target: every project compiles ConsoleLogic with its own stubs (six runners exist) | v32sim `tools/oracle/build.sh` |
 | SE-4 | C | `SimplifiedEmulator` is gone; v32lua's headless runner depended on it | port it (v32lua proposal SL-3) |
 
@@ -27,8 +27,8 @@ range this is undefined: x86-64 gives `0x80000000`, ARM64 gives 0 for NaN and sa
 
 ## SE-2  optional builds of the known patches  (C)
 
-`emulator-v32trace.patch` (GBtoV32: trace recorder, V32TRACE spec 2.1, used by GBtoV32 and NEStoV32), `v32io.patch` and the v32dev patch
-(v32io: keyboard / mouse devices in the Gamepads menu; the memory-card mailbox). As CMake options (off by default), they would be built
+`v32io.patch` and the v32dev patch (v32io: keyboard / mouse devices in the Gamepads menu; the memory-card mailbox). (GBtoV32's
+V32TRACE recorder patch is not part of this request: it stays an optional patch kept in GBtoV32, by its owner's decision.) As CMake options (off by default), they would be built
 and tested with upstream changes instead of being rebased by each project. Each already leaves the console's behaviour unchanged when
 unused.
 

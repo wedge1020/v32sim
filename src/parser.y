@@ -68,7 +68,7 @@ static int   check_signed   (void);
 %token       T_UNWATCH T_VERSION T_WATCH T_WATCHLIST
 %token       T_KBD T_MAILBOX T_CONSOLE
 %token       T_RUN T_UNTIL T_EXPECT T_EXAMINE
-%token       T_SSTEP T_SNEXT T_FINISH T_TBREAK T_LIST T_FRAME T_UP T_DOWN T_LOCALS
+%token       T_SSTEP T_SNEXT T_FINISH T_TBREAK T_LIST T_FRAME T_UP T_DOWN T_LOCALS T_MARK
 %token       T_BADCMD T_BAD
 
 %type  <t>   name
@@ -98,6 +98,8 @@ command
     | T_DOWN T_NUM                      { CMD -> id = CMD_DOWN;      CMD -> has_num = TRUE; CMD -> num = $2.u; }
     | list_cmd
     | locals_cmd
+    | T_MARK                            { CMD -> id = CMD_MARK; }
+    | T_MARK T_PATH                     { CMD -> id = CMD_MARK; CMD -> path = $2.text; }
     | T_IGNORE                          { CMD -> id = CMD_IGNORE;    }
     | T_QUIT                            { CMD -> id = CMD_QUIT;      }
     | T_QUIT T_NUM                      { CMD -> id = CMD_QUIT;      CMD -> has_num = TRUE; CMD -> num = $2.u; }

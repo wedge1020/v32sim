@@ -5,7 +5,8 @@ Status as of version `20261018-dev` plus the v32dev / v32io work.
 ## DONE (removed from this list)
 
   * **V32TRACE (spec 2)** - `--v32trace=PREFIX`, `--v32trace-meta`, `--v32trace-labels`, `--v32trace-norestart`: traps, events, restart after a trap,
-    `traps.txt` and `blocks.txt` (`src/v32trace.c`). Missing: `series`, markers, report, an asm-based test in this repository (NEStoV32's `make test-trace` covers it).
+    `traps.txt` and `blocks.txt` (`src/v32trace.c`); since 2026-11-04 also the human report `PREFIX.trace.txt`, `series`, markers (`mark`), host cost,
+    compared with the patched DesktopEmulator in `run_harness_tests.sh` (needs `GBTOV32_TREE` and `tools/oracle/v32trace-ref`). Missing: `input2=`.
 
   * **Command parsing** - regex front end replaced by `lexer.l`, `parser.y`
     and `command.c`.

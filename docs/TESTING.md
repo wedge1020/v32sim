@@ -73,6 +73,7 @@ built with `-DKEEP_RUNNING` for that).
 | a v32prof / v32peek / v32shot script (`320 press 1 left`) | `tools/vprof2cmd.py SCRIPT [--frames N]`: toggles `gamepad N CONTROL` between `run N` steps; checked against v32peek (`run_harness_tests.sh`) |
 | keyboard and mouse actions (`kbd 1 type Hi!`) | `tools/v32io-script.py actions.txt` makes a v32prof-style script; or use `kbd type` / `kbd key` directly, `--kbd-input=stdin\|FIFO\|file` |
 | a V32TRACE `input=` or a `V32_INPUT` script (`A@40-44,START@100`) | `--input=SCRIPT` (cartridge frames: 0 = the first frame after the BIOS logo); `--input-port=N` |
+| a V32TRACE session report (`.trace.txt`, from the DesktopEmulator recorder or `--v32trace`) | `--input=@FILE` (its `V32_INPUT=` line); compare v32sim's files with the recorder's: `run_harness_tests.sh` with `GBTOV32_TREE` and `ORACLE/v32trace-ref` |
 | an interactive terminal | `--tty` (text console full screen, keys to a v32kbd, Ctrl-] returns to the debugger) |
 
 ## 4b. Many cartridges at once

@@ -144,6 +144,7 @@
 #define  INPUT_LIST              46
 #define  INPUT_FRAME             47
 #define  INPUT_LOCALS            48
+#define  INPUT_MARK              49
 
 #define  PARSE_IMMEDIATE         0x79
 #define  PARSE_REGISTER          0x7A

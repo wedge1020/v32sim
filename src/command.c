@@ -81,6 +81,7 @@ static const struct
     { "up",          2, CMD_UP        },
     { "down",        3, CMD_DOWN      },
     { "locals",      3, CMD_LOCALS    },
+    { "mark",        4, CMD_MARK      },
     { "info",        4, CMD_LOCALS    },
     { NULL,          0, CMD_NONE      }
 };
@@ -1774,6 +1775,7 @@ static void  exec_help (cmd_t *c)
         case CMD_TBREAK:      help (INPUT_TBREAK);     break;
         case CMD_LIST:        help (INPUT_LIST);       break;
         case CMD_LOCALS:      help (INPUT_LOCALS);     break;
+        case CMD_MARK:        help (INPUT_MARK);       break;
         case CMD_FRAME:
         case CMD_UP:
         case CMD_DOWN:        help (INPUT_FRAME);      break;
@@ -1864,6 +1866,7 @@ uint8_t  cmd_execute (cmd_t *c)
         case CMD_TBREAK:      exec_break (c);                       break;
         case CMD_LIST:        exec_list (c);                        break;
         case CMD_LOCALS:      exec_locals (c);                      break;
+        case CMD_MARK:        v32trace_mark (c -> path);            break;
         case CMD_FRAME:
         case CMD_UP:
         case CMD_DOWN:        exec_frame (c);                       break;

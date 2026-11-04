@@ -10,6 +10,7 @@
 #             compare v32sim with the stock console logic are skipped, and said to be
 #   V32SIM    the simulator (default bin/v32sim)
 #   V32SRCMARK  v32opt's scripts/v32srcmark.py: enables the check of source-level debugging of stock-compiler carts
+#   GBTOV32_TREE   a built GBtoV32 tree: with ORACLE/v32trace-ref, v32sim's V32TRACE files are compared with the recorder's
 #
 # What is checked, and against what:
 #   selfcheck   a passing and a failing cartridge: v32sim says pass/FAIL, and so does the stock core (v32run)
@@ -132,6 +133,30 @@ if [ -x "$V32TC/v32lua" ]; then
     echo "$out" | grep -q '^s = "hello"' && echo "$out" | grep -q '^ok = true' && echo "$out" | grep -q '^nothing = nil' && echo "$out" | grep -q '^t = table: ' \
         && ok "Lua strings, booleans, nil, tables" || bad "Lua values: $(echo "$out" | tr '\n' '|' | cut -c1-250)"
 else skipt "locals (Lua)" "no v32lua in V32TC"; fi
+
+echo "== V32TRACE report against the DesktopEmulator recorder (needs GBTOV32_TREE and ORACLE/v32trace-ref)"
+if [ -n "${GBTOV32_TREE:-}" ] && [ -x "$GBTOV32_TREE/bin/GBtoV32" ] && [ $HAVE_ORACLE = 1 ] && [ -x "$ORACLE/v32trace-ref" ]; then
+    # (GBtoV32 reads GBTOV32 as the path of its translator and V32SIM as its mini interpreter: both unset for it)
+    # GBtoV32's gap ROM, built with a profile that never pressed A: A held from cart frame 40 runs into a trap (tools/test_trace.sh)
+    mkdir -p "$W/gate" && python3 -I "$GBTOV32_TREE/tools/gaprom.py" "$W/gate/gap.gb" >/dev/null
+    ( cd "$W/gate" && env -u V32SIM -u GBTOV32 PROFILE_FRAMES=60 PROFILE_INPUT=RIGHT@0-1 sh "$GBTOV32_TREE/BUILD.sh" gap.gb --no-audio --no-bezels >"$W/gate/build.log" 2>&1 )
+    G=$W/gate/out/gap/gap.v32
+    if [ -f "$G" ]; then
+        mkdir -p "$W/gate/ref"
+        printf '0 connect 0 1\n280 mark start\n290 press 0 a\n295 release 0 a\n350 press 0 right\n381 release 0 right\n480 mark later\n' > "$W/gate/ref.s"
+        "$ORACLE/v32trace-ref" "$V32BIOS" "$G" "$W/gate/ref.s" 780 "$W/gate/ref" >/dev/null 2>&1
+        printf 'run 280\nmark start\nrun 200\nmark later\nrun 300\nquit\n' | "$SIM" -q --fast -B "$V32BIOS" --input="A@40-44,RIGHT@100-130" \
+            --v32trace="$W/gate/sim" "$G" >/dev/null 2>&1
+        R=$(ls "$W"/gate/ref/gap_2*.trace.txt 2>/dev/null | head -1)
+        # the same lines (equal hot-spot counts may list in another order), headers and the replay hint aside
+        norm() { sed -e 1,3d -e '/Replay with/d' -e 's|^labels: .*(|labels: (|' "$1" | sort; }
+        if [ -n "$R" ] && cmp -s <(norm "$R") <(norm "$W/gate/sim.trace.txt"); then ok "trace.txt: every line equal to the recorder's"; else bad "trace.txt differs from the recorder's"; fi
+        cmp -s <(sed 1d "$W"/gate/ref/gap_2*.traps.txt) <(sed 1d "$W/gate/sim.traps.txt") && ok "traps.txt equal (2.1 segstart/input included)" || bad "traps.txt differs"
+        cmp -s <(sort "$W"/gate/ref/gap_2*.blocks.txt) <(sort "$W/gate/sim.blocks.txt") && ok "blocks.txt equal" || bad "blocks.txt differs"
+        s=$(python3 -I "$GBTOV32_TREE/tools/trace2input.py" "$W/gate/sim.trace.txt" --session 2>&1)
+        [ "$s" = "RIGHT@1-31" ] && ok "trace2input --session reads v32sim's report" || bad "trace2input --session gave '$s'"
+    else bad "GBtoV32 did not build the gap cartridge: $(tail -3 "$W/gate/build.log" | tr "\n" "|")"; fi
+else skipt "V32TRACE report vs recorder" "set GBTOV32_TREE to a built GBtoV32 tree and build v32trace-ref (ONLY=v32trace-ref tools/oracle/build.sh PATCHED_CHECKOUT)"; fi
 
 echo "== peek, golden screen, address profile"
 v=$(sh "$T/v32sim-peek.sh" -F 400 "$W/ex/hello_text.v32" counter); [ "$v" = 5050 ] && ok "v32sim-peek counter" || bad "v32sim-peek gave '$v'"

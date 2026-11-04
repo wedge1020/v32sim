@@ -100,6 +100,10 @@ void update_frame(void) {
     // --frame-stats: the load of the frame that has just ended (reads ports only)
     //
     framestats_frame ();
+    if (v32trace_on == TRUE)
+    {
+        v32trace_frame_end ();
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////
     //

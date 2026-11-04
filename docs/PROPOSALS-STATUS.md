@@ -15,7 +15,8 @@ and the text was read, not exercised. Request IDs collide between documents (thr
 | | 4.2 `--profile-event`, 4.3 GPU/SPU traces + `gpureplay`, 4.4 `--time-breakdown`/`--frame-log`, 4.5 `expect stats`, 4.6 `statdiff` | open. Note: v32lua's `tools/headless/v32run` already logs GPU (`-g`) and SPU (`-s`) writes and rebuilds frames (`render.py`) and audio (`spu_render.py`) from them; that is most of 4.3's format, on an oracle |
 | V32TRACE spec 2.1 (`docs/V32TRACE-SPEC.md`, shared with GBtoV32 and NEStoV32) | recorder: build files, traps, events, restarts, `traps.txt`, `blocks.txt` | **done** (GBtoV32's `make test-trace`, 18 checks, all pass against this v32sim, checked) |
 | | 2.1 `segstart=` / `input=` per hit; replay with `V32_INPUT` | **done today** (`--input`, `V32_INPUT`; round trip checked on GBtoV32's gap ROM, and the trap frame agrees with the stock console logic) |
-| | series, markers, the human report (`.trace.txt`), host cost, `input2=`, guest-button map in the meta | open (the spec's own "later" list includes "`v32sim` writing `input=` too", now done) |
+| | series, markers, the human report (`.trace.txt`), host cost | **done 2026-11-04** (equal to the patched DesktopEmulator's files, `run_harness_tests.sh`) |
+| | `input2=`, guest-button map in the meta | open (the spec's own "later" list includes "`v32sim` writing `input=` too", now done) |
 | V32DBG (spec not supplied, see `V32DBG-STATUS.md`) | sections 1-3, 5 | done earlier |
 | | section 4, locals and values | **done today** for what the producers write; open items are mostly the producers' |
 | v32nix `docs/PROPOSALS.md` | P-E6 headless runner with scripted v32io + v32dev serial | **met by v32sim** (`--batch`, `kbd`, `--kbd-input`, v32dev mailbox with a real `v32dev.py serve`; v32nix's own `tools/simtest.sh` and `docs/STORAGE.md` use it) |
@@ -51,4 +52,5 @@ The copy supplied today has the same sources as the 20261101 V32DOS bootstrap ar
 `ExtendedDevTools` submodule pointers for v32lua, v32c++ and v32opt were added; the submodule folders are empty). Its
 `SimplifiedEmulator` folder is gone, which **breaks v32lua's `tools/headless/build.sh`** (it compiles the CPU core from
 `SimplifiedEmulator/Emulator`); the v32sim oracle tools build from `DesktopEmulator/ConsoleLogic` and are unaffected.
-The V32TRACE recorder is a patch kept in GBtoV32 (`emulator/emulator-v32trace.patch`, v2 + 2.2), not upstream.
+The V32TRACE recorder is a patch kept in GBtoV32 (`emulator/emulator-v32trace.patch`, v2 + 2.2), and stays one: it is not meant to
+go upstream (answer of 2026-11-04). v32sim, meant as an alternative to the stock DesktopEmulator, writes the same files.

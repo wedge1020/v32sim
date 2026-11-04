@@ -6,6 +6,7 @@
 //
 //   SCRIPT  =  RUN[,RUN...]          RUN  =  BUTTON[+BUTTON...]@FIRST-LAST   (or @FRAME)
 //   BUTTON  =  LEFT RIGHT UP DOWN START A B X Y L R   (SELECT is X: the recorders' name)
+//   @FILE      the script on the `V32_INPUT=` line of FILE (a V32TRACE .trace.txt), else its first line
 //
 // This is the V32_INPUT syntax of the V32TRACE recorders (spec 2.1 `input=`, the human
 // report's [input] section) and of GBtoV32's and NEStoV32's profilers: frame 0 is the first
@@ -161,6 +162,36 @@ void  padscript_init (void)
     if (text == NULL)
     {
         return;
+    }
+    if (text[0] == '@')                          // @FILE: the V32_INPUT= line of a file (a V32TRACE .trace.txt), or its first line
+    {
+        static char  line[65536];
+        FILE        *f      = fopen (text + 1, "r");
+        int          found  = FALSE;
+
+        if (f == NULL)
+        {
+            fprintf (stderr, "[ERROR] --input: cannot read '%s'\n", text + 1);
+            exit (1);
+        }
+        while (fgets (line, sizeof (line), f) != NULL)
+        {
+            line[strcspn (line, "\r\n")] = '\0';
+            if (0 == strncmp (line, "V32_INPUT=", 10))
+            {
+                memmove (line, line + 10, strlen (line + 10) + 1);
+                found = TRUE;
+                break;
+            }
+        }
+        if (found == FALSE)
+        {
+            rewind (f);
+            if (fgets (line, sizeof (line), f) == NULL)  line[0] = '\0';
+            line[strcspn (line, "\r\n")] = '\0';
+        }
+        fclose (f);
+        text = line;
     }
     if (pad_input_port >= V32_NUM_GAMEPADS)
     {

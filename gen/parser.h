@@ -111,8 +111,9 @@ extern int yydebug;
     T_UP = 312,                    /* T_UP  */
     T_DOWN = 313,                  /* T_DOWN  */
     T_LOCALS = 314,                /* T_LOCALS  */
-    T_BADCMD = 315,                /* T_BADCMD  */
-    T_BAD = 316                    /* T_BAD  */
+    T_MARK = 315,                  /* T_MARK  */
+    T_BADCMD = 316,                /* T_BADCMD  */
+    T_BAD = 317                    /* T_BAD  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -128,7 +129,7 @@ union YYSTYPE
     int     op;
     symv_t  s;
 
-#line 132 "obj/parser.h"
+#line 133 "obj/parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

@@ -13,6 +13,8 @@
 #    v32shot      screenshots (PPM) at chosen frames, scripted input             (from v32c++)
 #    v32peek      CPU state and RAM at a chosen frame, scripted input            (from v32c++)
 #    sysprof      whole-system profiler: BIOS, kernel and the programs in a swapped user window (from v32nix)
+#    v32trace-ref the DesktopEmulator's V32TRACE recorder run headless; only when the checkout has GBtoV32's
+#                 emulator-v32trace.patch applied (it is skipped otherwise): the reference for v32sim --v32trace
 #    compile assemble packrom   the stock toolchain, and include/ and StandardBios.v32 beside them
 #
 #  These are the DesktopEmulator's own ConsoleLogic compiled unchanged with every video/audio callback
@@ -63,8 +65,12 @@ if want wav2vircon; then
         echo "skipping wav2vircon: needs SDL2 (only needed to pack sounds)"
     fi
 fi
-for t in refrun v32run v32prof v32shot v32peek sysprof; do
+for t in refrun v32run v32prof v32shot v32peek sysprof v32trace-ref; do
     want $t || continue
+    if [ $t = v32trace-ref ] && [ ! -f "$CL/V32Trace.cpp" ]; then
+        case " $ONLY " in *" v32trace-ref "*) echo "v32trace-ref: $CL has no V32Trace.cpp (apply GBtoV32's emulator-v32trace.patch)" >&2; exit 1;; esac
+        continue
+    fi
     echo "building $t..."
     $CXX -O2 -std=c++17 -w -I"$CL" -I"$SRC/DesktopEmulator" -I"$SRC/VirconDefinitions" "$HERE/$t.cpp" "$CL"/*.cpp -o "$OUT/$t"
 done

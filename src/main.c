@@ -968,6 +968,10 @@ int32_t   main (int32_t  argc, char **argv)
             // (The instruction that raised the error has been counted as a
             // cycle, as on the console; the frame then ends, see below.)
             //
+            if (v32trace_on            == TRUE)
+            {
+                v32trace_cpu_error (sys_error, (uint32_t) REG(IP));   // before the registers are overwritten
+            }
             if (exitflag               == TRUE)
             {
                 fprintf (stderr, "[v32sim] system error %d at IP=0x%.8X\n", (int) sys_error, REG(IP));

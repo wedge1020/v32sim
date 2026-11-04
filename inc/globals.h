@@ -319,6 +319,11 @@ const char *srcdebug_func_at (uint32_t);   // pc, bp, number of the selected fra
 void      output_lua_value (uint32_t);
 void      padscript_init (void);                               // --input=SCRIPT (padscript.c)
 void      padscript_frame (void);
+void      gpustat_change (void);                               // V32TRACE host-cost model (gpu.c)
+extern uint32_t   gpustat_quads, gpustat_flushes, gpustat_pending;
+void      v32trace_frame_end (void);                           // V32TRACE: record the frame that ended (v32trace.c)
+void      v32trace_cpu_error (int32_t, uint32_t);
+void      v32trace_mark  (const char *);
 void      framestats_frame (void);                             // per-frame CPU / GPU load (framestats.c)
 void      framestats_write (void);
 void      v32trace_init  (void);                               // V32TRACE (v32trace.c)

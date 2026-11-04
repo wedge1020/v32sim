@@ -95,11 +95,46 @@ void  gpu_reset (void)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
+// The host-cost model of the V32TRACE recorder (GBtoV32's emulator-v32trace.patch,
+// V32GPU::StatQuad/StatClear/StatChange): it changes nothing, it counts the quads a frame
+// draws and the batches the DesktopEmulator's video queue (20 quads) has to send for them.
+// A batch ends when the queue is full, when the screen is cleared, or when the selected
+// texture, the multiply colour or the blending mode really changes while quads wait.
+//
+uint32_t  gpustat_quads    = 0;
+uint32_t  gpustat_flushes  = 0;
+uint32_t  gpustat_pending  = 0;
+
+void  gpustat_change (void)
+{
+    if (gpustat_pending > 0)
+    {
+        gpustat_flushes  = gpustat_flushes + 1;
+        gpustat_pending  = 0;
+    }
+}
+
+static void  gpustat_quad (void)
+{
+    gpustat_quads    = gpustat_quads + 1;
+    gpustat_pending  = gpustat_pending + 1;
+    if (gpustat_pending >= 20)
+    {
+        gpustat_flushes  = gpustat_flushes + 1;
+        gpustat_pending  = 0;
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
 // gpu_new_frame(): restore the per-frame drawing capacity
 //
 void  gpu_new_frame (void)
 {
     SYSPORTSET(GPU_RemainingPixels, GPU_CAPACITY);
+    gpustat_quads    = 0;                        // the video queue is emptied at the end of a frame
+    gpustat_flushes  = 0;
+    gpustat_pending  = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -750,6 +785,7 @@ static void  gpu_draw (uint8_t scaling, uint8_t rotation)
         return;
     }
     SYSPORTSET(GPU_RemainingPixels, remaining);
+    gpustat_quad ();
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
@@ -937,6 +973,7 @@ void  gpu_command (int32_t command)
                 break;
             }
             SYSPORTSET(GPU_RemainingPixels, remaining);
+            gpustat_change ();                   // a clear sends what is queued
             gpu_clear ();
             console_clear ();
             break;

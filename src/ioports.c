@@ -790,6 +790,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
     int32_t  *iptr                     = NULL;                      // integer ptr
     int32_t  *bptr                     = NULL;                      // button ptr (int)
     float    *fptr                     = NULL;                      // float pointer
+    int32_t   gpu_old                  = 0;
 
     portaddr                           = portaddr & PORT_MASK;
     type                               = (portaddr & 0x0700) >> 8;
@@ -800,6 +801,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
     {
         iptr                           = &((pptr+attr) -> value.i32);
         fptr                           = &((pptr+attr) -> value.f32);
+        gpu_old                        = *iptr;    // for the host-cost model (gpustat_change)
         switch (portaddr)
         {
             case RNG_CurrentValue:
@@ -1233,6 +1235,11 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
             default: // catch all- the standard transaction for external setting
                 *iptr                  = i32;
                 break;
+        }
+        if (((portaddr == GPU_SelectedTexture) || (portaddr == GPU_MultiplyColor) ||
+             (portaddr == GPU_ActiveBlending)) && (*iptr != gpu_old))
+        {
+            gpustat_change ();                   // the DesktopEmulator's video queue sends a batch here
         }
     }
 

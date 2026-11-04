@@ -13,7 +13,7 @@ From the 2026-11-03 consolidation and V32DBG / V32TRACE work, against v32sim 202
 | VS-15 | C | read v32as `--symbols` / a resolved `NAME.vbin.sym` (v32as SA-3) for function and ROM-data addresses | marker-mode `.debug` carries no data labels |
 | VS-16 | C | a way to name a low RAM word unambiguously: `print [0x75]` is an IOPort (up to 3 hex digits), `[0x00000075]` works; e.g. `[ram:0x75]` | found while testing v32lua globals |
 | VS-17 | C | prototypes of v32nix P-E1 (timer interrupt) and P-E2 (v32dev doorbell) behind options | v32nix PROPOSALS, v32nix proposal SN-2 |
-| VS-18 | C | V32TRACE: the human report (`.trace.txt`), series, markers; `input2=` | V32TRACE spec 2.1, GBtoV32 proposal question 2 |
+| VS-18 | C | V32TRACE: ~~the human report (`.trace.txt`), series, markers, host cost~~ (done 2026-11-04, equal to the recorder's); `input2=` | V32TRACE spec 2.1, GBtoV32 proposal question 2 |
 
 ---
 

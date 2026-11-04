@@ -31,7 +31,7 @@ symbols, locals), `x/d NAME [N]`, `display`, `watch LOC OP VALUE` (`watch/d` sig
 `--fast`, `--max-frames=N`, `-x`, `--batch`, `-B BIOS`, `-M card.memc`, `--fixed-clock --seed=1 --fixed-cycles` (reproducible),
 `--input=BUTTON@FIRST-LAST,...` (gamepad by cartridge frame, V32_INPUT syntax), `--v32kbd=N`, `--kbd-input=...`, `--tty`,
 `--frame-stats=FILE` (per-frame CPU/GPU load), `--profile-out=FILE --profile-by=function --profile-top=N`, `--dump=N@SYM`,
-`--v32trace=PREFIX` (translator traps, V32TRACE 2.1), `--symbol-file`, `--debug-dir`, `-n` (no debug files).
+`--v32trace=PREFIX` (translator traps, V32TRACE 2.1: `traps.txt`, `blocks.txt`, the `trace.txt` report; `mark NOTE` sets a marker), `--symbol-file`, `--debug-dir`, `-n` (no debug files).
 Debug files are found next to the `.v32` (`NAME.vbin.debug`, `NAME.vbin.vars`, `NAME.asm.sym`, `NAME.asm`).
 
 ## Tools beside it (`tools/`)
