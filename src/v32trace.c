@@ -48,6 +48,7 @@ typedef struct
     char      key[1024];
     char      kind[48];
     int32_t   frame;
+    int32_t   segstart;        // spec 2.1: cart frame of the last (re)start before the hit
     uint32_t  count;
     uint32_t  regs[16];
     uint32_t  vals[VT_MAX_CAPS][64];
@@ -76,6 +77,12 @@ static uint32_t  dropped = 0, restarts = 0;
 static int       trapped = 0, held = 0, gave_up = 0, repeat_run = 0;
 static char      last_key[1024];
 static int32_t   cartframe = -1;        // -1: the cartridge has not run yet
+static int32_t   segstart  = 0;         // spec 2.1: cart frame of the last restart (0: never restarted)
+static uint16_t *pads      = NULL;      // spec 2.1: gamepad 1 buttons held in each cart frame (bit per control)
+static int32_t   npads     = 0, roompads = 0, padframe = -1;
+
+// the controls in INP port order; the V32_INPUT names the recorders use (Y has none)
+static const char *const vt_buttons[11] = { "LEFT", "RIGHT", "UP", "DOWN", "START", "A", "B", "SELECT", NULL, "L", "R" };
 
 static uint32_t  ring_to[VT_RING];  static uint32_t ring_n = 0;
 static uint32_t  prev_ip = 0, expect_ip = 0;  static int have_prev = 0;
@@ -411,6 +418,7 @@ static void  capture_hit (int is_trap, const char *name)
     h.event = !is_trap;
     snprintf (h.name, sizeof h.name, "%s", name);
     h.frame = cartframe;
+    h.segstart = segstart;
     h.count = 1;
     for (i = 0; i < 16; i = i + 1)  h.regs[i] = (uint32_t) REG(i);
     snprintf (h.key, sizeof h.key, "%s", name);
@@ -519,6 +527,27 @@ void  v32trace_instr (uint32_t ip)
     if (off < cart_words)
     {
         if (cartframe < 0)  cartframe = 0;
+        if (padframe != cartframe)                   // the first instruction of a cart frame: what gamepad 1 holds
+        {
+            uint16_t  mask = 0;
+            int       c;
+
+            for (c = 0; c < 11; c = c + 1)
+            {
+                if ((gamepad != NULL) && (gamepad[0].connected) && (gamepad[0].button[c] > 0))  mask = mask | (uint16_t) (1 << c);
+            }
+            if (cartframe >= roompads)
+            {
+                int32_t   r = (roompads == 0) ? 4096 : roompads * 2;
+                uint16_t *n;
+
+                while (r <= cartframe)  r = r * 2;
+                n = realloc (pads, (size_t) r * sizeof (uint16_t));
+                if (n != NULL)  { memset (n + roompads, 0, (size_t) (r - roompads) * sizeof (uint16_t)); pads = n; roompads = r; }
+            }
+            if (cartframe < roompads)  { pads[cartframe] = mask; if (cartframe + 1 > npads)  npads = cartframe + 1; }
+            padframe = cartframe;
+        }
         if (!trapped)  counts[off] = counts[off] + 1;
         if (((watch[off >> 5] >> (off & 31)) & 1) && (!trapped))
         {
@@ -564,6 +593,67 @@ void  v32trace_frame (void)
     trapped   = 0;
     have_prev = 0;
     restarts  = restarts + 1;
+    segstart  = cartframe;
+}
+
+// spec 2.1: the gamepad 1 history of cart frames [from, to) as a V32_INPUT script, frames numbered from 'from':
+// BUTTON[+BUTTON]@FIRST-LAST,... (runs of each button, grouped when they share both ends), '-' for none
+static void  show_input (FILE *f, int32_t from, int32_t to)
+{
+    typedef struct { int32_t a, b; uint16_t mask; } run_t;
+    run_t   *runs = NULL;
+    int      nruns = 0, room = 0, c, i, j, any = 0;
+    int32_t  fr, start;
+
+    if (to > npads)  to = npads;
+    if (from < 0)  from = 0;
+    for (c = 0; c < 11; c = c + 1)
+    {
+        if (vt_buttons[c] == NULL)  continue;
+        start = -1;
+        for (fr = from; fr <= to; fr = fr + 1)
+        {
+            int held = (fr < to) && (pads[fr] & (1 << c));
+
+            if (held && (start < 0))  start = fr;
+            if ((!held) && (start >= 0))
+            {
+                for (i = 0; i < nruns; i = i + 1)  if ((runs[i].a == start - from) && (runs[i].b == fr - 1 - from))  break;
+                if (i == nruns)
+                {
+                    if (nruns == room)
+                    {
+                        run_t *n = realloc (runs, (size_t) (room = room ? room * 2 : 64) * sizeof (run_t));
+                        if (n == NULL)  { free (runs); fprintf (f, "-"); return; }
+                        runs = n;
+                    }
+                    runs[nruns].a = start - from; runs[nruns].b = fr - 1 - from; runs[nruns].mask = 0; nruns = nruns + 1;
+                }
+                runs[i].mask = runs[i].mask | (uint16_t) (1 << c);
+                start = -1;
+            }
+        }
+    }
+    for (i = 1; i < nruns; i = i + 1)              // ordered by (first, last), as the recorder's map is
+    {
+        run_t k = runs[i];
+        for (j = i; (j > 0) && ((runs[j - 1].a > k.a) || ((runs[j - 1].a == k.a) && (runs[j - 1].b > k.b))); j = j - 1)  runs[j] = runs[j - 1];
+        runs[j] = k;
+    }
+    for (i = 0; i < nruns; i = i + 1)
+    {
+        int first = 1;
+
+        fprintf (f, "%s", any ? "," : "");
+        for (c = 0; c < 11; c = c + 1)
+        {
+            if ((runs[i].mask & (1 << c)) && (vt_buttons[c] != NULL))  { fprintf (f, "%s%s", first ? "" : "+", vt_buttons[c]); first = 0; }
+        }
+        fprintf (f, "@%d-%d", runs[i].a, runs[i].b);
+        any = 1;
+    }
+    if (!any)  fprintf (f, "-");
+    free (runs);
 }
 
 static void  show_key (FILE *f, uint32_t key)
@@ -610,6 +700,8 @@ static void  write_files (void)
                     if (k)  fprintf (f, ",");
                     show_key (f, h -> trail[k] - 1);
                 }
+                fprintf (f, " segstart=%d input=", (int) h -> segstart);        // spec 2.1
+                show_input (f, h -> segstart, h -> frame + 1);
                 fprintf (f, "\n");
             }
             fclose (f);

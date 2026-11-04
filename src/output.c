@@ -270,6 +270,29 @@ static void  output_lua_boolean (uint32_t  data, uint32_t  tag, uint32_t  payloa
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
+// output_lua_value(): a NaN-boxed Lua value as text (`locals` for type=lua), with the
+// string payloads checked the way output_mem() checks them
+//
+void  output_lua_value (uint32_t  data)
+{
+    uint32_t  tag      = data & 0xFFC00000;
+    uint32_t  payload  = data & 0x003FFFFF;
+
+    if (tag == 0x7FC00000)
+    {
+        payload = payload | 0x20000000;          // ROM strings live in the CART page
+    }
+    if (((tag == 0x7FC00000) || ((tag == 0xFFC00000) && (payload >= 4))) &&
+        (memory_chk (payload, FLAG_READ, TRUE) == FALSE))
+    {
+        fprintf (stdout, "<bad string 0x%.8X>", data);
+        return;
+    }
+    output_lua_boolean (data, tag, payload);  // strings come out quoted
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
 // output_render(): the common core. Render the 32-bit word 'data' (with
 // float view 'fdata') in the requested format. 'immv' and 'dflags'
 // pertain to FORMAT_DECODE only. Each caller obtains the word in its own

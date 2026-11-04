@@ -74,7 +74,7 @@
 #define yychar          asmchar
 
 /* First part of user prologue.  */
-#line 1 "../src/asm_parser.y"
+#line 1 "src/asm_parser.y"
 
 /*
  * asm_parser.y: bison grammar for the live assembler. Generated with the prefix 'asm'
@@ -107,7 +107,7 @@ static int   a_symbol (const char *name, uint32_t *out);
 static int   a_port   (asm_val_t *v, const char *name);
 static void  a_imm    (uint32_t bits);
 
-#line 111 "asm_parser.c"
+#line 111 "obj/asm_parser.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -1167,239 +1167,239 @@ yyreduce:
   switch (yyn)
     {
   case 4: /* inst: A_NONE  */
-#line 56 "../src/asm_parser.y"
+#line 56 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[0].num); }
-#line 1173 "asm_parser.c"
+#line 1173 "obj/asm_parser.c"
     break;
 
   case 5: /* inst: A_JMP A_REG  */
-#line 57 "../src/asm_parser.y"
+#line 57 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-1].num); I -> dst = (yyvsp[0].num); }
-#line 1179 "asm_parser.c"
+#line 1179 "obj/asm_parser.c"
     break;
 
   case 6: /* inst: A_JMP imm_int  */
-#line 58 "../src/asm_parser.y"
+#line 58 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-1].num); a_imm ((yyvsp[0].num)); }
-#line 1185 "asm_parser.c"
+#line 1185 "obj/asm_parser.c"
     break;
 
   case 7: /* inst: A_REG1 A_REG  */
-#line 59 "../src/asm_parser.y"
+#line 59 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-1].num); I -> dst = (yyvsp[0].num); }
-#line 1191 "asm_parser.c"
+#line 1191 "obj/asm_parser.c"
     break;
 
   case 8: /* inst: A_RI A_REG ',' A_REG  */
-#line 60 "../src/asm_parser.y"
+#line 60 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> dst = (yyvsp[-2].num); I -> src = (yyvsp[0].num); }
-#line 1197 "asm_parser.c"
+#line 1197 "obj/asm_parser.c"
     break;
 
   case 9: /* inst: A_RI A_REG ',' imm_int  */
-#line 61 "../src/asm_parser.y"
+#line 61 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> dst = (yyvsp[-2].num); a_imm ((yyvsp[0].num)); }
-#line 1203 "asm_parser.c"
+#line 1203 "obj/asm_parser.c"
     break;
 
   case 10: /* inst: A_RF A_REG ',' A_REG  */
-#line 62 "../src/asm_parser.y"
+#line 62 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> dst = (yyvsp[-2].num); I -> src = (yyvsp[0].num); }
-#line 1209 "asm_parser.c"
+#line 1209 "obj/asm_parser.c"
     break;
 
   case 11: /* inst: A_RF A_REG ',' imm_flt  */
-#line 63 "../src/asm_parser.y"
+#line 63 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> dst = (yyvsp[-2].num); a_imm ((yyvsp[0].num)); }
-#line 1215 "asm_parser.c"
+#line 1215 "obj/asm_parser.c"
     break;
 
   case 12: /* inst: A_LEA A_REG ',' '[' A_REG ']'  */
-#line 64 "../src/asm_parser.y"
+#line 64 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-5].num); I -> dst = (yyvsp[-4].num); I -> src = (yyvsp[-1].num); }
-#line 1221 "asm_parser.c"
+#line 1221 "obj/asm_parser.c"
     break;
 
   case 13: /* inst: A_LEA A_REG ',' '[' A_REG offset ']'  */
-#line 65 "../src/asm_parser.y"
+#line 65 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-6].num); I -> dst = (yyvsp[-5].num); I -> src = (yyvsp[-2].num); a_imm ((yyvsp[-1].num)); }
-#line 1227 "asm_parser.c"
+#line 1227 "obj/asm_parser.c"
     break;
 
   case 14: /* inst: A_MOV A_REG ',' imm_any  */
-#line 66 "../src/asm_parser.y"
+#line 66 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> mode = 0; I -> dst = (yyvsp[-2].num); a_imm ((yyvsp[0].num)); }
-#line 1233 "asm_parser.c"
+#line 1233 "obj/asm_parser.c"
     break;
 
   case 15: /* inst: A_MOV A_REG ',' A_REG  */
-#line 67 "../src/asm_parser.y"
+#line 67 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> mode = 1; I -> dst = (yyvsp[-2].num); I -> src = (yyvsp[0].num); }
-#line 1239 "asm_parser.c"
+#line 1239 "obj/asm_parser.c"
     break;
 
   case 16: /* inst: A_MOV A_REG ',' '[' imm_int ']'  */
-#line 68 "../src/asm_parser.y"
+#line 68 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-5].num); I -> mode = 2; I -> dst = (yyvsp[-4].num); a_imm ((yyvsp[-1].num)); }
-#line 1245 "asm_parser.c"
+#line 1245 "obj/asm_parser.c"
     break;
 
   case 17: /* inst: A_MOV A_REG ',' '[' A_REG ']'  */
-#line 69 "../src/asm_parser.y"
+#line 69 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-5].num); I -> mode = 3; I -> dst = (yyvsp[-4].num); I -> src = (yyvsp[-1].num); }
-#line 1251 "asm_parser.c"
+#line 1251 "obj/asm_parser.c"
     break;
 
   case 18: /* inst: A_MOV A_REG ',' '[' A_REG offset ']'  */
-#line 70 "../src/asm_parser.y"
+#line 70 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-6].num); I -> mode = 4; I -> dst = (yyvsp[-5].num); I -> src = (yyvsp[-2].num); a_imm ((yyvsp[-1].num)); }
-#line 1257 "asm_parser.c"
+#line 1257 "obj/asm_parser.c"
     break;
 
   case 19: /* inst: A_MOV '[' imm_int ']' ',' A_REG  */
-#line 71 "../src/asm_parser.y"
+#line 71 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-5].num); I -> mode = 5; I -> src = (yyvsp[0].num); a_imm ((yyvsp[-3].num)); }
-#line 1263 "asm_parser.c"
+#line 1263 "obj/asm_parser.c"
     break;
 
   case 20: /* inst: A_MOV '[' A_REG ']' ',' A_REG  */
-#line 72 "../src/asm_parser.y"
+#line 72 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-5].num); I -> mode = 6; I -> dst = (yyvsp[-3].num); I -> src = (yyvsp[0].num); }
-#line 1269 "asm_parser.c"
+#line 1269 "obj/asm_parser.c"
     break;
 
   case 21: /* inst: A_MOV '[' A_REG offset ']' ',' A_REG  */
-#line 73 "../src/asm_parser.y"
+#line 73 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-6].num); I -> mode = 7; I -> dst = (yyvsp[-4].num); I -> src = (yyvsp[0].num); a_imm ((yyvsp[-3].num)); }
-#line 1275 "asm_parser.c"
+#line 1275 "obj/asm_parser.c"
     break;
 
   case 22: /* inst: A_IN A_REG ',' port  */
-#line 74 "../src/asm_parser.y"
+#line 74 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> dst = (yyvsp[-2].num); }
-#line 1281 "asm_parser.c"
+#line 1281 "obj/asm_parser.c"
     break;
 
   case 23: /* inst: A_OUT port ',' A_REG  */
-#line 75 "../src/asm_parser.y"
+#line 75 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); I -> src = (yyvsp[0].num); }
-#line 1287 "asm_parser.c"
+#line 1287 "obj/asm_parser.c"
     break;
 
   case 24: /* inst: A_OUT port ',' imm_any  */
-#line 76 "../src/asm_parser.y"
+#line 76 "src/asm_parser.y"
                                             { I -> opcode = (yyvsp[-3].num); a_imm ((yyvsp[0].num)); }
-#line 1293 "asm_parser.c"
+#line 1293 "obj/asm_parser.c"
     break;
 
   case 25: /* inst: A_BAD  */
-#line 77 "../src/asm_parser.y"
+#line 77 "src/asm_parser.y"
                                             { YYERROR; }
-#line 1299 "asm_parser.c"
+#line 1299 "obj/asm_parser.c"
     break;
 
   case 26: /* port: A_NUM  */
-#line 81 "../src/asm_parser.y"
+#line 81 "src/asm_parser.y"
                                             { if (a_port (&(yyvsp[0].val), NULL)) YYERROR; }
-#line 1305 "asm_parser.c"
+#line 1305 "obj/asm_parser.c"
     break;
 
   case 27: /* port: A_IDENT  */
-#line 82 "../src/asm_parser.y"
+#line 82 "src/asm_parser.y"
                                             { if (a_port (NULL, (yyvsp[0].id)))  YYERROR; }
-#line 1311 "asm_parser.c"
+#line 1311 "obj/asm_parser.c"
     break;
 
   case 28: /* offset: '+' imm_int  */
-#line 87 "../src/asm_parser.y"
+#line 87 "src/asm_parser.y"
                                             { (yyval.num) = (yyvsp[0].num); }
-#line 1317 "asm_parser.c"
+#line 1317 "obj/asm_parser.c"
     break;
 
   case 29: /* offset: '-' A_NUM  */
-#line 88 "../src/asm_parser.y"
+#line 88 "src/asm_parser.y"
                                             { if (a_neg (&(yyvsp[0].val), &(yyval.num), 0)) YYERROR; }
-#line 1323 "asm_parser.c"
+#line 1323 "obj/asm_parser.c"
     break;
 
   case 30: /* imm_int: A_NUM  */
-#line 93 "../src/asm_parser.y"
+#line 93 "src/asm_parser.y"
                                             { if (a_int (&(yyvsp[0].val), &(yyval.num))) YYERROR; }
-#line 1329 "asm_parser.c"
+#line 1329 "obj/asm_parser.c"
     break;
 
   case 31: /* imm_int: '+' A_NUM  */
-#line 94 "../src/asm_parser.y"
+#line 94 "src/asm_parser.y"
                                             { if (a_int (&(yyvsp[0].val), &(yyval.num))) YYERROR; }
-#line 1335 "asm_parser.c"
+#line 1335 "obj/asm_parser.c"
     break;
 
   case 32: /* imm_int: '-' A_NUM  */
-#line 95 "../src/asm_parser.y"
+#line 95 "src/asm_parser.y"
                                             { if (a_neg (&(yyvsp[0].val), &(yyval.num), 0)) YYERROR; }
-#line 1341 "asm_parser.c"
+#line 1341 "obj/asm_parser.c"
     break;
 
   case 33: /* imm_int: A_IDENT  */
-#line 96 "../src/asm_parser.y"
+#line 96 "src/asm_parser.y"
                                             { if (a_symbol ((yyvsp[0].id), &(yyval.num))) YYERROR; }
-#line 1347 "asm_parser.c"
+#line 1347 "obj/asm_parser.c"
     break;
 
   case 34: /* imm_any: A_NUM  */
-#line 101 "../src/asm_parser.y"
+#line 101 "src/asm_parser.y"
                                             { (yyval.num) = (yyvsp[0].val).bits; }
-#line 1353 "asm_parser.c"
+#line 1353 "obj/asm_parser.c"
     break;
 
   case 35: /* imm_any: '+' A_NUM  */
-#line 102 "../src/asm_parser.y"
+#line 102 "src/asm_parser.y"
                                             { (yyval.num) = (yyvsp[0].val).bits; }
-#line 1359 "asm_parser.c"
+#line 1359 "obj/asm_parser.c"
     break;
 
   case 36: /* imm_any: '-' A_NUM  */
-#line 103 "../src/asm_parser.y"
+#line 103 "src/asm_parser.y"
                                             { if (a_neg (&(yyvsp[0].val), &(yyval.num), 1)) YYERROR; }
-#line 1365 "asm_parser.c"
+#line 1365 "obj/asm_parser.c"
     break;
 
   case 37: /* imm_any: A_IDENT  */
-#line 104 "../src/asm_parser.y"
+#line 104 "src/asm_parser.y"
                                             { if (a_symbol ((yyvsp[0].id), &(yyval.num))) YYERROR; }
-#line 1371 "asm_parser.c"
+#line 1371 "obj/asm_parser.c"
     break;
 
   case 38: /* imm_flt: A_NUM  */
-#line 109 "../src/asm_parser.y"
+#line 109 "src/asm_parser.y"
                                             { if ((yyvsp[0].val).kind == AV_DEC) { float f = (float) (yyvsp[0].val).bits; memcpy (&(yyval.num), &f, 4); }
                                               else                   { (yyval.num) = (yyvsp[0].val).bits; } }
-#line 1378 "asm_parser.c"
+#line 1378 "obj/asm_parser.c"
     break;
 
   case 39: /* imm_flt: '+' A_NUM  */
-#line 111 "../src/asm_parser.y"
+#line 111 "src/asm_parser.y"
                                             { if ((yyvsp[0].val).kind == AV_DEC) { float f = (float) (yyvsp[0].val).bits; memcpy (&(yyval.num), &f, 4); }
                                               else                   { (yyval.num) = (yyvsp[0].val).bits; } }
-#line 1385 "asm_parser.c"
+#line 1385 "obj/asm_parser.c"
     break;
 
   case 40: /* imm_flt: '-' A_NUM  */
-#line 113 "../src/asm_parser.y"
+#line 113 "src/asm_parser.y"
                                             { if ((yyvsp[0].val).kind == AV_DEC) { float f = -(float) (yyvsp[0].val).bits; memcpy (&(yyval.num), &f, 4); }
                                               else if ((yyvsp[0].val).kind == AV_FLT) { float f = -(yyvsp[0].val).fvalue; memcpy (&(yyval.num), &f, 4); }
                                               else { asm_seterr ("cannot negate the raw value '%s'", asm_lex_lasttext ()); YYERROR; } }
-#line 1393 "asm_parser.c"
+#line 1393 "obj/asm_parser.c"
     break;
 
   case 41: /* imm_flt: A_IDENT  */
-#line 116 "../src/asm_parser.y"
+#line 116 "src/asm_parser.y"
                                             { if (a_symbol ((yyvsp[0].id), &(yyval.num))) YYERROR; }
-#line 1399 "asm_parser.c"
+#line 1399 "obj/asm_parser.c"
     break;
 
 
-#line 1403 "asm_parser.c"
+#line 1403 "obj/asm_parser.c"
 
       default: break;
     }
@@ -1592,7 +1592,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 119 "../src/asm_parser.y"
+#line 119 "src/asm_parser.y"
 
 
 static int  a_int (asm_val_t *v, uint32_t *out)

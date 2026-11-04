@@ -154,6 +154,12 @@ void update_frame(void) {
     //
     runctl_frame ();
 
+    ////////////////////////////////////////////////////////////////////////////////////
+    //
+    // --input: the scripted gamepad state for the frame that runs next
+    //
+    padscript_frame ();
+
     // === NEW: Frame-based throttling with busy-wait ===
     uint64_t now_ns = get_ns();
     uint64_t elapsed_ns = now_ns - frame_start_ns;

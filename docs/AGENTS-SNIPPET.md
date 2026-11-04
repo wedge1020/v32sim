@@ -23,8 +23,11 @@ it runs unattended, takes scripted input, and its exit status says what happened
   `x/d buf 10`, `watch [counter] == 6`, `display`, `console`, `screenshot out.png`). From a script, put the commands in a file
   and run `v32sim --batch --fast -x -B StandardBios.v32 cart.v32 < script.cmd`; stdout is only what the script printed,
   diagnostics go to stderr. A program that ends with `HLT` ends the run, so read its state with `--dump=N@SYMBOL`.
+- **Locals**: with `v32cc -g` (or `v32lua -g`) and `v32as -g`, `locals` shows the variables of the selected frame (`up`/`down`);
+  `print`/`expect` find a local before a global. Debug unoptimized code: v32opt -O2 and up leaves stale variable locations.
 - **Wait on the screen, not on frame counts**: `until "TEXT" timeout 600`, `expect console "TEXT"`, `run 60`.
-  Keyboard: `kbd attach 2` then `kbd type "ls\n"` (a v32io keyboard on gamepad port 2). Gamepad: `gamepad 1 left` toggles.
+  Keyboard: `kbd attach 2` then `kbd type "ls\n"` (a v32io keyboard on gamepad port 2). Gamepad: `gamepad 1 left` toggles, or
+  `--input=A@40-44,START@100` holds buttons by cartridge frame.
 - **Is it fast enough?** `--frame-stats=load.csv` (per-frame CPU/GPU %, summary on stderr), `--profile-by=function --profile-top=15`.
   The BIOS logo takes ~250 frames before a cartridge starts; `--frame-stats-skip=250` leaves it out.
 - **Reproducible runs**: add `--fixed-clock --seed=1 --fixed-cycles`.

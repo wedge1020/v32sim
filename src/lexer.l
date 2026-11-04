@@ -250,6 +250,7 @@ static int  lex_command (void)
         case CMD_FRAME:       return (T_FRAME);
         case CMD_UP:          return (T_UP);
         case CMD_DOWN:        return (T_DOWN);
+        case CMD_LOCALS:      return (T_LOCALS);
         default:
             snprintf (cmd -> badword, sizeof (cmd -> badword), "%s", yytext);
             return (T_BADCMD);

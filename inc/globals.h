@@ -192,6 +192,8 @@ extern uint32_t   script_errors;               // command lines that failed to p
 extern uint32_t   check_failures;              // failed expect / timed-out until
 extern uint8_t    quit_status_set;             // 'quit N'
 extern uint8_t    quit_status;
+extern int8_t    *pad_input;                  // --input=SCRIPT (V32_INPUT syntax)
+extern uint8_t    pad_input_port;             // --input-port=N
 extern int8_t    *frame_stats_out;            // --frame-stats=FILE
 extern uint32_t   frame_stats_skip;           // --frame-stats-skip=N
 extern uint8_t    profile_by_function;         // --profile-by=function
@@ -307,6 +309,16 @@ void      addrprof_init  (void);                               // address profil
 uint8_t   addrprof_enabled (void);
 void      addrprof_count (uint32_t);
 void      addrprof_write (void);
+uint32_t  locals_load_cart (const char *);                   // local variables, NAME.vbin.vars (locals.c)
+uint32_t  locals_load_file (const char *);
+uint8_t   locals_have    (void);
+void      locals_show    (const char *);
+int       locals_lookup  (const char *, uint32_t *, uint32_t *);
+int       srcdebug_selected (uint32_t *, uint32_t *, int *);   // pc, bp, number of the selected frame
+const char *srcdebug_func_at (uint32_t);   // pc, bp, number of the selected frame
+void      output_lua_value (uint32_t);
+void      padscript_init (void);                               // --input=SCRIPT (padscript.c)
+void      padscript_frame (void);
 void      framestats_frame (void);                             // per-frame CPU / GPU load (framestats.c)
 void      framestats_write (void);
 void      v32trace_init  (void);                               // V32TRACE (v32trace.c)

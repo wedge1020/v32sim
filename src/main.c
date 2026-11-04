@@ -401,6 +401,7 @@ int32_t   main (int32_t  argc, char **argv)
     if ((cartasmdebugflag != MU) && (chk == TRUE) && (cartfile != NULL))
     {
         sym_load_cart (cartfile);
+        locals_load_cart (cartfile);
     }
     if (symbolfile != NULL)
     {
@@ -558,7 +559,8 @@ int32_t   main (int32_t  argc, char **argv)
 
     v32trace_init ();
     v32trace_ready ();
-    addrprof_init ();      // the page sizes are known once the BIOS, cart and card are loaded
+    addrprof_init ();
+    padscript_init ();     // --input / V32_INPUT: the gamepad is set before the first frame      // the page sizes are known once the BIOS, cart and card are loaded
 
     /*
     fprintf (stdout, "rom_offset: %.8X\n", rom_offset);

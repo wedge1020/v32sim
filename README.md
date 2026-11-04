@@ -71,6 +71,9 @@ software — and to automate cart testing.
   use to test, debug, profile and simulate their programs live here too: see [docs/TOOLS.md](docs/TOOLS.md),
   [docs/TESTING.md](docs/TESTING.md), [docs/PROFILING.md](docs/PROFILING.md), and for an agent working in another project
   [docs/AGENTS-SNIPPET.md](docs/AGENTS-SNIPPET.md); `AGENTS.md` is for working on v32sim itself
+- **Locals** (`locals`, `info locals`; V32DBG section 4): the variables of the selected frame with their types and values, from
+  the `NAME.vbin.vars` that `v32as -g` writes for `v32cc -g` and `v32lua -g` output
+- **Scripted gamepad by cartridge frame** (`--input`, the `V32_INPUT` syntax of the V32TRACE recorders)
 - **Frame statistics** (`--frame-stats=FILE`): per-frame CPU and GPU load as CSV, with a mean / p95 / max summary
 
 ## Table of Contents
@@ -204,6 +207,8 @@ Mandatory arguments to long options are mandatory for short options too.
  -x, --exit-status         exit status tells how the program ended
  -q, --batch               scripting mode: no prompt, banners or instruction lines; stderr for diagnostics
      --profile-by=KIND     address (default) or function: what --profile-top/--profile-out aggregate
+     --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... (V32_INPUT syntax)
+     --input-port=N        the gamepad --input drives (default 0)
      --frame-stats=FILE    one CSV row per frame (cycles, CPU %, GPU pixels, GPU %); summary on stderr at exit
      --frame-stats-skip=N  leave the first N frames out of that summary
      --symbol-file=FILE    load data symbols (v32cc NAME.asm.sym) from FILE
@@ -485,6 +490,29 @@ or at an unreadable or non-increasing BP.
 Code built with `-O2` and `omit-frame-pointers` has no chain: `next` and `until` do not
 need one (they use the `CALL` instruction and SP), `finish` and `bt` do.
 
+### Locals
+
+`locals [NAME]` (also `info locals`) lists the variables visible in the selected frame (`frame`, `up`, `down`) with
+their types and values; `print NAME`, `x NAME`, `display`, `watch` and `expect` find a local of that frame before a global of
+the same name (its address is fixed when the command is given). The information is `NAME.vbin.vars`, which `v32as -g` writes
+from the `;@var` / `;@scope` lines of `v32cc -g` and `v32lua -g`, found as the other debug files are:
+
+```
+v32sim> locals
+a = 3    (int, BP+2)
+arr = {3, 4, 7, 12}    (int[4], BP-4)
+p = {0x00000003, 0x00000005}    (struct:pt:2, BP-8)
+q = 0x003FFFE2    (ptr, BP-9)
+i = 99    (int, BP-10)
+```
+
+Types: `int uint float bool ptr`, arrays `T[N]` (16 elements shown), `struct:`/`union:` as raw words, `lua` (NaN-boxed
+values: numbers, strings, nil/true/false, tables, functions; a `boxed` local, one captured by a closure, is read through its
+box). A local the optimizer moved to a register (`loc=R5`) is shown in frame 0 only; `-`/`optimized-out` say so. Of two
+variables with one name the innermost block's wins. A variable is shown only in the function the debug file puts the
+instruction in, because v32as ends a C function's ranges at the end of the program when v32cc writes no `;@fn` (without
+`--emit-hints`).
+
 ### Code without source
 
 An entry whose file is `-` (or whose line is 0), e.g. `0x20000060,-,0`, says that the
@@ -651,29 +679,31 @@ run that reaches `HLT`:
 
 ### V32TRACE (traps and events of a translated cartridge)
 
-`--v32trace=PREFIX` makes the run a V32TRACE recorder (spec version 2, `V32TRACE-SPEC.md`). A translator (NEStoV32, GBtoV32, ...) writes
-`<cart>.v32trace.meta` and `<cart>.labels.txt` beside the cartridge; v32sim reads them (or `--v32trace-meta=FILE`, `--v32trace-labels=FILE`),
-watches the trap routines and events they name, and writes `PREFIX.traps.txt` (one TRAP/EVENT line per distinct trap or event, with the
-translator's captured state and the last guest blocks entered) and `PREFIX.blocks.txt` (guest blocks that ran, with instruction counts) whenever
-a new one is met and when the run ends. A translator's gap-filling tool reads those files, so a build-run-fix loop needs no emulator window.
+`--v32trace=PREFIX` makes the run a V32TRACE recorder (spec version 2.1, [docs/V32TRACE-SPEC.md](docs/V32TRACE-SPEC.md)). A translator
+(NEStoV32, GBtoV32, ...) writes `<cart>.v32trace.meta` and `<cart>.labels.txt` beside the cartridge; v32sim reads them (or
+`--v32trace-meta=FILE`, `--v32trace-labels=FILE`), watches the trap routines and events they name, and writes `PREFIX.traps.txt` (one
+TRAP/EVENT line per distinct trap or event, with the translator's captured state, the last guest blocks entered, and from 2.1
+`segstart=` and `input=`: the gamepad 1 history since the last restart as a `V32_INPUT` script) and `PREFIX.blocks.txt` (guest
+blocks that ran, with instruction counts) whenever a new one is met and when the run ends. A translator's gap-filling tool reads
+those files, so a build-run-fix loop needs no emulator window (GBtoV32's `make test-trace` runs against this simulator: all pass).
 
-After a trap the cartridge is restarted 60 frames later (registers and stack reset, jump to the cartridge start or the meta file's `resume` label;
-RAM, GPU and SPU are kept) so one run can meet several gaps; the same trap three times in a row stops this. `--v32trace-norestart` keeps the cartridge in the trap.
-A meta file made for another build of the cartridge (`words` or `fnv1a` differ) is ignored with a note on stderr. Not implemented here: `series`,
-markers, the human report and host cost (the DesktopEmulator recorder has them). The simulator is not cycle-exact, so trust the guest address in a trap, not its frame number.
+After a trap the cartridge is restarted 60 frames later (registers and stack reset, jump to the cartridge start or the meta file's
+`resume` label; RAM, GPU and SPU are kept) so one run can meet several gaps; the same trap three times in a row stops this.
+`--v32trace-norestart` keeps the cartridge in the trap. A meta file made for another build of the cartridge (`words` or `fnv1a`
+differ) is ignored with a note on stderr. Not implemented here: `series`, markers, the human report and host cost (the
+DesktopEmulator recorder has them).
 
-### V32TRACE (traps and events of a translated cartridge)
+To get back to a hit, give its `input=` to `--input` (below): the gamepad is replayed by cartridge frame and the same trap comes
+back at the same `cartframe`. Checked against the stock console logic on GBtoV32's gap ROM: with A held from cart frame 40, the
+trap routine starts in cart frame 41 in both.
 
-`--v32trace=PREFIX` makes the run a V32TRACE recorder (spec version 2, `V32TRACE-SPEC.md`). A translator (NEStoV32, GBtoV32, ...) writes
-`<cart>.v32trace.meta` and `<cart>.labels.txt` beside the cartridge; v32sim reads them (or `--v32trace-meta=FILE`, `--v32trace-labels=FILE`),
-watches the trap routines and events they name, and writes `PREFIX.traps.txt` (one TRAP/EVENT line per distinct trap or event, with the
-translator's captured state and the last guest blocks entered) and `PREFIX.blocks.txt` (guest blocks that ran, with instruction counts) whenever
-a new one is met and when the run ends. A translator's gap-filling tool reads those files, so a build-run-fix loop needs no emulator window.
+### Scripted gamepad (--input)
 
-After a trap the cartridge is restarted 60 frames later (registers and stack reset, jump to the cartridge start or the meta file's `resume` label;
-RAM, GPU and SPU are kept) so one run can meet several gaps; the same trap three times in a row stops this. `--v32trace-norestart` keeps the cartridge in the trap.
-A meta file made for another build of the cartridge (`words` or `fnv1a` differ) is ignored with a note on stderr. Not implemented here: `series`,
-markers, the human report and host cost (the DesktopEmulator recorder has them). The simulator is not cycle-exact, so trust the guest address in a trap, not its frame number.
+`--input=SCRIPT` holds gamepad buttons by **cartridge frame** (frame 0 is the first frame the cartridge runs, after the BIOS
+logo): `BUTTON[+BUTTON...]@FIRST-LAST[,...]` (or `@FRAME`), buttons `LEFT RIGHT UP DOWN START A B X Y L R` (`SELECT` is X, the
+recorders' name). This is the `V32_INPUT` syntax of the V32TRACE recorders and of the translators' profilers; `V32_INPUT` in the
+environment is used when `--input` is not given. `--input-port=N` picks the gamepad (default 0); it is connected. Changes happen
+between frames, as the `gamepad` command makes them: a button held from frame F reads 1 in frame F.
 
 ## Scripting
 
@@ -779,7 +809,8 @@ cartridge is made by `tests/mkcart.py`, and the BIOS is `tests/gaps/bios.asm`.
 `tests/run_harness_tests.sh` (`V32TC`, `V32BIOS`, optionally `ORACLE` and `V32SRCMARK`) checks the scripts in `tools/` and their
 agreement with the stock console logic: self-check pass/fail on both engines, symbols from a stock-compiler `.asm`,
 `--frame-stats` against `v32prof`, gamepad replay against `v32peek`, source-level `bt` on a stock-compiled cartridge,
-golden-screen sessions, `v32sim-peek.sh`, `v32sim-addrprof.py` (13 checks). `make oracle COMPUTERSOFTWARE=DIR` builds
+golden-screen sessions, `v32sim-peek.sh`, `v32sim-addrprof.py`, `locals` on C and Lua cartridges, `--input`, and the corpus
+runner (23 checks). `make oracle COMPUTERSOFTWARE=DIR` builds
 the oracle tools. The recipes are in [docs/TESTING.md](docs/TESTING.md).
 
 ## IOPORTS
@@ -809,8 +840,9 @@ them. From the prompt, ports can be manipulated via `set` and inspected via
 
 - **SPU**: no audio output (no WAV capture either)
 
-- Lua and C display modes (`-L`) are experimental; locals and values (`info locals`, `print NAME` in a frame,
-  needing the `;@var` records of V32DBG) are not implemented
+- Lua and C display modes (`-L`) are experimental. Locals (`locals`, V32DBG section 4) show scalars, arrays and Lua values;
+  struct members are raw words (`type=` carries no member list), globals have no `type=` yet, and Lua upvalues inside a
+  closure are not listed (no `;@var` for them)
 - The debug-file reader is hand-written (it could move onto flex)
 
 See TODO.md for the open items.

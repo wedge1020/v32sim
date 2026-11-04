@@ -80,6 +80,8 @@ static const struct
     { "frame",       2, CMD_FRAME     },
     { "up",          2, CMD_UP        },
     { "down",        3, CMD_DOWN      },
+    { "locals",      3, CMD_LOCALS    },
+    { "info",        4, CMD_LOCALS    },
     { NULL,          0, CMD_NONE      }
 };
 
@@ -1105,6 +1107,18 @@ static void  exec_list (cmd_t *c)
     srcdebug_list (c -> file, c -> line, c -> has_line, c -> name);
 }
 
+static void  exec_locals (cmd_t *c)
+{
+    // `info locals` and `locals` list them all; `locals NAME` (or `info locals NAME`) one
+    const char  *only  = c -> name;
+
+    if ((only != NULL) && ((0 == strcmp (only, "locals")) || (0 == strcmp (only, "args"))))
+    {
+        only  = NULL;
+    }
+    locals_show (only);
+}
+
 static void  exec_frame (cmd_t *c)
 {
     srcdebug_frame ((c -> id == CMD_UP) ? 1 : (c -> id == CMD_DOWN) ? -1 : 0, c -> num, c -> has_num);
@@ -1759,6 +1773,7 @@ static void  exec_help (cmd_t *c)
         case CMD_FINISH:      help (INPUT_FINISH);     break;
         case CMD_TBREAK:      help (INPUT_TBREAK);     break;
         case CMD_LIST:        help (INPUT_LIST);       break;
+        case CMD_LOCALS:      help (INPUT_LOCALS);     break;
         case CMD_FRAME:
         case CMD_UP:
         case CMD_DOWN:        help (INPUT_FRAME);      break;
@@ -1848,6 +1863,7 @@ uint8_t  cmd_execute (cmd_t *c)
         case CMD_UNTILSRC:    exec_srcstep (c);                     break;
         case CMD_TBREAK:      exec_break (c);                       break;
         case CMD_LIST:        exec_list (c);                        break;
+        case CMD_LOCALS:      exec_locals (c);                      break;
         case CMD_FRAME:
         case CMD_UP:
         case CMD_DOWN:        exec_frame (c);                       break;

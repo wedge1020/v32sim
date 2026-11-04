@@ -17,7 +17,7 @@ are applied together, before that frame runs, as the oracle tools do. A `tap` pr
 frame. The result runs the same input in v32sim, so a script made for v32cxx's check.sh (tests/NNNsample.input, made
 by tools/v32io-script.py from keyboard and mouse actions) works against v32sim too.
 
---frames N    stop after frame N when the script has no `end` line (default: no stop; add --max-frames to the run)
+--frames N    stop after N frames (events at frame N or later are dropped; an earlier `end` still wins)
 --cmd TEXT    append a command at the end (repeatable): --cmd 'print counter' --cmd 'screenshot out.png'
 The file ends with `quit` unless the last --cmd is a quit.
 """
@@ -66,6 +66,8 @@ def main(argv):
         else:
             ev = events[k]; k += 1
         f, _, w = ev
+        if frames is not None and f >= frames:   # --frames: nothing at or after the last frame happens
+            break
         if w[0] == "end":
             end = f
             break

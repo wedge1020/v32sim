@@ -68,7 +68,7 @@ static int   check_signed   (void);
 %token       T_UNWATCH T_VERSION T_WATCH T_WATCHLIST
 %token       T_KBD T_MAILBOX T_CONSOLE
 %token       T_RUN T_UNTIL T_EXPECT T_EXAMINE
-%token       T_SSTEP T_SNEXT T_FINISH T_TBREAK T_LIST T_FRAME T_UP T_DOWN
+%token       T_SSTEP T_SNEXT T_FINISH T_TBREAK T_LIST T_FRAME T_UP T_DOWN T_LOCALS
 %token       T_BADCMD T_BAD
 
 %type  <t>   name
@@ -97,6 +97,7 @@ command
     | T_DOWN                            { CMD -> id = CMD_DOWN;      }
     | T_DOWN T_NUM                      { CMD -> id = CMD_DOWN;      CMD -> has_num = TRUE; CMD -> num = $2.u; }
     | list_cmd
+    | locals_cmd
     | T_IGNORE                          { CMD -> id = CMD_IGNORE;    }
     | T_QUIT                            { CMD -> id = CMD_QUIT;      }
     | T_QUIT T_NUM                      { CMD -> id = CMD_QUIT;      CMD -> has_num = TRUE; CMD -> num = $2.u; }
@@ -182,6 +183,13 @@ list_cmd
     | T_LIST T_FILELINE                 { CMD -> id = CMD_LIST; CMD -> file = $2.text; CMD -> line = $2.u;
                                           CMD -> has_line = TRUE; }
     | T_LIST name                       { CMD -> id = CMD_LIST; CMD -> name = $2.text; }
+    ;
+
+/* ----------------------------------------------------------------- locals */
+
+locals_cmd
+    : T_LOCALS                          { CMD -> id = CMD_LOCALS; }
+    | T_LOCALS name                     { CMD -> id = CMD_LOCALS; CMD -> name = $2.text; }
     ;
 
 /* ------------------------------------------------------------------ label */
@@ -641,7 +649,8 @@ static int  sym_resolve (tok_t *t, int sign, tok_t *offset, symv_t *out)
     uint32_t  words  = 0;
     char      text[160];
 
-    if (!sym_lookup (t -> text, &addr, &words))
+    if (!locals_lookup (t -> text, &addr, &words) &&     // a local of the selected frame first
+        !sym_lookup (t -> text, &addr, &words))
     {
         cmd_seterr ("unknown symbol '%s' (a label of the debug files, or a C global from NAME.asm.sym; "
                     "'label 0xADDR NAME' defines one by hand)", t -> text);

@@ -351,10 +351,12 @@ void  dump_words (int8_t *spec)
     }
     if (at                         != NULL)
     {
-        address                     = (uint32_t) strtoul (at, &end, 16);
-        if ((end == at) || (*end != '\0'))
+        // a name that is also a hex number (ab, add, f, cafe...) is the symbol when one is known;
+        // write 0x... to mean the address
+        if (((at[0] == '0') && ((at[1] == 'x') || (at[1] == 'X'))) || (sym_lookup (at, &address, NULL) == FALSE))
         {
-            if (sym_lookup (at, &address, NULL) == FALSE)    // a label, or a C global (also as global_NAME)
+            address                 = (uint32_t) strtoul (at, &end, 16);
+            if ((end == at) || (*end != '\0'))
             {
                 fprintf (stderr, "[ERROR] --dump: unknown address or symbol '%s'\n", at);
                 return;

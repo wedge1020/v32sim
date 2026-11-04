@@ -45,22 +45,51 @@ for the stock compiler's output (and for v32cc's, when `.asm.sym` is absent). Fi
 | `tests/*sample.*`, `check.sh` compile half, `AGENTS.md` language rules | v32cxx | transpiler tests and guidance |
 | `tests/measure_machine.c` | v32nix | measures `MOVS` at 1 cycle/word; v32sim already matches (V32SIMGAPS), but it would make a good differential case in `tests/gaps` |
 
+## Round 2 (2026-11-03, evening): GBtoV32, v32lua, v32io, the new ComputerSoftware
+
+| in v32sim | came from | what changed | verified how |
+|---|---|---|---|
+| `locals [NAME]` / `info locals`; locals in `print`, `x`, `display`, `watch`, `expect` (`src/locals.c`) | V32DBG section 4; v32as round 12 (`.vbin.vars`), v32cc `-g`, v32lua `-g` | new | C and Lua cases in `run_harness_tests.sh` (shadowing, frames, arrays, structs, pointers, floats, Lua values, boxed captures) |
+| V32TRACE 2.1 `segstart=` / `input=` (`src/v32trace.c`), spec copy updated to 2.1 | GBtoV32 `doc/V32TRACE-SPEC.md`, the recorder patch | new | GBtoV32 `make test-trace` 18/18 against v32sim; input round trip on its gap ROM; trap frame equal to the stock core's |
+| `--input=SCRIPT`, `--input-port`, `V32_INPUT` (`src/padscript.c`) | GBtoV32's `tools/v32sim.c` and the recorders' `V32_INPUT` syntax | new | button counts per cart frame checked; the GB gate cart reaches its trap after the same number of frames as on `v32peek` |
+| `tools/v32sim-corpus.py` | GBtoV32 `tools/testing-harness/test_v32.py` + `bench_v32.py` (the Vircon32 side) | any carts; OK/HALT/CPU_ERROR/TRAP/TIMEOUT, load, screenshot, CSV; `--input fixed` like `bench_v32.py` | harness check; a mixed set (crash, overrun-heavy, halting, translated) classified as expected |
+| `v32sim-addrprof.py` reads `NAME.labels.txt` | GBtoV32's `V32_PCPROF` | `0xADDR name` maps | on GBtoV32's gap cart |
+| `docs/agents/` (13 cards) | every project's README / AGENTS / `--help` | new | options checked against each tool's `--help` |
+| `docs/V32DBG-STATUS.md`, `docs/PROPOSALS-STATUS.md`, `docs/repro/v32opt-promote-var.c` | survey of every proposal | new | the repro was run |
+
+Bugs fixed: `--dump=N@NAME` read a name made only of hex digits (`ab`, `f`, `cafe`) as an address; `tools/vprof2cmd.py --frames N`
+let events after frame N through.
+
+### The oracle runners (one job, six programs)
+
+| runner | where | engine | distinctive |
+|---|---|---|---|
+| `refrun` | v32sim `tools/oracle` | ConsoleLogic | the differential tests' oracle, `--dump N@ADDR`, date/time |
+| `v32run` | v32sim `tools/oracle` (from v32cxx) | ConsoleLogic | BIOS + cart + card, one RAM word, `halted=` |
+| `v32prof` / `v32shot` / `v32peek` | v32sim `tools/oracle` (from v32cxx) | ConsoleLogic | frame-stamped input scripts; profile, PPM shots, RAM at a frame |
+| `sysprof` | v32sim `tools/oracle` (from v32nix) | ConsoleLogic | the program resident in a swapped window |
+| `vrun` | v32cc `tools/vrun.cpp` | ConsoleLogic | `--keys`, a `.vbin` as BIOS, `STATUS halted|timeout` |
+| `v32run` (another one) | v32lua `tools/headless/` | `SimplifiedEmulator` CPU core | GPU (`-g`) and SPU (`-s`) logs, `render.py`, `spu_render.py`, BP watch (`-B`), traps at addresses, GPU-dropped counts, host CFI choice; **does not build** against current ComputerSoftware (no `SimplifiedEmulator`) |
+| `v32bench` | referenced by GBtoV32's `bench_v32.py` (`C:/github/v32bench`) | "official CPU core" | per-frame cycles; not supplied |
+
+A merged runner (ConsoleLogic; BIOS or bare `.vbin`; frame-stamped input; `--dump`/`--peek`; `--gpu-log`/`--spu-log` in v32lua's
+format so `render.py` and `spu_render.py` keep working; traps at addresses) would replace all of them and give VS-9 4.3 its trace
+format. Not built yet: the CLIs are in use by scripts in five projects.
+
 ## Open items
 
-1. **Locals (V32DBG section 4)** are unblocked: `v32as -g` now writes `NAME.vbin.vars` (`var,START,END,NAME,BP+2,TYPE,-,0,FUNCTION`)
-   from v32cc's `;@var`. v32sim reads none of it yet: `info locals`, `print NAME` in the selected frame. TODO.md.
-2. **One oracle runner.** `refrun`, `v32run`, v32cc's `vrun` and v32cc's `cartrun.py` all run a cartridge on ConsoleLogic.
-   Proposal: `refrun` (or one merged tool) with `--keys`, `--memc` and the `halted=` line, and the others become wrappers.
-3. **VS-9 beyond frame stats**: GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`. The CSV is the
-   place to add columns; counters belong on the port-write paths.
-4. **Run the new runners on the real thing**: `v32sim-golden.sh` on a V32DOS build and `tests/run.sh` golden files; `sysprof` on
-   a v32nix cartridge; then make V32DOS's `tests/run.sh` and v32nix's `tools/simtest.sh`, `peek.sh`, `klog.sh`,
-   `tools/v32sim/build.sh` thin wrappers around these.
-5. **v32cxx**: `check.sh`'s emulator half can call `v32sim-selfcheck.sh` (it already understands `.input`), and
-   `tools/vircon32/` can shrink to the compiler build.
-6. Stale downstream text: V32DOS `docs/V32SIM-PROPOSAL.md` and `PROPOSAL-STATUS.md` say VS-1..VS-8 are outstanding; TODO.md
-   here lists them as done (the v32nix `simtest.sh` already requires `--batch`). The v32as `--symbols-all` question in that file
-   (list `__data_base+N` variables as kind `V`) is for v32as.
-7. Two pinned ComputerSoftware commits: v32cxx's tools were verified at `5219741`, V32SIMGAPS compares at `e75b537`.
-   `tools/oracle/build.sh` builds against either; the differential suites were re-run here against the checkout in the
-   V32DOS bootstrap archive (20261101), whose revision was not recorded.
+1. **V32DBG, owners outside v32sim**: v32opt must rewrite `;@var loc=` when it promotes (repro in `docs/repro/`); v32cc should end
+   functions for v32as (or v32as should end a C function at the next top-level `__function_` label); v32cc globals and struct
+   members in `type=`; v32lua chunk locals and upvalues; v32c++ `-g`. Details: `V32DBG-STATUS.md`.
+2. **One oracle runner** (table above).
+3. **VS-9 beyond frame stats**: GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`.
+4. **v32mouse in v32sim** (v32nix P-I2; today only gamepad toggles through `v32io-script.py`), and optional emulator extensions to
+   prototype (v32nix P-E1 timer interrupt, P-E2 v32dev doorbell).
+5. **Run the new runners on the real thing**: `v32sim-golden.sh` on a V32DOS build, `sysprof` on a v32nix cartridge, the corpus
+   runner on GBtoV32's Homebrew Hub set; then make V32DOS's `tests/run.sh`, v32nix's `tools/simtest.sh`/`peek.sh`/`klog.sh`/
+   `tools/v32sim/build.sh`, v32cxx's `check.sh` and GBtoV32's harness thin wrappers around these.
+6. **Stale downstream text**: V32DOS `docs/V32SIM-PROPOSAL.md` / `PROPOSAL-STATUS.md` (VS-1..8 are done; the v32as `--symbols-all`
+   question is answered). GBtoV32's `test_trace.sh` fixture says `cartframe=42` for the gate trap, which is its mini simulator's
+   number; the console (stock core and v32sim) starts the trap routine in cart frame 41.
+7. Two pinned ComputerSoftware commits (`5219741` for the v32cxx tools, `e75b537` for V32SIMGAPS); the current ComputerSoftware has
+   the same sources as the 20261101 bootstrap archive.

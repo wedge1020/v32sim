@@ -1,4 +1,4 @@
-# V32TRACE SPEC, version 2
+# V32TRACE SPEC, version 2.1
 
 A translator-neutral interface between a Vircon32 cartridge built by an `XtoV32` trans-assembler and the tools that run it: the
 Vircon32 DesktopEmulator's trace recorder and the `v32sim` simulator. A translator that follows this spec gets, from the same patched
@@ -161,15 +161,25 @@ TRAP  n=<k> cartframe=<N> count=<C> arch=<arch> [kind=<name>] <NAME>=<hex>[,<hex
 EVENT n=<k> cartframe=<N> count=<C> arch=<arch> name=<event> [kind=<name>] <NAME>=<hex>[,<hex>...] ... trail=...
 ```
 
+Revision 2.1 (additive) appends two fields to every line, after `trail`: `segstart=<N> input=<script>`. `segstart` is the cart frame at which the cartridge was
+last (re)started before the hit (0 when it was never restarted). `input` is the gamepad 1 history of the cart frames `segstart` .. `cartframe` as a
+`V32_INPUT` script (`BUTTON[+BUTTON]@FROM-TO[,...]`, frames numbered from `segstart`, so frame 0 is the first frame of that run of the cartridge; `-` when no
+button was held). It is the way to *get back to the hit*: feed it to `v32sim` (`V32_INPUT=<script>`) or, after the translator's own renaming (V32 `L` is NES
+Select; `R`, `X`, `Y` are unmapped; the guest sees a press a few frames after the cart frame it was held in), to the translator's profiler. A script spans
+only one run of the cartridge because a restart starts the guest over; the whole-session script in the human report (4.3) is one timeline across restarts and
+does not replay in a profiler. Button names are the recorder's (`LEFT RIGHT UP DOWN START A B SELECT L R`); Y has none. The `input` value never contains
+whitespace. Recorders that do not know the fields (spec 2) omit them; a consumer that needs them MUST fall back to the human report's `[input]` section and
+its restart events, as `tools/trace2input.py` does.
+
 One line per distinct hit, in order of first occurrence. After the first token, split on whitespace, then each field on the first `=`. Names are exactly
 the `capture` and `register` NAMEs; values are hex words (no prefix), comma separated for COUNT > 1. `trail` is the last 32 guest blocks entered
 (8 for an event), oldest first (`-` when empty). **Reserved names**, which a translator MUST NOT use as capture NAMEs: `n`, `cartframe`, `count`, `arch`,
-`name`, `kind`, `trail`. A consumer MUST ignore fields it does not know.
+`name`, `kind`, `trail`, `segstart`, `input`. A consumer MUST ignore fields it does not know.
 
 ### 4.3 The human report
 
 Sections: header (`cart:` file, title, words, fnv1a of the program ROM; `arch:`; `meta:` problems; `labels:`), `[events]` (every hit in full, restarts, CPU
-errors, markers), `[input]` (a `V32_INPUT=` script for gamepad 1), `[perf]` (cycles per frame against the 250,000 budget, frames where the cartridge missed
+errors, markers), `[input]` (a `V32_INPUT=` script for gamepad 1 over the whole session, and from 2.1 a `# restarts at cart frames:` line), `[perf]` (cycles per frame against the 250,000 budget, frames where the cartridge missed
 its WAIT, expensive frames, timeline), `[host]` (quads and video-queue flushes per frame, host milliseconds per frame, catch-up frames; the cost the stock
 emulator pays), series, `[hot spots]` (instructions per label and per guest block, whole session and per marker stretch). A marker's note carries the plain
 captures at that moment: `[NAME=hex]`. The layout of the human report is NOT part of this spec: consumers MUST use `traps.txt` and `blocks.txt`.
@@ -201,6 +211,10 @@ that `rom` carry whatever identifies the ROM.
 An unattended loop needs no emulator: run the cartridge in `v32sim --v32trace=run` with scripted input, give `run.traps.txt` to the consumer, rebuild,
 repeat until `run.traps.txt` has no `TRAP` line.
 
+A human run can feed the same loop: play to the problem in the emulator, then turn the trap's `input` into the profiler's script and merge the new profile with
+the old one (NEStoV32: `NESPROF_INPUT="$(tools/trace2input.py run.traps.txt)" build/NESprof game.nes run.prof "$(tools/trace2input.py run.traps.txt --frames)"`,
+then `tools/profmerge.py`). What the human did to reach a trap is thereby replayable without them, and later runs can start from it. NEStoV32 wraps the steps in `tools/gaps_from_input.sh GAME.nes BASE.prof run.traps.txt OUT [--extend ...]`: the profiler never traps, so one pass covers every gap on the recorded path (and on `--extend` keystrokes beyond the trap) instead of one gap per restart. After the trap the replay keeps running (`--tail`, default 600 frames) and can press random buttons (`--wander N --seeds K`), because the recording stops at the trap and the code behind it is otherwise never executed.
+
 ## 7. Implementations
 
 | implementation | supports |
@@ -216,7 +230,7 @@ V32DBG's. A later version MAY let a recorder name hot spots by V32DBG source lin
 
 ## 9. Limits
 
-- Gamepad 1 only; the Y button is not recorded. Loading a savestate while recording makes the trace discontinuous.
+- Gamepad 1 only; the Y button is not recorded. A script recorded after a restart replays from a clean guest, not from the restarted machine that kept RAM, GPU and SPU state. Loading a savestate while recording makes the trace discontinuous.
 - Recording costs about 12% emulation time on a heavy cartridge; off, the CPU only tests a null pointer.
 - Captured values are V32 RAM words and CPU registers; guest state kept elsewhere cannot be captured.
 - The jump trail holds the last 512 control transfers; the block trail is derived from it.
@@ -224,10 +238,12 @@ V32DBG's. A later version MAY let a recorder name hot spots by V32DBG source lin
 
 ## 10. Candidates for version 3
 
-Naming hot spots by V32DBG line; per-hit input snippets (the button script of the frames before a hit); gamepad 2; a `restart-state` directive listing RAM ranges
+Naming hot spots by V32DBG line; gamepad 2 (`input2=`); a meta directive naming the guest button map and input delay so a generic consumer can do what `trace2input.py` does for NES; `v32sim` writing `input=` too; a `restart-state` directive listing RAM ranges
 a recorder zeroes on restart.
 
 ## 11. Changes
+
+Version 2.1: `segstart` and `input` per hit in `traps.txt` (the script that walks to the hit since the last restart), the `# restarts at cart frames:` line in the report. Old files remain valid.
 
 Version 2: `fnv1a` identity check; several traps and events per session with identity and counting; `event`; `resume` and restart after a trap; `volatile`;
 `kind=` in `traps.txt` and symbolic kinds; `traps.txt` format 2 (`n`, `count`, `name`, `kind`; several lines); `v32sim` as a second recorder; trap frames excluded

@@ -61,6 +61,8 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "v32trace-norestart", no_argument,   0, 43  },
        { "frame-stats",    required_argument, 0, 44  },
        { "frame-stats-skip", required_argument, 0, 45 },
+       { "input",          required_argument, 0, 46  },
+       { "input-port",     required_argument, 0, 47  },
        { "exit-status",    no_argument,       0, 'x' },
        { "help",           no_argument,       0, 'h' },
        { 0,                0,                 0,  0  }
@@ -265,6 +267,14 @@ void  process_args (int32_t  argc, int8_t **argv)
 
             case 45: // frame-stats-skip
                 frame_stats_skip   = (uint32_t) strtoul (optarg, NULL, 10);
+                break;
+
+            case 46: // input
+                pad_input          = optarg;
+                break;
+
+            case 47: // input-port
+                pad_input_port     = (uint8_t) strtoul (optarg, NULL, 10);
                 break;
 
             case 34: // profile-out

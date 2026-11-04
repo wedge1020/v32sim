@@ -35,8 +35,8 @@
    especially those whose name start with YY_ or yy_.  They are
    private implementation details that can be changed or removed.  */
 
-#ifndef YY_ASM_ASM_PARSER_H_INCLUDED
-# define YY_ASM_ASM_PARSER_H_INCLUDED
+#ifndef YY_ASM_OBJ_ASM_PARSER_H_INCLUDED
+# define YY_ASM_OBJ_ASM_PARSER_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -75,13 +75,13 @@ extern int asmdebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 35 "../src/asm_parser.y"
+#line 35 "src/asm_parser.y"
 
     uint32_t   num;
     char       id[64];
     asm_val_t  val;
 
-#line 85 "asm_parser.h"
+#line 85 "obj/asm_parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -96,4 +96,4 @@ extern YYSTYPE asmlval;
 int asmparse (void);
 
 
-#endif /* !YY_ASM_ASM_PARSER_H_INCLUDED  */
+#endif /* !YY_ASM_OBJ_ASM_PARSER_H_INCLUDED  */

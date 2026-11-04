@@ -7,6 +7,7 @@ simulator with an interactive single-step debugger (C, flex/bison), plus the scr
 the other Vircon32 projects (v32cxx, v32nix, V32DOS, v32cc, NEStoV32...) grew on their own and that now live here.
 Other projects keep thin wrappers; the tools themselves are here. `docs/CONSOLIDATION.md` says what came from where.
 
+**If you are new to the ecosystem**, `docs/agents/` has one short card per machine, language and tool.
 **If you are using v32sim from another project**, read `docs/AGENTS-SNIPPET.md` (a drop-in section for that project's own
 AGENTS.md) and `docs/TOOLS.md` (which tool for which question). The rest of this file is for working on v32sim itself.
 
@@ -35,12 +36,15 @@ tools/               scripts for people who test other projects with v32sim (doc
   v32sim-golden.sh     sessions + golden screens (V32DOS's run.sh, generalized)
   v32sim-addrprof.py   hot spots across kernel / BIOS / RAM-loaded modules (V32DOS's profile.py, generalized)
   v32sim-peek.sh       read a global or text buffer after N frames (v32nix's peek.sh / klog.sh)
+  v32sim-corpus.py     many carts: OK/HALT/CPU_ERROR/TRAP, CPU/GPU load, screenshot (GBtoV32's harness, generalized)
   vprof2cmd.py         v32prof/v32peek input scripts -> v32sim commands
   v32io-script.py      keyboard/mouse actions -> input script (from v32cxx)
   build-nogen.sh       build v32sim with cc + readline only, using gen/ (from v32nix / V32DOS)
   oracle/              C++ tools on the stock ConsoleLogic: refrun v32run v32prof v32shot v32peek sysprof (+ build.sh)
 tests/               the suites; run_harness_tests.sh covers tools/ (examples/ holds its cartridges)
-docs/                TOOLS TESTING PROFILING AGENTS-SNIPPET CONSOLIDATION, and the specs (V32SIMGAPS, V32TRACE-SPEC, BUGS)
+docs/                TOOLS TESTING PROFILING AGENTS-SNIPPET CONSOLIDATION V32DBG-STATUS PROPOSALS-STATUS, the specs
+                     (V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS), repro/ (cases for other projects), agents/ (one card per tool),
+                     proposals/ (one request list per other project, IDs S*-n; v32sim's own backlog VS-10..)
 ```
 
 ## Working on it

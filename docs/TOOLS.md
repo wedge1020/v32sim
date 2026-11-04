@@ -21,16 +21,18 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 |---|---|
 | build a cartridge with debug files from C or assembly | `tools/v32mkcart.sh` |
 | step through it, set breakpoints, watch a variable | `v32sim cart.v32` (README "The Debugger", "Source-Level Debugging") |
+| see the local variables of a frame | `locals` / `info locals` (needs `NAME.vbin.vars`: v32cc -g or v32lua -g, then v32as -g) |
+| run a whole set of carts: which crash, trap, overrun | `tools/v32sim-corpus.py` (CSV, screenshots, `--input fixed` for fair load numbers) |
 | know if a self-checking cartridge passes | `tools/v32sim-selfcheck.sh CART...` (`--oracle` for the stock core) |
 | run it unattended and get an exit status | `v32sim --batch --fast -x --max-frames=N` ([TESTING.md](TESTING.md)) |
 | read a variable / buffer after N frames | `tools/v32sim-peek.sh` (or `--dump=N@SYMBOL`); `v32peek` on the oracle |
 | type at a shell/DOS/monitor and check the screen | `tools/v32sim-session.py` + `tools/v32sim-golden.sh`, or a hand-written `.cmd` ([TESTING.md](TESTING.md)) |
-| replay gamepad / keyboard / mouse input from a script | `tools/vprof2cmd.py` (v32prof scripts), `tools/v32io-script.py` (actions -> script), `kbd` commands |
+| replay gamepad / keyboard / mouse input from a script | `--input=A@40-44,...` (cart frames, V32_INPUT syntax), `tools/vprof2cmd.py` (v32prof scripts), `tools/v32io-script.py` (actions -> script), `kbd` commands |
 | see CPU and GPU load per frame, p95, frames over budget | `--frame-stats=FILE` ([PROFILING.md](PROFILING.md)); `v32prof` on the oracle |
 | find the hot functions | `--profile-by=function --profile-top=N`; `tools/v32sim-addrprof.py` across kernel / BIOS / loaded modules |
 | profile an OS: kernel plus programs swapped into a window | `tools/oracle` `sysprof` |
 | screenshot at chosen frames | `screenshot FILE` (PNG) in a session; `v32shot` (PPM) on the oracle |
-| trace the traps of a translated cartridge | `--v32trace=PREFIX` (`docs/V32TRACE-SPEC.md`) |
+| trace the traps of a translated cartridge | `--v32trace=PREFIX` (`docs/V32TRACE-SPEC.md`, 2.1); replay a hit with `--input` and its `input=` |
 | test v32dev / a host disk against the real `v32dev.py serve` | `tests/run_tests.sh`, `tests/v32sim_runner.sh` (a `dev_rom_runner` look-alike) |
 | build v32sim without flex/bison | `tools/build-nogen.sh` |
 | build the oracle tools | `tools/oracle/build.sh COMPUTERSOFTWARE [OUT]` |
@@ -52,8 +54,9 @@ nothing else: no SDL, OpenGL or OpenAL).
 The input script of `v32prof`, `v32shot` and `v32peek` is frame-stamped (`320 press 1 left`, `end`); its format is in
 the header of `tools/oracle/v32prof.cpp`. `tools/vprof2cmd.py` turns the same script into v32sim commands.
 
-Other oracle runners exist in other projects: v32cc's `tools/vrun.cpp` (`vrun`, also `--keys`) and v32cc's
-`tools/cartrun.py`. They do what `v32run` does; see CONSOLIDATION.md for the plan to unify them.
+Other oracle runners exist in other projects: v32cc's `tools/vrun.cpp` (`vrun`, also `--keys`), v32cc's `tools/cartrun.py`, and
+v32lua's `tools/headless/v32run` (GPU/SPU logs, BP watch; builds only against an older ComputerSoftware). CONSOLIDATION.md compares them.
+Short cards for every tool of the ecosystem, for agents: `docs/agents/`.
 
 ## Debug information (who writes what)
 
@@ -61,7 +64,7 @@ Other oracle runners exist in other projects: v32cc's `tools/vrun.cpp` (`vrun`, 
 |---|---|---|
 | `NAME.asm.sym` | `v32cc -g` | data symbols with sizes: `print counter`, `x/d buf`, `watch [n]`, `--dump=1@n` |
 | `NAME.vbin.debug` | `v32as -g` (or the stock `assemble -g program`) | labels, `break FILE:LINE`, `bt`, `--source` |
-| `NAME.vbin.vars` | `v32as -g` from `v32cc`'s `;@var` lines | locals (not read yet: TODO "Locals and values") |
+| `NAME.vbin.vars` | `v32as -g` from the `;@var` lines of `v32cc -g` / `v32lua -g` | `locals`, and locals in `print`/`x`/`watch`/`expect` |
 | `;@src FILE:LINE` lines in the `.asm` | `v32cc -g`, `v32lua -g`; for stock-compiler output `v32opt/scripts/v32srcmark.py` | the source-level modes |
 
 The stock `compile` / `assemble` write no enhanced debug info on their own. With the stock chain v32sim still finds data

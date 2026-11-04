@@ -576,6 +576,32 @@ int  srcdebug_backtrace (void)
     return (TRUE);
 }
 
+// the function the instruction at addr belongs to (the 4th column of the debug file), or NULL
+const char  *srcdebug_func_at (uint32_t addr)
+{
+    const sl_t  *e  = NULL;
+
+    ensure ();
+    e  = find_contain (addr);
+    return ((e != NULL) ? e -> func : NULL);
+}
+
+// the selected frame (frame/up/down) as locals.c needs it: the address that places it in
+// its function (a caller's return address minus one), and its BP. Frame 0 when there is none
+int  srcdebug_selected (uint32_t *pc, uint32_t *bp, int *n)
+{
+    ensure ();
+    compute_frames ();
+    if ((sel_frame < 0) || (sel_frame >= nfrm))
+    {
+        sel_frame  = 0;
+    }
+    *n   = sel_frame;
+    *pc  = (sel_frame == 0) ? frm[0].pc : (frm[sel_frame].pc - 1);
+    *bp  = frm[sel_frame].bp;
+    return (TRUE);
+}
+
 static void  show_source_line (const sl_t *e)
 {
     const char  *text  = source_line (e -> file, e -> line);

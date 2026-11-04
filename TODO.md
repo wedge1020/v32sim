@@ -58,21 +58,21 @@ Status as of version `20261018-dev` plus the v32dev / v32io work.
     `%define global_NAME` symbol fallback fixed (it never parsed a newline-terminated line). V32DOS's VS-1..VS-8 are done;
     its `docs/PROPOSAL-STATUS.md` still says outstanding.
 
+  * **Locals (V32DBG section 4, 2026-11-03)** - `locals [NAME]` / `info locals` from `NAME.vbin.vars`, locals before globals in
+    `print`/`x`/`watch`/`expect`; C and Lua types, boxed Lua locals; `tests/run_harness_tests.sh` checks C and Lua.
+  * **`;@src -` ranges** - v32as (round 11) writes `ADDRESS,-,0` for each; v32sim already understood it (checked 2026-11-03).
+  * **V32TRACE 2.1** - `segstart=` / `input=` on every TRAP/EVENT line; `--input=SCRIPT` (`V32_INPUT` syntax) replays them.
+  * **Fixed** - `--dump=N@NAME` read a name made of hex digits (`ab`, `f`, `cafe`) as an address.
+
 ## STILL LACKING
 
-  * **Locals are now unblocked** - `v32as -g` writes `NAME.vbin.vars` (`var,START,END,NAME,BP+2,TYPE,-,0,FUNCTION`) from v32cc's `;@var`
-    lines. Read it for `info locals` and `print NAME` in the selected frame (see "Locals and values" below for the rest).
+
   * **VS-9 beyond `--frame-stats`** - GPU/SPU counters, texture/region switches, `--profile-event`, `expect stats`, traces + replay.
   * **One oracle runner** - `refrun`, `v32run`, v32cc's `vrun` do the same job; unify (CONSOLIDATION.md, open item 2).
 
-  * **Locals and values (V32DBG section 4)** - `info locals`, `print NAME`/`display NAME` in the
-    selected frame, `type=lua` rendering of boxed values and table walking. Needs the compilers to
-    write `;@var`/`;@scope` and a decision on where they go (the proposal suggests `NAME.vbin.vars`).
-    `frame`/`up`/`down` already keep the selected frame; its BP is `frm[n].bp` in srcdebug.c.
-  * **`;@src -` ranges** - `v32as -g` writes no entry for them, so the sim cannot tell where the last
-    source line ends and the runtime begins (a stop in the runtime shows the line before it). One
-    entry per such marker, `ADDRESS,-,0`, is understood already (see README, *Code without source*).
-
+  * **Locals, what is left (V32DBG section 4)** - Lua table walking (`locals` shows `table: 0xADDR`), struct members (needs
+    member names in `type=`), globals' `type=` (`loc=@ADDR` from v32cc), upvalues in closures (v32lua), `display NAME` that
+    follows the frame (today it keeps the address the name had).
   * **Symbols** - only variables with a numeric address (v32cc globals) are data
     symbols; function-local variables and struct members have no names, and a
     `.asm.sym` entry without a size counts as one word.

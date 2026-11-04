@@ -1,6 +1,6 @@
-#line 1 "asm_lexer.c"
+#line 1 "obj/asm_lexer.c"
 
-#line 3 "asm_lexer.c"
+#line 3 "obj/asm_lexer.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -810,8 +810,8 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
-#line 1 "../src/asm_lexer.l"
-#line 2 "../src/asm_lexer.l"
+#line 1 "src/asm_lexer.l"
+#line 2 "src/asm_lexer.l"
 /*
  * asm_lexer.l: flex scanner for the live assembler (one instruction per line).
  * Generated with the prefix 'asm' (flex -P asm) so that it can live beside the
@@ -834,10 +834,10 @@ static char  alex_text[64];
 static int  alex_mnemonic (void);
 static int  alex_int      (int base, const char *digits, int ndigits);
 static int  alex_float    (void);
-#line 837 "asm_lexer.c"
+#line 837 "obj/asm_lexer.c"
 #define YY_NO_INPUT 1
 
-#line 840 "asm_lexer.c"
+#line 840 "obj/asm_lexer.c"
 
 #define INITIAL 0
 #define OPS 1
@@ -1053,10 +1053,10 @@ YY_DECL
 		}
 
 	{
-#line 32 "../src/asm_lexer.l"
+#line 32 "src/asm_lexer.l"
 
 
-#line 1059 "asm_lexer.c"
+#line 1059 "obj/asm_lexer.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -1116,22 +1116,22 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 35 "../src/asm_lexer.l"
+#line 35 "src/asm_lexer.l"
 { }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 36 "../src/asm_lexer.l"
+#line 36 "src/asm_lexer.l"
 { }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 37 "../src/asm_lexer.l"
+#line 37 "src/asm_lexer.l"
 { return alex_mnemonic (); }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 38 "../src/asm_lexer.l"
+#line 38 "src/asm_lexer.l"
 { asm_seterr ("an instruction must start with a mnemonic"); return A_BAD; }
 	YY_BREAK
 
@@ -1139,101 +1139,101 @@ YY_RULE_SETUP
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
-#line 42 "../src/asm_lexer.l"
+#line 42 "src/asm_lexer.l"
 { }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 43 "../src/asm_lexer.l"
+#line 43 "src/asm_lexer.l"
 { }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 45 "../src/asm_lexer.l"
+#line 45 "src/asm_lexer.l"
 { return alex_int (2,  yytext + 2, yyleng - 2); }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 46 "../src/asm_lexer.l"
+#line 46 "src/asm_lexer.l"
 { return alex_int (16, yytext + 2, yyleng - 2); }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 47 "../src/asm_lexer.l"
+#line 47 "src/asm_lexer.l"
 { return alex_int (8,  yytext + 1, yyleng - 1); }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 48 "../src/asm_lexer.l"
+#line 48 "src/asm_lexer.l"
 { return alex_int (10, yytext,     yyleng);     }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 49 "../src/asm_lexer.l"
+#line 49 "src/asm_lexer.l"
 { return alex_float (); }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 50 "../src/asm_lexer.l"
+#line 50 "src/asm_lexer.l"
 { return alex_float (); }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 52 "../src/asm_lexer.l"
+#line 52 "src/asm_lexer.l"
 { asmlval.num = (uint32_t) atoi (yytext + 1); return A_REG; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 53 "../src/asm_lexer.l"
+#line 53 "src/asm_lexer.l"
 { asmlval.num = 11; return A_REG; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 54 "../src/asm_lexer.l"
+#line 54 "src/asm_lexer.l"
 { asmlval.num = 12; return A_REG; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 55 "../src/asm_lexer.l"
+#line 55 "src/asm_lexer.l"
 { asmlval.num = 13; return A_REG; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 56 "../src/asm_lexer.l"
+#line 56 "src/asm_lexer.l"
 { asmlval.num = 14; return A_REG; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 57 "../src/asm_lexer.l"
+#line 57 "src/asm_lexer.l"
 { asmlval.num = 15; return A_REG; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 59 "../src/asm_lexer.l"
+#line 59 "src/asm_lexer.l"
 { snprintf (asmlval.id, sizeof (asmlval.id), "%s", yytext); return A_IDENT; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 61 "../src/asm_lexer.l"
+#line 61 "src/asm_lexer.l"
 { return yytext[0]; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 63 "../src/asm_lexer.l"
+#line 63 "src/asm_lexer.l"
 { asm_seterr ("unexpected character '%s'", yytext); return A_BAD; }
 	YY_BREAK
 
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(OPS):
-#line 66 "../src/asm_lexer.l"
+#line 66 "src/asm_lexer.l"
 { alex_text[0] = '\0'; yyterminate (); }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 68 "../src/asm_lexer.l"
+#line 68 "src/asm_lexer.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 1236 "asm_lexer.c"
+#line 1236 "obj/asm_lexer.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -2199,7 +2199,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 68 "../src/asm_lexer.l"
+#line 68 "src/asm_lexer.l"
 
 
 static int  alex_mnemonic (void)

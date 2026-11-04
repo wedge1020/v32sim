@@ -69,7 +69,8 @@ enum cmd_id
     CMD_FRAME,
     CMD_UP,
     CMD_DOWN,
-    CMD_UNTILSRC
+    CMD_UNTILSRC,
+    CMD_LOCALS
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////

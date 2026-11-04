@@ -9,7 +9,8 @@ cartridge: an operating system that loads programs into RAM, a DOS that loads mo
 Each --map NAME:DEBUGFILE[@BASE] says "addresses in this region are named by this debug file":
 
     NAME     the group shown in front of the function name (kernel:, module:, bios: ...)
-    FILE     a v32as -g debug file (`address,file,line,label` lines) or a v32cc `.asm.sym`-free `.vbin.debug`
+    FILE     a debug file (`address,file,line,label` lines: v32as -g, assemble -g program) or a translator's
+             `NAME.labels.txt` (`0xADDR name`: GBtoV32's V32_PCPROF view, guest blocks and runtime routines)
     @BASE    how the file's addresses relate to where the code ran: a number (hex or decimal) is added to the file's
              addresses (0 for code that runs where it was linked); @AUTO means "the lowest RAM address executed is the
              load base" and is the right choice for one module loaded into RAM (its file is assembled at origin 0)
@@ -27,6 +28,9 @@ def load_names(path, strip=True):
     L = []
     for line in open(path, errors="replace"):
         p = line.rstrip("\n").split(",")
+        if len(p) == 1 and len(line.split()) == 2:      # a translator's labels.txt: "0xADDR name" (GBtoV32, NEStoV32)
+            a, n = line.split()
+            p = [a, "", "", n]
         if len(p) >= 4 and p[0].startswith("0x") and p[3]:
             name = p[3]
             if strip:

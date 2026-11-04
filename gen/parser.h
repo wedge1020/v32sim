@@ -35,8 +35,8 @@
    especially those whose name start with YY_ or yy_.  They are
    private implementation details that can be changed or removed.  */
 
-#ifndef YY_YY_PARSER_H_INCLUDED
-# define YY_YY_PARSER_H_INCLUDED
+#ifndef YY_YY_OBJ_PARSER_H_INCLUDED
+# define YY_YY_OBJ_PARSER_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -110,8 +110,9 @@ extern int yydebug;
     T_FRAME = 311,                 /* T_FRAME  */
     T_UP = 312,                    /* T_UP  */
     T_DOWN = 313,                  /* T_DOWN  */
-    T_BADCMD = 314,                /* T_BADCMD  */
-    T_BAD = 315                    /* T_BAD  */
+    T_LOCALS = 314,                /* T_LOCALS  */
+    T_BADCMD = 315,                /* T_BADCMD  */
+    T_BAD = 316                    /* T_BAD  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -120,14 +121,14 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 54 "../src/parser.y"
+#line 54 "src/parser.y"
 
     tok_t   t;
     char    ch;
     int     op;
     symv_t  s;
 
-#line 131 "parser.h"
+#line 132 "obj/parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -142,4 +143,4 @@ extern YYSTYPE yylval;
 int yyparse (void);
 
 
-#endif /* !YY_YY_PARSER_H_INCLUDED  */
+#endif /* !YY_YY_OBJ_PARSER_H_INCLUDED  */

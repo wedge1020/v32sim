@@ -72,7 +72,15 @@ built with `-DKEEP_RUNNING` for that).
 |---|---|
 | a v32prof / v32peek / v32shot script (`320 press 1 left`) | `tools/vprof2cmd.py SCRIPT [--frames N]`: toggles `gamepad N CONTROL` between `run N` steps; checked against v32peek (`run_harness_tests.sh`) |
 | keyboard and mouse actions (`kbd 1 type Hi!`) | `tools/v32io-script.py actions.txt` makes a v32prof-style script; or use `kbd type` / `kbd key` directly, `--kbd-input=stdin\|FIFO\|file` |
+| a V32TRACE `input=` or a `V32_INPUT` script (`A@40-44,START@100`) | `--input=SCRIPT` (cartridge frames: 0 = the first frame after the BIOS logo); `--input-port=N` |
 | an interactive terminal | `--tty` (text console full screen, keys to a v32kbd, Ctrl-] returns to the debugger) |
+
+## 4b. Many cartridges at once
+
+`tools/v32sim-corpus.py -B StandardBios.v32 -F 1800 --input fixed --shots shots -o results.csv carts/*.v32` runs each cart, says how it
+ended (OK, HALT, CPU_ERROR, TRAP for a translated cart with a `.v32trace.meta`, TIMEOUT), its CPU and GPU load (mean, p95, max,
+overrun frames) and keeps its last screen. `--input fixed` gives every cart the same presses (Start, A, then the d-pad), so loads
+compare. From GBtoV32's Homebrew Hub harness, without the Game Boy parts.
 
 ## 5. Host devices
 

@@ -3,7 +3,8 @@
 #
 #   V32TC=DIR V32BIOS=StandardBios.v32 [ORACLE=DIR] tests/run_harness_tests.sh
 #
-#   V32TC     a directory with v32cc, v32as, packrom and (for the stock-chain checks) compile, assemble + include/
+#   V32TC     a directory with v32cc, v32as, packrom and (for the stock-chain checks) compile, assemble + include/;
+#             v32lua there enables the Lua locals checks
 #   V32BIOS   the BIOS (StandardBios.v32)
 #   ORACLE    a directory built by tools/oracle/build.sh (v32run, v32prof, v32peek, ...); without it the checks that
 #             compare v32sim with the stock console logic are skipped, and said to be
@@ -86,6 +87,18 @@ print(" ".join(w))'; }
     if [ "$n" = 600 ] && cmp -s "$W/peek.w" "$W/sim.w"; then ok "600 words of button history identical"; else bad "button history differs ($n words)"; fi
 else skipt "input replay vs v32peek" "no ORACLE"; fi
 
+echo "== --input (V32_INPUT scripts, cartridge frames)"
+sh "$T/v32mkcart.sh" -o "$W/pin" "$EX/pad_log.c" >/dev/null || exit 2
+la=$("$SIM" --batch -r --fast -x --max-frames=700 -B "$V32BIOS" --input-port=1 --input="LEFT@50-54,A+LEFT@60-61" --dump=300@la "$W/pin/pad_log.v32" 2>/dev/null </dev/null | sed -n '50,63p' | tr '\n' ' ')
+ab=$("$SIM" --batch -r --fast -x --max-frames=700 -B "$V32BIOS" --input-port=1 --input="LEFT@50-54,A+LEFT@60-61" --dump=300@ab "$W/pin/pad_log.v32" 2>/dev/null </dev/null | sed -n '60,63p' | tr '\n' ' ')
+[ "$la" = "-3600 1 2 3 4 5 -1 -2 -3 -4 -5 1 2 -1 " ] && ok "LEFT held in cart frames 50-54 and 60-61 reads 1.. in exactly those frames" || bad "--input LEFT: '$la'"
+[ "$ab" = "-3600 1 2 -1 " ] && ok "A+LEFT: two buttons in one run; --dump of a symbol named like hex (ab)" || bad "--input A / --dump=@ab: '$ab'"
+
+echo "== corpus runner"
+out=$(python3 -I "$T/v32sim-corpus.py" -B "$V32BIOS" -F 400 --shots "$W/shots" -o "$W/corpus.csv" "$W/ex/hello_text.v32" "$W/exk/hello_text.v32" 2>&1)
+grep -q "^hello_text,HALT," "$W/corpus.csv" && grep -q "^hello_text,OK," "$W/corpus.csv" && [ -f "$W/shots/hello_text.png" ] \
+    && ok "HALT and OK classified, CSV and screenshot written" || bad "corpus: $(echo "$out" | head -5 | tr '\n' '|')"
+
 echo "== stock compiler + v32opt's v32srcmark.py: source-level debugging"
 if [ $HAVE_STOCK = 1 ] && [ -n "${V32SRCMARK:-}" ] && [ -f "$V32SRCMARK" ]; then
     export V32SRCMARK
@@ -93,6 +106,32 @@ if [ $HAVE_STOCK = 1 ] && [ -n "${V32SRCMARK:-}" ] && [ -f "$V32SRCMARK" ]; then
     bt=$(printf 'break add_up\ncontinue\nbt\nquit\n' | "$SIM" --batch --fast -B "$V32BIOS" -L C --source "$W/sm/hello_text.v32" 2>&1 | grep '^#0')
     case $bt in *"add_up (hello_text.c:"*) ok "bt names the C function and line: $bt";; *) bad "bt gave '$bt'";; esac
 else skipt "srcmark" "set V32SRCMARK to v32opt's scripts/v32srcmark.py (and have the stock chain in V32TC)"; fi
+
+echo "== locals (V32DBG section 4: NAME.vbin.vars)"
+sh "$T/v32mkcart.sh" -o "$W/loc" "$EX/locals.c" >/dev/null || exit 2
+if [ -f "$W/loc/locals.vbin.vars" ]; then
+    out=$(printf 'break locals.c:28\ncontinue\nlocals i\nexpect i == 99\nunbreak 0\nbreak locals.c:9\ncontinue\nlocals\nup\nlocals\nquit\n' |
+          "$SIM" --batch --fast -x -B "$V32BIOS" -L C "$W/loc/locals.v32" 2>"$W/loc.err")
+    st=$?
+    echo "$out" | grep -q "^i = 99 " && ok "the inner block's i shadows the loop's" || bad "shadowing: $(echo "$out" | head -3)"
+    [ $st = 0 ] && ok "expect on a local" || bad "expect i == 99 (status $st)"
+    echo "$out" | grep -q "^f = 1.5 .*float, BP+2" && echo "$out" | grep -q "^n = 130 " && echo "$out" | grep -q "^r = 195 .*float" \
+        && ok "float and int parameters, a float local" || bad "scale's locals: $(echo "$out" | tr '\n' '|' | cut -c1-200)"
+    echo "$out" | grep -q "^#1  main" && ! echo "$out" | sed -n '/^#1  main/,$p' | grep -q "^f = 1.5" \
+        && ok "up: the caller's locals, not the callee's" || bad "up/locals"
+    out=$(printf 'break locals.c:23\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x -B "$V32BIOS" -L C "$W/loc/locals.v32" 2>/dev/null)
+    echo "$out" | grep -q "^arr = {[-0-9]*, [-0-9]*, [-0-9]*, [-0-9]*} .*int\[4\]" && echo "$out" | grep -q "^p = {0x00000003, 0x00000005} .*struct:pt:2" && echo "$out" | grep -q "^q = 0x.*ptr" \
+        && ! echo "$out" | grep -q "^f = " && ok "array, struct, pointer; another function's variables stay out" || bad "work's locals: $(echo "$out" | tr '\n' '|' | cut -c1-250)"
+else skipt "locals (C)" "this v32as writes no .vbin.vars"; fi
+if [ -x "$V32TC/v32lua" ]; then
+    mkdir -p "$W/lua"; cp "$EX/locals.lua" "$W/lua/"
+    ( cd "$W/lua" && "$V32TC/v32lua" -g -o locals.asm locals.lua >/dev/null 2>&1 && "$V32TC/v32as" -g -o locals.vbin locals.asm >/dev/null 2>&1 &&
+      sed 's|<binary path="[^"]*"|<binary path="locals.vbin"|' locals.xml > l.xml && "$V32TC/packrom" l.xml -o locals.v32 >/dev/null 2>&1 ) || bad "building locals.lua"
+    out=$(printf 'break locals.lua:5\ncontinue\nnext\nlocals\nbreak locals.lua:19\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x -B "$V32BIOS" -L lua "$W/lua/locals.v32" 2>/dev/null)
+    echo "$out" | grep -q '^n = 10.0000 .*boxed' && ok "a boxed Lua local is read through its box" || bad "boxed: $(echo "$out" | head -4 | tr '\n' '|')"
+    echo "$out" | grep -q '^s = "hello"' && echo "$out" | grep -q '^ok = true' && echo "$out" | grep -q '^nothing = nil' && echo "$out" | grep -q '^t = table: ' \
+        && ok "Lua strings, booleans, nil, tables" || bad "Lua values: $(echo "$out" | tr '\n' '|' | cut -c1-250)"
+else skipt "locals (Lua)" "no v32lua in V32TC"; fi
 
 echo "== peek, golden screen, address profile"
 v=$(sh "$T/v32sim-peek.sh" -F 400 "$W/ex/hello_text.v32" counter); [ "$v" = 5050 ] && ok "v32sim-peek counter" || bad "v32sim-peek gave '$v'"

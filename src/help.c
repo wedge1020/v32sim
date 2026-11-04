@@ -51,10 +51,12 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --profile-top=N       print the N hottest addresses to stderr when the run ends\n");
     fprintf (stdout, "     --profile-by=KIND     address (default) or function: with function, --profile-top and the text\n");
     fprintf (stdout, "                           --profile-out add up the addresses of each function (the closest label)\n");
+    fprintf (stdout, "     --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... (V32_INPUT\n");
+    fprintf (stdout, "                           syntax, frame 0 = the cart's first; V32TRACE input=); --input-port=N (default 0)\n");
     fprintf (stdout, "     --frame-stats=FILE    write one CSV row per frame (cycles, CPU %%, GPU pixels, GPU %%) and print a summary\n");
     fprintf (stdout, "                           (mean, p95, max, frames at 100%%) to stderr when the run ends\n");
     fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
-    fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
+    fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2.1): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
     fprintf (stdout, "                           routines and events, write PREFIX.traps.txt and PREFIX.blocks.txt; after a trap the\n");
     fprintf (stdout, "                           cartridge restarts (--v32trace-norestart: stay in the trap); --v32trace-meta=FILE and\n");
     fprintf (stdout, "                           --v32trace-labels=FILE name the files when they are not beside the cartridge\n");
@@ -97,6 +99,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "  tbreak FILE:LINE        one-shot breakpoint   (break FILE:LINE | LINE | -a: see help break)\n");
             fprintf (stdout, "  list [FILE:LINE|FUNC]   show source around the current line, or that line\n");
             fprintf (stdout, "  frame|up|down [N]       select a stack frame (see backtrace)\n");
+            fprintf (stdout, "  locals [NAME]           local variables of the selected frame (info locals)\n");
             fprintf (stdout, "  ignore                  ignore this instruction\n");
             fprintf (stdout, "  backtrace               display list of calls (with source lines when known)\n");
             fprintf (stdout, "  print[/F] XYZ           one-time display of XYZ (register, address, label, C global)\n");
@@ -265,6 +268,20 @@ void  help  (uint8_t  item)
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    Show ten lines of source around the current line (=> marks it); a second\n");
             fprintf (stdout, "    'list' continues where the last one ended.\n\n");
+            break;
+
+        case INPUT_LOCALS:
+            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    locals [NAME]\n");
+            fprintf (stdout, "    info locals [NAME]\n\n");
+            fprintf (stdout, "DESCRIPTION:\n");
+            fprintf (stdout, "    Show the local variables (and parameters) visible in the selected frame\n");
+            fprintf (stdout, "    (frame/up/down), with their types and values. Needs NAME.vbin.vars, which\n");
+            fprintf (stdout, "    v32as -g writes from the ;@var lines of v32cc -g or v32lua -g.\n");
+            fprintf (stdout, "    A local is also found by print, x, display, watch and expect before a\n");
+            fprintf (stdout, "    global of the same name; its address is fixed when the command is given.\n");
+            fprintf (stdout, "    Types: int uint float bool ptr, arrays T[N], structs as raw words, and Lua\n");
+            fprintf (stdout, "    values (type=lua; 'boxed' ones are followed through their box).\n\n");
             break;
 
         case INPUT_FRAME:
