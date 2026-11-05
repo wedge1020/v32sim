@@ -400,5 +400,9 @@ void  process_args (int32_t  argc, int8_t **argv)
     if (optind                    <  argc)
     {
         cartfile                   = *(argv+optind);
+        if (strcmp ((char *) cartfile, "-") == 0)
+        {
+            cartfile               = NULL;     // '-': no cartridge, the BIOS runs alone
+        }
     }
 }

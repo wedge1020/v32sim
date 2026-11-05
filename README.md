@@ -320,7 +320,7 @@ prefix (`s` = step, `n` = next, `c` = continue, `b` = break, `p` = print,
 ### Formatting Suffixes
 
 `print` and `display` accept a format suffix. Numeric operands are hex: up
-to 3 digits is an IOPort, more is a memory address (`print/x 0x205`,
+to 3 digits is an IOPort, more is a memory address (`ram:0x75` is RAM word 0x75; `print/x 0x205`,
 `print GPU_ClearColor`, `print R3`, `print reg`, `print [SP]`):
 
 - `/X` uppercase hexadecimal (default), `/x` lowercase hexadecimal

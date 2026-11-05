@@ -60,6 +60,7 @@ WORD     [A-Za-z_.$@][A-Za-z0-9_.$@]*
 [A-Za-z0-9_$@~+/\\-]*[./\\][A-Za-z0-9_.$@~+/\\-]*":"[0-9]+  { return lex_fileline (); }
 
 0b[01]{1,32}                { return lex_number (2,  yytext + 2, yyleng - 2, TOK_BIN); }
+ram:0x[0-9a-f]{1,8}      { int r = lex_number (16, yytext + 6, yyleng - 6, TOK_HEX);  if (r == T_NUM)  yylval.t.digits = 8;  return (r); }   /* a RAM word, however low: [ram:0x75] */
 0x[0-9a-f]{1,8}h?           { return lex_number (16, yytext + 2, yyleng - 2 - (yytext[yyleng-1] == 'h' || yytext[yyleng-1] == 'H'), TOK_HEX); }
 0[0-7]+                     { return lex_number (8,  yytext + 1, yyleng - 1, TOK_OCT); }
 [0-9]+                      { return lex_number (10, yytext,     yyleng,     TOK_DEC); }

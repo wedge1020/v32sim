@@ -121,7 +121,7 @@ if [ -f "$W/loc/locals.vbin.vars" ]; then
     echo "$out" | grep -q "^#1  main" && ! echo "$out" | sed -n '/^#1  main/,$p' | grep -q "^f = 1.5" \
         && ok "up: the caller's locals, not the callee's" || bad "up/locals"
     out=$(printf 'break locals.c:23\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x -B "$V32BIOS" -L C "$W/loc/locals.v32" 2>/dev/null)
-    echo "$out" | grep -q "^arr = {[-0-9]*, [-0-9]*, [-0-9]*, [-0-9]*} .*int\[4\]" && echo "$out" | grep -q "^p = {0x00000003, 0x00000005} .*struct:pt:2" && echo "$out" | grep -q "^q = 0x.*ptr" \
+    echo "$out" | grep -q "^arr = {[-0-9]*, [-0-9]*, [-0-9]*, [-0-9]*} .*int\[4\]" && echo "$out" | grep -qE "^p = (\{0x00000003, 0x00000005\} .*struct:pt:2|\{x = 3, y = 5\} .*struct:pt:2)" && echo "$out" | grep -q "^q = 0x.*ptr" \
         && ! echo "$out" | grep -q "^f = " && ok "array, struct, pointer; another function's variables stay out" || bad "work's locals: $(echo "$out" | tr '\n' '|' | cut -c1-250)"
 else skipt "locals (C)" "this v32as writes no .vbin.vars"; fi
 if [ -x "$V32TC/v32lua" ]; then
@@ -157,6 +157,24 @@ if [ -n "${GBTOV32_TREE:-}" ] && [ -x "$GBTOV32_TREE/bin/GBtoV32" ] && [ $HAVE_O
         [ "$s" = "RIGHT@1-31" ] && ok "trace2input --session reads v32sim's report" || bad "trace2input --session gave '$s'"
     else bad "GBtoV32 did not build the gap cartridge: $(tail -3 "$W/gate/build.log" | tr "\n" "|")"; fi
 else skipt "V32TRACE report vs recorder" "set GBTOV32_TREE to a built GBtoV32 tree and build v32trace-ref (ONLY=v32trace-ref tools/oracle/build.sh PATCHED_CHECKOUT)"; fi
+
+echo "== symbol sources: var_NAME (v32lua) and NAME.vbin.sym (read after NAME.asm.sym; sizes survive)"
+addr=$(grep '^V,counter,' "$W/ex/hello_text.asm.sym" | cut -d, -f3)
+if [ -n "$addr" ]; then
+    mkdir -p "$W/sy"; cp "$W/ex/hello_text.v32" "$W/sy/a.v32"
+    printf '%%define var_cnt %s\n' "$addr" > "$W/sy/a.asm"
+    d() { "$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --dump="1@$1" "$W/sy/a.v32" 2>&1 </dev/null | tail -1; }
+    [ "$(d cnt)" = 5050 ] && ok "%define var_NAME is read (as NAME)" || bad "var_NAME: '$(d cnt)'"
+    [ "$(d var_cnt)" = 5050 ] && ok "var_NAME also resolves by its full name" || bad "var_cnt: '$(d var_cnt)'"
+    printf '# a comment line\nV,viasym,%s,1,x.c,1\n' "$addr" > "$W/sy/a.vbin.sym"
+    [ "$(d viasym)" = 5050 ] && ok "NAME.vbin.sym is read (comment skipped)" || bad "vbin.sym: '$(d viasym)'"
+    case "$(d cnt)" in *ERROR*) ok ".vbin.sym replaces .asm.sym/.asm";; *) bad ".asm still read beside .vbin.sym";; esac
+else bad "no counter address in hello_text.asm.sym"; fi
+
+echo "== BIOS alone (cartridge '-') and ram:0x... addresses"
+"$SIM" --batch -r --fast -x --max-frames=5 -B "$V32BIOS" - >/dev/null 2>&1 </dev/null; [ $? = 2 ] && ok "'-' runs the BIOS with no cartridge (frame limit, status 2)" || bad "BIOS alone"
+o=$(printf 'print [ram:0x75]\nquit\n' | "$SIM" --batch -B "$V32BIOS" - 2>&1 | head -1)
+case "$o" in "[0x00000075("*) ok "[ram:0x75] is the RAM word, not IOPort 0x75";; *) bad "[ram:0x75] gave '$o'";; esac
 
 echo "== peek, golden screen, address profile"
 v=$(sh "$T/v32sim-peek.sh" -F 400 "$W/ex/hello_text.v32" counter); [ "$v" = 5050 ] && ok "v32sim-peek counter" || bad "v32sim-peek gave '$v'"

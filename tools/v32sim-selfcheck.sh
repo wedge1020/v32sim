@@ -8,7 +8,7 @@
 # end fails too. A cartridge passes when it halts within FRAMES frames (default 1200) and the global reads 0.
 #
 #   -g GLOBAL   the global to read (default test_errors)
-#   -M          give the cartridge a fresh blank memory card (CART.memc, removed first)
+#   -M          give the cartridge a fresh blank memory card (CART.memc, recreated blank first)
 #   --oracle    run on the stock console logic instead (tools/oracle: v32run) as a second opinion; the address of
 #               GLOBAL comes from CART's .asm.sym or its `%define global_NAME` line
 #
@@ -32,7 +32,7 @@ fail=0; n=0
 for cart in "$@"; do
     n=$((n+1)); base=${cart%.v32}; name=$(basename "$base")
     [ -f "$cart" ] || { echo "FAIL $name: no such cartridge"; fail=1; continue; }
-    card=; [ $CARD = 1 ] && { card="$base.memc"; rm -f "$card"; }
+    card=; [ $CARD = 1 ] && { card="$base.memc"; rm -f "$card"; { printf "V32-MEMC"; head -c 1048576 /dev/zero; } > "$card"; }   # a blank card: header + 256K zero words
     if [ $ORACLE = 1 ]; then
         RUN=${V32RUN:-$HERE/oracle/bin/v32run}; [ -x "$RUN" ] || RUN=$(command -v v32run)
         [ -x "$RUN" ] || { echo "v32sim-selfcheck: no v32run (tools/oracle/build.sh)" >&2; exit 2; }

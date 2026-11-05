@@ -473,7 +473,7 @@ uint32_t  load_labels (uint8_t *datafile, uint8_t  page, uint8_t  flag)
             line[len-1]  = '\0';
             len          = len - 1;
         }
-        if (len == 0)
+        if ((len == 0) || (line[0] == '#'))       // blank lines and comments (the side files may carry a header)
         {
             continue;
         }

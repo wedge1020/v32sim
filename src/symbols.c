@@ -14,8 +14,9 @@
 //
 //         kind,name,address,words,cfile,cline        V RAM variable, F function, R ROM datum
 //
-//     and, failing that, the `%define global_NAME ADDRESS` lines at the top of the
-//     generated NAME.asm give the same addresses (without sizes).
+//     NAME.vbin.sym (v32as -g, same format, resolved addresses, no sizes) is read after it and wins on addresses.
+//     Failing both, the `%define global_NAME ADDRESS` lines (v32lua: `%define var_NAME ADDRESS`)
+//     at the top of the generated NAME.asm give the same addresses (without sizes).
 //
 // A name is looked up as given, then as global_NAME (the assembler's name for a C
 // variable). An exact match wins over a match that ignores case.
@@ -43,7 +44,10 @@ static void  dsym_add (const char *name, uint32_t addr, uint32_t words)
         if (0 == strcmp (dsyms[index].name, name))   // a later file redefines the name
         {
             dsyms[index].addr   = addr;
-            dsyms[index].words  = words;
+            if ((words > 1) || (dsyms[index].words <= 1))      // an unknown size (0 or 1) does not erase a known one
+            {
+                dsyms[index].words  = words;
+            }
             return;
         }
     }
@@ -149,6 +153,10 @@ uint32_t  sym_load_file (const char *path)
         {
             size = 1;
         }
+        if (size == 0)
+        {
+            size = 1;                            // v32as's .vbin.sym does not know sizes: 0 means unknown
+        }
         dsym_add (name, value, size);
         tally = tally + 1;
     }
@@ -177,11 +185,19 @@ static uint32_t  sym_load_asm (FILE *fptr)
             continue;
         }
         for (p = p + 7; (*p == ' ') || (*p == '\t'); p = p + 1) ;
-        if (0 != strncmp (p, "global_", 7))
+        // global_NAME is v32cc's name for a C global; var_NAME is v32lua's (a global or chunk-level local)
+        if (0 == strncmp (p, "global_", 7))
+        {
+            name = p + 7;
+        }
+        else if (0 == strncmp (p, "var_", 4))
+        {
+            name = p + 4;
+        }
+        else
         {
             continue;
         }
-        name = p + 7;
         for (end = name; (*end != '\0') && (*end != ' ') && (*end != '\t'); end = end + 1) ;
         if ((end == name) || (*end == '\0'))
         {
@@ -217,12 +233,24 @@ uint32_t  sym_load_cart (const char *datafile)
     {
         return (0);
     }
+    // v32cc's NAME.asm.sym has the sizes; NAME.vbin.sym (v32as -g) has the addresses as the assembler resolved them and
+    // so, read second, wins where both exist. Either one alone is fine.
     fptr = open_search_file (datafile, ".asm.sym", found, sizeof (found));
     if (fptr != NULL)
     {
         fclose (fptr);
         tally = sym_load_file (found);
         fprintf (verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
+    }
+    fptr = open_search_file (datafile, ".vbin.sym", found, sizeof (found));
+    if (fptr != NULL)
+    {
+        fclose (fptr);
+        tally = tally + sym_load_file (found);
+        fprintf (verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
+    }
+    if (tally > 0)
+    {
         return (tally);
     }
     fptr = open_search_file (datafile, ".asm", found, sizeof (found));
@@ -285,6 +313,10 @@ static int  find_name (const char *name, int nocase, uint32_t *addr, uint32_t *w
     if (0 == strncmp (name, "global_", 7))
     {
         if (find_data (name + 7, nocase, addr, words) == TRUE)  return (TRUE);
+    }
+    else if (0 == strncmp (name, "var_", 4))
+    {
+        if (find_data (name + 4, nocase, addr, words) == TRUE)  return (TRUE);
     }
     else
     {

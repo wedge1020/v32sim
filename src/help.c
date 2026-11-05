@@ -503,7 +503,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    print/fmt &SYMBOL[+N]      the address of the symbol\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    A hexadecimal number of up to 3 digits is an IOPort, longer ones a\n");
-            fprintf (stdout, "    memory address. REGISTER is R0-R15, BP, SP, CR, SR, DR, IP, IR, IV\n");
+            fprintf (stdout, "    memory address (ram:0x75 names a low RAM word unambiguously). REGISTER is R0-R15, BP, SP, CR, SR, DR, IP, IR, IV\n");
             fprintf (stdout, "    ('reg' shows R0-R15). A one-time output of the indicated value. Typically used when one\n");
             fprintf (stdout, "    does not want to establish a displaylist item. Functionality is\n");
             fprintf (stdout, "    pretty much identical to that of the display command.\n\n");

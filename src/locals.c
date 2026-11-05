@@ -248,17 +248,33 @@ static int  rd (uint32_t addr, uint32_t *value)
     return (TRUE);
 }
 
+// the '[' that makes a type an array: the first one outside the {members} of a struct / union type
+static const char  *top_bracket (const char *type)
+{
+    int  depth  = 0;
+
+    for ( ; *type != '\0'; type = type + 1)
+    {
+        if (*type == '{')  depth = depth + 1;
+        if (*type == '}')  depth = depth - 1;
+        if ((*type == '[') && (depth == 0))  return (type);
+    }
+    return (NULL);
+}
+
 // how many words the type covers (1 for scalars and unknown types)
 static uint32_t  type_words (const char *type)
 {
-    const char  *br   = strchr (type, '[');
+    const char  *br   = top_bracket (type);
     const char  *col  = NULL;
+    const char  *brace = strchr (type, '{');         // struct:TAG:WORDS{x:int@0;...}: the members are not part of the size
     uint32_t     n    = 0;
     uint32_t     el   = 1;
 
     if ((strncmp (type, "struct:", 7) == 0) || (strncmp (type, "union:", 6) == 0))
     {
-        col  = strrchr (type, ':');
+        for (col = type + 6; (*col != '\0') && (col != brace); col = col + 1) ;
+        for (col = col - 1; (col > type) && (*col != ':'); col = col - 1) ;
         if ((col != NULL) && (br == NULL))
         {
             return ((uint32_t) strtoul (col + 1, NULL, 10) ?: 1);
@@ -368,6 +384,69 @@ static void  show_scalar (const char *type, uint32_t w)
     }
 }
 
+// show_members(): a struct / union type written as struct:TAG:WORDS{name:type@offset;...} printed as
+// {x = 3, y = 5}; a member that is itself an aggregate is shown as raw words. FALSE if the text is not that.
+static int  show_members (const char *type, uint32_t addr)
+{
+    const char  *p      = strchr (type, '{');
+    int          first  = TRUE;
+    int          depth  = 0;
+    const char  *seg    = NULL;
+    const char  *q      = NULL;
+
+    if (p == NULL)  return (FALSE);
+    fprintf (stdout, "{");
+    seg  = p + 1;
+    for (q = seg; ; q = q + 1)
+    {
+        if (*q == '{')                   { depth = depth + 1;  continue; }
+        if ((*q == '}') && (depth > 0))  { depth = depth - 1;  continue; }
+        if (((*q == ';') || (*q == '}') || (*q == '\0')) && (depth == 0))
+        {
+            char         name[64];
+            char         mtype[256];
+            const char  *colon  = memchr (seg, ':', (size_t) (q - seg));
+            const char  *at     = NULL;
+            const char  *t      = NULL;
+            uint32_t     off    = 0;
+            uint32_t     w      = 0;
+            uint32_t     mw     = 0;
+            uint32_t     k      = 0;
+
+            for (t = seg; t < q; t = t + 1)  if (*t == '@')  at = t;       // the last '@' is the member's own offset
+            if ((colon != NULL) && (at != NULL) && (at > colon))
+            {
+                snprintf (name,  sizeof (name),  "%.*s", (int) (colon - seg), seg);
+                snprintf (mtype, sizeof (mtype), "%.*s", (int) (at - colon - 1), colon + 1);
+                off  = (uint32_t) strtoul (at + 1, NULL, 0);
+                fprintf (stdout, "%s%s = ", first ? "" : ", ", name);
+                first  = FALSE;
+                mw     = type_words (mtype);
+                if ((mw == 1) && (strchr (mtype, '[') == NULL) && (strncmp (mtype, "struct:", 7) != 0) && (strncmp (mtype, "union:", 6) != 0))
+                {
+                    if (rd (addr + off, &w) == FALSE)  fprintf (stdout, "<?>");
+                    else                               show_scalar (mtype, w);
+                }
+                else
+                {
+                    fprintf (stdout, "{");
+                    for (k = 0; (k < mw) && (k < 4); k = k + 1)
+                    {
+                        fprintf (stdout, "%s", (k > 0) ? ", " : "");
+                        if (rd (addr + off + k, &w) == FALSE)  fprintf (stdout, "<?>");
+                        else                                   fprintf (stdout, "0x%.8X", w);
+                    }
+                    fprintf (stdout, (mw > 4) ? ", ...}" : "}");
+                }
+            }
+            seg = q + 1;
+            if ((*q == '}') || (*q == '\0'))  break;
+        }
+    }
+    fprintf (stdout, "}");
+    return (TRUE);
+}
+
 static void  show_value (const lvar_t *v, uint32_t bp, int frame)
 {
     uint32_t     addr   = 0;
@@ -377,7 +456,7 @@ static void  show_value (const lvar_t *v, uint32_t bp, int frame)
     uint32_t     i      = 0;
     const char  *type   = ((v -> type != NULL) && (strcmp (v -> type, "-") != 0)) ? v -> type : "-";
     char         base[128];
-    const char  *br     = strchr (type, '[');
+    const char  *br     = top_bracket (type);
     where_t      where  = locate (v, bp, frame, &addr, &rn);
 
     if (where == WHERE_GONE)
@@ -417,10 +496,14 @@ static void  show_value (const lvar_t *v, uint32_t bp, int frame)
         fprintf (stdout, "<aggregate in a register?>");
         return;
     }
+    if ((br == NULL) && (strchr (type, '{') != NULL) && show_members (type, addr))
+    {
+        return;                                  // a struct / union whose members the compiler told us
+    }
     // an array (of scalars: element by element) or a struct / union (raw words)
     n  = type_words (type);
     snprintf (base, sizeof (base), "%.*s", (br != NULL) ? (int) (br - type) : (int) strlen (type), type);
-    if ((br != NULL) && (strchr (type, ']') == br + 1))
+    if ((br != NULL) && (br[1] == ']'))
     {
         n  = 1;                                  // T[]: the length is not known; show the first
     }
@@ -446,7 +529,7 @@ static void  show_value (const lvar_t *v, uint32_t bp, int frame)
     {
         fprintf (stdout, ", ... (%u words)", n);
     }
-    if ((br != NULL) && (strchr (type, ']') == br + 1))
+    if ((br != NULL) && (br[1] == ']'))
     {
         fprintf (stdout, ", ...");
     }

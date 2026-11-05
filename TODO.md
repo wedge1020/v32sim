@@ -1,8 +1,15 @@
 # TODO
 
-Status as of version `20261018-dev` plus the v32dev / v32io work.
+Status as of version `20261105-dev`.
 
 ## DONE (removed from this list)
+
+  * **20261105 (central maintenance)**: VS-10 `%define var_NAME` (v32lua) is read, and `var_NAME` resolves; VS-15 `NAME.vbin.sym` is read before
+    `NAME.asm.sym`; `#` lines are skipped in the `.debug`/`.sym` files (`.vars` ignored all but `var,` rows already); VS-14 (structs):
+    `struct:TAG:WORDS{x:int@0;...}` types are parsed and printed as `{x = 3, y = 5}` (upvalue and global records still open);
+    VS-16 `ram:0x75` addresses a low RAM word (`[ram:0x75]`), and a cartridge argument `-` runs the BIOS alone;
+    `make version VERSION=...` stamps, `install`/`uninstall`/`sysinstall`/`sysuninstall` (tools go to share/v32sim);
+    `v32sim-peek.sh -M CARD`; `v32sim-selfcheck.sh -M` blank card; V32TRACE spec copy updated.
 
   * **V32TRACE (spec 2)** - `--v32trace=PREFIX`, `--v32trace-meta`, `--v32trace-labels`, `--v32trace-norestart`: traps, events, restart after a trap,
     `traps.txt` and `blocks.txt` (`src/v32trace.c`); since 2026-11-04 also the human report `PREFIX.trace.txt`, `series`, markers (`mark`), host cost,

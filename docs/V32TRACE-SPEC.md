@@ -97,7 +97,7 @@ Without `resume` a recorder MUST NOT restart the cartridge.
 
 | directive | meaning |
 |---|---|
-| `series NAME ADDR` | sample the RAM word at ADDR at the end of every frame (at most 8). The report gives average, minimum and maximum, per session and per marker stretch. Values are signed decimal. Optional for a recorder (`v32sim` ignores it) |
+| `series NAME ADDR` | sample the RAM word at ADDR at the end of every frame (at most 8). The report gives average, minimum and maximum, per session and per marker stretch. Values are signed decimal. Optional for a recorder (`v32sim` writes it too) |
 
 ### 3.8 Example (NEStoV32)
 
@@ -129,7 +129,7 @@ and `PREFIX.blocks.txt` instead.
 
 | file | content |
 |---|---|
-| `<cart>_<stamp>.trace.txt` | the human report (section 4.3). DesktopEmulator only |
+| `<cart>_<stamp>.trace.txt` | the human report (section 4.3). DesktopEmulator and `v32sim` (`PREFIX.trace.txt`) |
 | `<cart>_<stamp>.traps.txt` | machine-readable trap and event record (section 4.2). Written when the session has at least one |
 | `<cart>_<stamp>.blocks.txt` | every translated guest block that ran: header `# <arch> blocks that ran ...`, then `bank:address count` per line, count = instructions executed. Written when labels were found |
 
@@ -220,7 +220,7 @@ then `tools/profmerge.py`). What the human did to reach a trap is thereby replay
 | implementation | supports |
 |---|---|
 | DesktopEmulator patch (`V32Trace`) | everything in this spec |
-| `v32sim --v32trace=PREFIX` (`--v32trace-meta=FILE`, `--v32trace-labels=FILE`, `--v32trace-norestart`) | traps, events, restart, identity check, `traps.txt`, `blocks.txt`. Not: `series`, markers, the human report, host cost. The simulator is not cycle-exact: trust the guest address, not the frame number |
+| `v32sim --v32trace=PREFIX` (`--v32trace-meta=FILE`, `--v32trace-labels=FILE`, `--v32trace-norestart`) | traps, events, restart, identity check, `traps.txt`, `blocks.txt`, `segstart=`/`input=` (`--input=SCRIPT` replays), `series`, markers (`mark`), the human report `PREFIX.trace.txt` (`--input=@FILE` replays its `V32_INPUT=` line) and the host cost (by the patch's model). On the gap ROM the three session files equal the DesktopEmulator recorder's. Not yet: `input2=`. The simulator is not cycle-exact: trust the guest address first; the frame number matched the console's on the gap ROM |
 
 ## 8. Relation to V32DBG
 
@@ -238,7 +238,7 @@ V32DBG's. A later version MAY let a recorder name hot spots by V32DBG source lin
 
 ## 10. Candidates for version 3
 
-Naming hot spots by V32DBG line; gamepad 2 (`input2=`); a meta directive naming the guest button map and input delay so a generic consumer can do what `trace2input.py` does for NES; `v32sim` writing `input=` too; a `restart-state` directive listing RAM ranges
+Naming hot spots by V32DBG line; gamepad 2 (`input2=`); a meta directive naming the guest button map and input delay so a generic consumer can do what `trace2input.py` does for NES; a `restart-state` directive listing RAM ranges
 a recorder zeroes on restart.
 
 ## 11. Changes

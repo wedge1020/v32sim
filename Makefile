@@ -119,8 +119,22 @@ oracle:
 test-harness: $(BIN)
 	tests/run_harness_tests.sh
 
+# make version            print the version
+# make version VERSION=x  stamp x into inc/version.h (and the docs' "version" lines)
+ifeq ($(origin VERSION),command line)
+version:
+	@sed 's/^\(\#define  *VERSION  *\)"[^"]*"/\1"$(VERSION)"/' inc/version.h > inc/version.h.tmp && mv inc/version.h.tmp inc/version.h
+	@echo "$(TARGET) $(VERSION)"
+else
 version:
 	@echo "$(TARGET) $(VERSION_STRING)"
+endif
+
+# install: the binary to ~/bin/bin.$(ARCH) or ~/bin, and the helper tools (v32sim-peek.sh, v32sim-golden.sh,
+# v32sim-session.py, oracle/, ... : what the other projects call through $V32SIM_HOME/tools) to ~/share/v32sim.
+# sysinstall: the same under $(PREFIX) (default /usr/local; DESTDIR for packaging). The tools find the binary
+# beside themselves (../bin/v32sim), then on $PATH.
+PREFIX ?= /usr/local
 
 install: $(BIN)
 	@if [ -d ~/bin/bin.$(ARCH) ]; then \
@@ -132,14 +146,19 @@ install: $(BIN)
 	else \
 		echo "Skipping: neither ~/bin/bin.$(ARCH) nor ~/bin exist"; \
 	fi
+	@echo "Installing the tools to ~/share/v32sim/"; mkdir -p ~/share/v32sim && cp -R tools ~/share/v32sim/ && find ~/share/v32sim/tools -type f -name '*.o' -delete
+
+uninstall:
+	rm -f ~/bin/bin.$(ARCH)/$(TARGET) ~/bin/$(TARGET); rm -rf ~/share/v32sim
 
 sysinstall: $(BIN)
-	@if [ -d /usr/local/bin ]; then \
-		echo "Installing $(TARGET) to /usr/local/bin/"; \
-		install -m 755 $(BIN) /usr/local/bin/$(TARGET); \
-	else \
-		echo "Skipping: /usr/local/bin does not exist"; \
-	fi
+	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/share/v32sim
+	install -m 755 $(BIN) $(DESTDIR)$(PREFIX)/bin/$(TARGET)
+	cp -R tools $(DESTDIR)$(PREFIX)/share/v32sim/
+	@echo "Installed $(TARGET) to $(PREFIX)/bin and the tools to $(PREFIX)/share/v32sim/tools"
+
+sysuninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET); rm -rf $(DESTDIR)$(PREFIX)/share/v32sim
 
 archive: clean
 	@zip -r ../v32sim-project.zip *
@@ -149,7 +168,7 @@ clean:
 	@rm -vf $(DEPS) $(GENSRC) $(GENHDR) $(BINDIR)/$(TARGET)
 	@rm -rf $(OBJDIR)
 
-.PHONY: all debug asan gen oracle test-harness version install sysinstall clean archive
+.PHONY: all debug asan gen oracle test-harness version install uninstall sysinstall sysuninstall clean archive
 
 -include $(DEPS)
 
