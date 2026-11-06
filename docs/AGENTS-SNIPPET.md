@@ -31,7 +31,7 @@ it runs unattended, takes scripted input, and its exit status says what happened
 - **Is it fast enough?** `--frame-stats=load.csv` (per-frame CPU/GPU %, summary on stderr), `--profile-by=function --profile-top=15`.
   The BIOS logo takes ~250 frames before a cartridge starts; `--frame-stats-skip=250` leaves it out.
 - **Reproducible runs**: add `--fixed-clock --seed=1 --fixed-cycles`.
-- **If v32sim and the real emulator disagree**, run the cartridge on the oracle (`<v32sim>/tools/oracle`: `v32run`, `refrun`) and
+- **If v32sim and the real emulator disagree**, run the cartridge on the oracle (`<v32sim>/tools/oracle`: `v32orun`, `refrun`) and
   report a v32sim bug in `<v32sim>/TODO.md` or `docs/BUGS.md` with the cartridge and both outputs. Do not work around it in
   your project's source.
 - **Always** use `-x` in tests (otherwise a frame limit or a system error exits 0) and `--max-frames` (otherwise a hung

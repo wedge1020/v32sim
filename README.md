@@ -126,7 +126,7 @@ software — and to automate cart testing.
 ├── bios/                 BIOS data files
 ├── gen/                  flex/bison output, checked in (`make gen`), for builds without flex/bison
 ├── tools/                scripts and oracle tools for testing other projects (docs/TOOLS.md)
-│   └── oracle/           C++ tools on the stock ConsoleLogic: refrun v32run v32prof v32shot v32peek sysprof
+│   └── oracle/           C++ tools on the stock ConsoleLogic: v32orun (refrun v32run vrun wrap it) v32prof v32shot v32peek sysprof
 ├── AGENTS.md CLAUDE.md   notes for agents (CLAUDE.md imports AGENTS.md)
 ├── cart/                 cartridge data files
 └── screenshots/          reference screenshots
@@ -630,7 +630,7 @@ v32term's default key source will not see your keys.
     `global_LABEL`, so a v32cc global `counter` can be dumped as
     `--dump=1@counter` when its debug file is loaded. Together with `-r -x --fast
     --max-frames=N` this is a headless "run to HLT and dump RAM" mode, as
-    `tools/vrun -d N` in v32cc.
+    `vrun -d N` (v32orun --compat=vrun, used by v32cc).
   * `--fixed-clock[=YEAR,DAY,SECONDS]` and `--seed=N` make runs reproducible: the
     date/time ports start from a fixed value instead of the host clock, and the
     RNG is seeded at startup. Two runs of the same cartridge then give identical

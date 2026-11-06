@@ -7,8 +7,12 @@
 #  CHECKOUT is a https://github.com/vircon32/ComputerSoftware checkout (or the src/ComputerSoftware of a
 #  bootstrap archive). OUTDIR defaults to tools/oracle/bin. Built there:
 #
-#    refrun       headless run, prints RAM words: the oracle of the differential tests (tests/run_gaps.sh)
-#    v32run       headless run of a cartridge until HLT, prints one RAM word       (from v32c++)
+#    v32orun      THE headless runner (orun.cpp; header there): a bare .vbin on logging stand-ins (v32lua's
+#                 audits), a real BIOS + cartridge, or a .vbin as BIOS; GPU/SPU logs, traps, BP watch, profile,
+#                 per-frame cycles (-b), CFI choice. Replaces the runners of v32sim, v32c++, v32cc and v32lua.
+#    refrun v32run vrun   the old command lines of those runners, as one-line wrappers over v32orun --compat=NAME:
+#                 refrun = the differential tests' oracle (tests/run_gaps.sh); v32run = until HLT, one RAM word
+#                 (v32c++); vrun = v32cc's (--keys, --memc, a .vbin as BIOS, STATUS halted|timeout)
 #    v32prof      per-frame CPU/GPU load and cycles per function, scripted input  (from v32c++)
 #    v32shot      screenshots (PPM) at chosen frames, scripted input             (from v32c++)
 #    v32peek      CPU state and RAM at a chosen frame, scripted input            (from v32c++)
@@ -21,7 +25,7 @@
 #  stubbed out, so they are the reference for what the console does. v32sim is the interactive and scriptable
 #  front end; use these to ask "does the real console agree?" (docs/TOOLS.md).
 #
-#  ONLY="refrun v32prof" builds just those. Needs g++ with C++17 and nothing else (no SDL, OpenGL, OpenAL:
+#  ONLY="v32orun v32prof" builds just those (v32orun brings its wrappers). Needs g++ with C++17 and nothing else (no SDL, OpenGL, OpenAL:
 #  shim/SDL.h stands in for the one function the dev tools call). wav2vircon needs a real SDL2 and is built
 #  only when sdl2-config exists.
 #
@@ -33,7 +37,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 SRC=$(cd "${1:?usage: build.sh COMPUTERSOFTWARE_CHECKOUT [OUTDIR]}" && pwd)
 OUT=${2:-$HERE/bin}; mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
 CXX=${CXX:-g++}
-ONLY=${ONLY:-"refrun v32run v32prof v32shot v32peek sysprof compile assemble packrom wav2vircon"}
+ONLY=${ONLY:-"v32orun v32prof v32shot v32peek sysprof compile assemble packrom wav2vircon"}
 DT="$SRC/DevelopmentTools"; CL="$SRC/DesktopEmulator/ConsoleLogic"
 want() { case " $ONLY " in *" $1 "*) return 0;; esac; return 1; }
 
@@ -65,7 +69,24 @@ if want wav2vircon; then
         echo "skipping wav2vircon: needs SDL2 (only needed to pack sounds)"
     fi
 fi
-for t in refrun v32run v32prof v32shot v32peek sysprof v32trace-ref; do
+if want v32orun || want refrun || want v32run || want vrun; then
+    echo "building v32orun..."
+    # the one runner (orun.cpp). CFI of NaN/out-of-range floats is host-dependent in the stock core, so v32orun is
+    # linked with a copy of V32CPUProcessors.cpp whose float->int conversion calls v32orun_cfi() (--cfi=arm, --cfi-log).
+    GEN="$OUT/.gen"; mkdir -p "$GEN"
+    LINE='Register->AsInteger = (int32_t)Register->AsFloat;'
+    [ "$(grep -cF "$LINE" "$CL/V32CPUProcessors.cpp")" = 1 ] || { echo "build.sh: ProcessCFI not found in V32CPUProcessors.cpp (ConsoleLogic changed)" >&2; exit 1; }
+    { echo '#include <cstdint>'; echo 'extern int32_t v32orun_cfi(float f, int32_t ip);'
+      sed 's|Register->AsInteger = (int32_t)Register->AsFloat;|Register->AsInteger = ::v32orun_cfi(Register->AsFloat, CPU.InstructionPointer.AsInteger);|' "$CL/V32CPUProcessors.cpp"; } > "$GEN/V32CPUProcessors.cpp"
+    OTHERS=$(ls "$CL"/*.cpp | grep -v '/V32CPUProcessors.cpp$')
+    $CXX -O2 -std=c++17 -w -I"$CL" -I"$SRC/DesktopEmulator" -I"$SRC/VirconDefinitions" "$HERE/orun.cpp" $OTHERS "$GEN/V32CPUProcessors.cpp" -o "$OUT/v32orun"
+    rm -rf "$GEN"
+    # the old runners are this program under their old command lines
+    for w in refrun v32run vrun; do
+        printf '#!/bin/sh\nexec "$(dirname "$0")/v32orun" --compat=%s "$@"\n' $w > "$OUT/$w"; chmod +x "$OUT/$w"
+    done
+fi
+for t in v32prof v32shot v32peek sysprof v32trace-ref; do
     want $t || continue
     if [ $t = v32trace-ref ] && [ ! -f "$CL/V32Trace.cpp" ]; then
         case " $ONLY " in *" v32trace-ref "*) echo "v32trace-ref: $CL has no V32Trace.cpp (apply GBtoV32's emulator-v32trace.patch)" >&2; exit 1;; esac

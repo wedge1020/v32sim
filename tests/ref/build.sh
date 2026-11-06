@@ -6,4 +6,4 @@
 # Kept for the scripts that call it: the work is done by tools/oracle/build.sh, which builds these three
 # (refrun, assemble, packrom) and the rest of the oracle tools. Produces <output dir>/{refrun,assemble,packrom}.
 HERE=$(cd "$(dirname "$0")" && pwd)
-ONLY="refrun assemble packrom" exec "$HERE/../../tools/oracle/build.sh" "$@"
+ONLY="v32orun assemble packrom" exec "$HERE/../../tools/oracle/build.sh" "$@"

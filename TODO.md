@@ -4,6 +4,12 @@ Status as of version `20261105-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261105 (central maintenance), VS-12 one oracle runner**: `tools/oracle/orun.cpp` -> `v32orun`, on `V32Console`: a bare `.vbin`
+    on logging stand-ins (v32lua's runner: `-g -s -d -D -p -t -B -P -m -G -c -q`, `V32_SPU_STATE`, `V32_CFI`, `V32_FIXED_TIME`, byte-identical
+    output), a real BIOS + cart with the real GPU/SPU behind logging proxies (`gpu_dropped` from the real GPU), or `--as-bios`;
+    `-b` per-frame cycles (v32bench); `refrun`/`v32run`/`vrun` are `--compat` wrappers. v32lua (`runlua`, `trap`, `unittest.py`, Windows
+    `testing_harness`) and v32cc (`make vrun`) lost their own runners. Tests: `run_harness_tests.sh` section "v32orun", gaps 46/46, romcheck 28/28.
+
   * **20261105 (central maintenance)**: VS-10 `%define var_NAME` (v32lua) is read, and `var_NAME` resolves; VS-15 `NAME.vbin.sym` is read before
     `NAME.asm.sym`; `#` lines are skipped in the `.debug`/`.sym` files (`.vars` ignored all but `var,` rows already); VS-14 (structs):
     `struct:TAG:WORDS{x:int@0;...}` types are parsed and printed as `{x = 3, y = 5}` (upvalue and global records still open);
@@ -76,7 +82,7 @@ Status as of version `20261105-dev`.
 
 
   * **VS-9 beyond `--frame-stats`** - GPU/SPU counters, texture/region switches, `--profile-event`, `expect stats`, traces + replay.
-  * **One oracle runner** - `refrun`, `v32run`, v32cc's `vrun` do the same job; unify (CONSOLIDATION.md, open item 2).
+  * **Fold `v32prof`/`v32shot`/`v32peek` into `v32orun`** (frame-stamped input script, `--peek`, `--shot`); `sysprof` and `v32trace-ref` too, eventually.
 
   * **Locals, what is left (V32DBG section 4)** - Lua table walking (`locals` shows `table: 0xADDR`), struct members (needs
     member names in `type=`), globals' `type=` (`loc=@ADDR` from v32cc), upvalues in closures (v32lua), `display NAME` that

@@ -44,5 +44,5 @@ runs every variable's range to the end of the program; v32sim copes). See DEBUG-
 ## Tests
 
 `tests/run.py ASSEMBLE VRUN V32CC WORKDIR` (self-checking programs, whole-program and separate builds), `make debugtest`,
-`tests/difftest.py` (same result as the stock compiler), `tests/selfhost.py`. Tools: `tools/vrun.cpp` (a stock-core runner),
+`tests/difftest.py` (same result as the stock compiler), `tests/selfhost.py`. Tools: `vrun` (v32sim's: `make vrun CS=...`; v32cc keeps no runner),
 `tools/cartrun.py` (build + run, prints a global), `tools/v32sym.py` (`.asm.sym` with final addresses, or an `nm`-style list).

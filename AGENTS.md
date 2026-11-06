@@ -15,7 +15,7 @@ AGENTS.md) and `docs/TOOLS.md` (which tool for which question). The rest of this
 
 - **Match the DesktopEmulator, quirks included.** v32sim's behaviour is checked against the stock console logic, not against
   the manual. Differences are bugs unless `docs/V32SIMGAPS.md` lists them (host-undefined behaviour, pixel-level rendering).
-  Before "fixing" a CPU/memory/GPU behaviour, run it on the oracle (`tools/oracle`: `refrun`, `v32run`) and compare.
+  Before "fixing" a CPU/memory/GPU behaviour, run it on the oracle (`tools/oracle`: `v32orun`, or its wrappers `refrun`, `v32run`) and compare.
 - **Observability must not change the machine.** Profiling, statistics, traces and `--frame-stats` only read state; a run with
   and without them must give identical results (RAM dumps, exit status).
 - **The stock `compile` / `assemble` write no enhanced debug info.** Source-level debugging, `bt`, `print counter`, locals
@@ -40,7 +40,7 @@ tools/               scripts for people who test other projects with v32sim (doc
   vprof2cmd.py         v32prof/v32peek input scripts -> v32sim commands
   v32io-script.py      keyboard/mouse actions -> input script (from v32cxx)
   build-nogen.sh       build v32sim with cc + readline only, using gen/ (from v32nix / V32DOS)
-  oracle/              C++ tools on the stock ConsoleLogic: refrun v32run v32prof v32shot v32peek sysprof (+ build.sh)
+  oracle/              C++ tools on the stock ConsoleLogic: v32orun (the one runner; refrun v32run vrun are wrappers) v32prof v32shot v32peek sysprof (+ build.sh)
 tests/               the suites; run_harness_tests.sh covers tools/ (examples/ holds its cartridges)
 docs/                TOOLS TESTING PROFILING AGENTS-SNIPPET CONSOLIDATION V32DBG-STATUS PROPOSALS-STATUS, the specs
                      (V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS), repro/ (cases for other projects), agents/ (one card per tool),

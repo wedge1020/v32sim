@@ -61,28 +61,24 @@ for the stock compiler's output (and for v32cc's, when `.asm.sym` is absent). Fi
 Bugs fixed: `--dump=N@NAME` read a name made only of hex digits (`ab`, `f`, `cafe`) as an address; `tools/vprof2cmd.py --frames N`
 let events after frame N through.
 
-### The oracle runners (one job, six programs)
+### The oracle runners (one job, now one program)
 
-| runner | where | engine | distinctive |
-|---|---|---|---|
-| `refrun` | v32sim `tools/oracle` | ConsoleLogic | the differential tests' oracle, `--dump N@ADDR`, date/time |
-| `v32run` | v32sim `tools/oracle` (from v32cxx) | ConsoleLogic | BIOS + cart + card, one RAM word, `halted=` |
-| `v32prof` / `v32shot` / `v32peek` | v32sim `tools/oracle` (from v32cxx) | ConsoleLogic | frame-stamped input scripts; profile, PPM shots, RAM at a frame |
-| `sysprof` | v32sim `tools/oracle` (from v32nix) | ConsoleLogic | the program resident in a swapped window |
-| `vrun` | v32cc `tools/vrun.cpp` | ConsoleLogic | `--keys`, a `.vbin` as BIOS, `STATUS halted|timeout` |
-| `v32run` (another one) | v32lua `tools/headless/` | `SimplifiedEmulator` CPU core | GPU (`-g`) and SPU (`-s`) logs, `render.py`, `spu_render.py`, BP watch (`-B`), traps at addresses, GPU-dropped counts, host CFI choice; **does not build** against current ComputerSoftware (no `SimplifiedEmulator`) |
-| `v32bench` | referenced by GBtoV32's `bench_v32.py` (`C:/github/v32bench`) | "official CPU core" | per-frame cycles; not supplied |
-
-A merged runner (ConsoleLogic; BIOS or bare `.vbin`; frame-stamped input; `--dump`/`--peek`; `--gpu-log`/`--spu-log` in v32lua's
-format so `render.py` and `spu_render.py` keep working; traps at addresses) would replace all of them and give VS-9 4.3 its trace
-format. Not built yet: the CLIs are in use by scripts in five projects.
+`tools/oracle/orun.cpp` -> **`v32orun`** (20261105, central maintenance). It is built on `V32Console` (ConsoleLogic) and runs
+a bare `.vbin` on logging stand-ins (v32lua's runner, ported unchanged: its output is byte-identical on the carts compared, and
+`unittest.py` still gives 1811/1826), a real BIOS + cartridge (the stand-ins become proxies of the real GPU/SPU, so `-g -s -t -B -P` work
+there too and `gpu_dropped` comes from the real GPU's counter), or a `.vbin` as the BIOS. Folded in: `refrun`, `v32run` (v32cxx), `vrun`
+(v32cc: `--keys`, `--memc`, `.vbin` as BIOS), v32lua's `v32run` (GPU/SPU logs for `render.py`/`spu_render.py`, BP watch, traps, dropped
+GPU draws, CFI choice, SPU state, fixed time, no-memcard) and `v32bench` (`-b`). `refrun`, `v32run` and `vrun` stay as one-line
+wrappers (`v32orun --compat=NAME`), so `run_gaps.sh` (46/46), `run_romcheck.sh` (28/28), `run_harness_tests.sh` and v32cc's `make test`
+(222 checks, `make card`) run unchanged. v32lua's `tools/headless/v32run.cpp`, `build.sh`, `sdlshim/` and v32cc's `tools/vrun.cpp`,
+`build-vrun.sh` were deleted. Still separate: `v32prof`, `v32shot`, `v32peek` (frame-stamped input scripts), `sysprof`, `v32trace-ref`.
 
 ## Open items
 
 1. **V32DBG, owners outside v32sim**: v32opt must rewrite `;@var loc=` when it promotes (repro in `docs/repro/`); v32cc should end
    functions for v32as (or v32as should end a C function at the next top-level `__function_` label); v32cc globals and struct
    members in `type=`; v32lua chunk locals and upvalues; v32c++ `-g`. Details: `V32DBG-STATUS.md`.
-2. **One oracle runner** (table above).
+2. **One oracle runner**: done for the runners (above); `v32prof`/`v32shot`/`v32peek` are to be folded in (a frame-stamped script option, `--peek`, `--shot`).
 3. **VS-9 beyond frame stats**: GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`.
 4. **v32mouse in v32sim** (v32nix P-I2; today only gamepad toggles through `v32io-script.py`), and optional emulator extensions to
    prototype (v32nix P-E1 timer interrupt, P-E2 v32dev doorbell).

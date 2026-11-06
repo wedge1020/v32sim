@@ -44,8 +44,10 @@ nothing else: no SDL, OpenGL or OpenAL).
 
 | tool | from | does |
 |---|---|---|
-| `refrun BIOS CART FRAMES [--date Y,D] [--time S] [--dump N@HEXADDR] [--pad]` | v32sim `tests/ref` | run, print RAM words; the oracle of the differential tests |
-| `v32run BIOS CART CARD\|- ADDRESS [FRAMES]` | v32cxx | run to HLT, print one RAM word and `halted=`; the oracle's `test_errors` check |
+| `v32orun PROG.vbin [options]` / `v32orun --bios B --cart C [options]` | v32sim; v32lua's `v32run`, v32bench, v32cc's `vrun` | **the** headless runner: bare `.vbin` on logging stand-ins (`-g` GPU log, `-s` SPU log, `-d/-D` dump globals, `-p` pad script, `-t` traps, `-B` BP watch, `-P` profile, `-b` per-frame cycles, `--cfi=arm`, `--spu-state`), or a real BIOS + cartridge with the real GPU/SPU (same options), or `--as-bios PROG.vbin`; `gpu_dropped` in the STATUS line. Options: header of `tools/oracle/orun.cpp` |
+| `refrun BIOS CART FRAMES [--date Y,D] [--time S] [--dump N@HEXADDR]` | v32sim `tests/ref` | `v32orun --compat=refrun`: run, print RAM words; the oracle of the differential tests |
+| `v32run BIOS CART CARD\|- ADDRESS [FRAMES]` | v32cxx | `--compat=v32run`: run to HLT, print one RAM word and `halted=`; the oracle's `test_errors` check |
+| `vrun --bios B --cart C [--memc F] [--keys S] [-f N] [-d N] [-a ADDR]` / `vrun PROG.vbin` | v32cc | `--compat=vrun`: RAM words and `STATUS halted\|timeout`; `.vbin` run as the BIOS |
 | `v32prof BIOS CART CART.vbin.debug SCRIPT [heavy%] [csv]` | v32cxx | per-frame CPU/GPU load by script segment; cycles per function (all frames and heavy frames); scripted input |
 | `v32shot BIOS CART SCRIPT PREFIX FRAME...` | v32cxx | PPM screenshots at chosen frames, scripted input |
 | `v32peek BIOS CART SCRIPT FRAME ADDR COUNT...` | v32cxx | CPU state and RAM words at a frame, scripted input |
@@ -55,8 +57,9 @@ nothing else: no SDL, OpenGL or OpenAL).
 The input script of `v32prof`, `v32shot` and `v32peek` is frame-stamped (`320 press 1 left`, `end`); its format is in
 the header of `tools/oracle/v32prof.cpp`. `tools/vprof2cmd.py` turns the same script into v32sim commands.
 
-Other oracle runners exist in other projects: v32cc's `tools/vrun.cpp` (`vrun`, also `--keys`), v32cc's `tools/cartrun.py`, and
-v32lua's `tools/headless/v32run` (GPU/SPU logs, BP watch; builds only against an older ComputerSoftware). CONSOLIDATION.md compares them.
+The other projects keep no runner of their own: v32cc's `make vrun` and v32lua's `runlua`, `trap`, `unittest.py` and the Windows
+`scripts/testing_harness` call `v32orun` (v32lua's `v32bench` is its `-b`). They find it through `$V32SIM_HOME/tools/oracle/bin`.
+`v32prof`, `v32shot` and `v32peek` (frame-stamped input scripts) are still separate programs.
 Short cards for every tool of the ecosystem, for agents: `docs/agents/`.
 
 ## Debug information (who writes what)

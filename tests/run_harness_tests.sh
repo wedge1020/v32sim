@@ -17,6 +17,7 @@
 #   symbols     a cartridge built by the STOCK compiler (no .asm.sym, only `%define global_X N` lines): --dump=1@NAME works
 #   frame-stats --frame-stats rows equal v32prof's, frame for frame (CPU % and GPU %), on a cartridge whose load varies
 #   input       a gamepad script replayed through tools/vprof2cmd.py gives the same per-frame history as v32peek
+#   v32orun     the one oracle runner: gpu_dropped (model and real GPU), -b, -t, -g, and the refrun/v32run/vrun wrappers
 #   peek/golden/addrprof   the example cartridge, a typed-less session with a golden screen, and the function profile
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd); ROOT=$HERE/..; T=$ROOT/tools; EX=$HERE/examples
@@ -184,6 +185,24 @@ sh "$T/v32sim-golden.sh" --cart "$W/exk/hello_text.v32" --bios "$V32BIOS" --sess
 "$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --profile-out="$W/h.prof" "$W/ex/hello_text.v32" >/dev/null 2>&1 </dev/null
 top=$(python3 -I "$T/v32sim-addrprof.py" "$W/h.prof" --map "cart:$W/ex/hello_text.vbin.debug" -n 3 | sed -n 3p | awk '{print $3}')
 [ "$top" = "cart:add_up" ] && ok "addrprof names the hottest cartridge function" || bad "addrprof top was '$top'"
+
+echo "== v32orun: the one oracle runner"
+if [ $HAVE_ORACLE = 1 ] && [ -x "$ORACLE/v32orun" ]; then
+    sh "$T/v32mkcart.sh" -o "$W/od" "$EX/overdraw.c" >/dev/null || exit 2
+    O="$ORACLE/v32orun"
+    r=$("$O" "$W/od/overdraw.vbin" -f 10 -q | head -1)
+    case "$r" in *"gpu_dropped=30 "*) ok "bare: 3 of 12 draws dropped per frame (model of the pixel budget)";; *) bad "bare gpu_dropped: $r";; esac
+    r=$("$O" --bios "$V32BIOS" --cart "$W/od/overdraw.v32" -f 330 -q | head -1)
+    n=$(echo "$r" | sed 's/.*gpu_dropped=\([0-9]*\).*/\1/')
+    [ "${n:-0}" -ge 30 ] && [ $((n % 3)) = 0 ] && ok "console: the real GPU's own budget gives the same 3 per frame ($n)" || bad "console gpu_dropped: $r"
+    "$O" "$W/od/overdraw.vbin" -f 4 -q -b | grep -c '^FC ' | grep -qx 4 && ok "-b: one FC line per frame" || bad "-b"
+    ip=$("$O" "$W/od/overdraw.vbin" -f 1 -q | head -1 | sed 's/.* ip=\([0-9A-F]*\).*/\1/')
+    "$O" "$W/od/overdraw.vbin" -f 5 -q -t "$ip" | grep -q '^STATUS TRAPPED' && ok "-t ADDRESS traps and prints the trail and stack" || bad "-t $ip"
+    "$O" "$W/od/overdraw.vbin" -f 2 -g | grep -q 'GPU-DROPPED DrawRegion' && ok "-g tags the dropped draws" || bad "-g GPU-DROPPED"
+    r=$("$ORACLE/vrun" "$W/ex/hello_text.vbin" -f 3 -d 1 | tail -1); [ "$r" = "STATUS timeout" ] || [ "$r" = "STATUS halted" ] && ok "vrun wrapper: a .vbin as BIOS" || bad "vrun: $r"
+    r=$("$ORACLE/v32run" "$V32BIOS" "$W/ex/hello_text.v32" - 0 400 2>/dev/null | tail -1); case "$r" in "frames="*" halted="*" ram[0]="*) ok "v32run wrapper: BIOS + cart, one RAM word";; *) bad "v32run: $r";; esac
+    r=$("$ORACLE/refrun" "$V32BIOS" "$W/ex/hello_text.v32" 400 --dump 1@0 | head -1); [ -n "$r" ] && ok "refrun wrapper: RAM words" || bad "refrun"
+else skipt "v32orun" "no ORACLE with v32orun"; fi
 
 echo "== $pass passed, $fail failed, $skip skipped"
 [ $fail -eq 0 ]

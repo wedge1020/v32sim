@@ -40,7 +40,7 @@ Debug files are found next to the `.v32` (`NAME.vbin.debug`, `NAME.vbin.vars`, `
 `v32sim-golden.sh` (typed sessions vs golden screens), `v32sim-corpus.py` (many carts: OK/HALT/CPU_ERROR/TRAP, load, screenshot),
 `v32sim-peek.sh` (a global or text buffer after N frames), `v32sim-addrprof.py` (profile across kernel/BIOS/modules),
 `vprof2cmd.py` (v32prof/v32peek input scripts -> commands), `v32io-script.py`, `oracle/` (runners on the stock console logic:
-`refrun v32run v32prof v32shot v32peek sysprof`).
+`v32orun` (the one headless runner; `refrun v32run vrun` are wrappers) `v32prof v32shot v32peek sysprof`).
 
 ## When v32sim and the emulator disagree
 
