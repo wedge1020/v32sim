@@ -79,6 +79,7 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "highlight",      required_argument, 0, 201 },
        { "screengrid",     optional_argument, 0, 202 },
        { "noextra",        no_argument,       0, 203 },
+       { "v32dev-doorbell",optional_argument, 0, 215 },
        { "screenshot-at",  required_argument, 0, 204 },
        { "screenshot-file",required_argument, 0, 205 },
        { "exit-status",    no_argument,       0, 'x' },
@@ -301,6 +302,11 @@ void  process_args (int32_t  argc, int8_t **argv)
                 break;
 
             case 213: time_breakdown = TRUE;  break;
+            case 215: // v32dev-doorbell[=MS]
+                memc_doorbell = TRUE;
+                if (optarg != NULL)  memc_doorbell_ms = (uint32_t) strtoul (optarg, NULL, 0);
+                break;
+
             case 214: frame_log_out = optarg;  break;
             case 210: gpu_trace_out = optarg;  break;
             case 211: spu_trace_out = optarg;  break;

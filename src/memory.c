@@ -288,7 +288,7 @@ void    memory_set (uint32_t  address, uint32_t  dataword, uint8_t  sys_force)
         if (page                   == V32_PAGE_MEMC)
         {
             memc_touch (offset);      // the card file is saved at the end of the frame
-            if (sys_force == FALSE)  perf_memc_access ();
+            if (sys_force == FALSE)  { perf_memc_access ();  memc_bell (offset); }
         }
     }
 }
@@ -308,7 +308,7 @@ void    fmemory_set (uint32_t  address, float  dataword, uint8_t  sys_force)
         if (page                   == V32_PAGE_MEMC)
         {
             memc_touch (offset);
-            if (sys_force == FALSE)  perf_memc_access ();
+            if (sys_force == FALSE)  { perf_memc_access ();  memc_bell (offset); }
         }
     }
 }

@@ -4,6 +4,12 @@ Status as of version `20261106-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261106 (central maintenance), VS-17**: v32nix answered SN-2: P-E1 (timer interrupt) not wanted, only P-E2. `--v32dev-doorbell[=MS]` in
+    `memc.c` (interface exactly as v32nix specified: header word 8 bit 1, per-channel counters at header words 10..13, a `c2h_head` store is the
+    doorbell, flush + up to MS ms (2) wall-clock wait for a live host + re-import of that channel, no cycles charged, off = bit-identical).
+    Test cart `tests/examples/bell.c`, host `tests/doorbell_host.py`. Open: v32nix's kernel side; an in-process host (T = 0) does not exist in
+    v32sim (hosts are external `v32dev.py serve` processes), so the wait applies to every ring while the host is alive.
+
   * **20261106 (central maintenance), VS-13 complete (4.2-4.4)**: `--profile-event=instr|cycles|gpu-draw|gpu-portwrite|spu-write` (with
     `--profile-by=function`: which function issues the draws); `--gpu-trace` / `--spu-trace` (versioned binary, `docs/TRACE-FORMAT.md`) and
     `--trace-dump`; `v32gpureplay` (= `v32orun --compat=gpureplay`, built by `tools/oracle/build.sh`): the trace on the stock V32GPU / V32SPU,

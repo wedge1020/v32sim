@@ -583,6 +583,18 @@ host area alone.
 The v32dev real-cartridge test suite of the v32io project (`dev_rom_test.py`)
 passes unchanged against v32sim: see *Tests*.
 
+**`--v32dev-doorbell[=MS]`** (off by default; v32nix's P-E2, interface agreed with v32nix on 2026-11-06): with it on, header word 8
+(emulator flags, memory only) gets bit 1 = "doorbell supported" (bit 0 as before), and header words 10..13 (`0x3003C000 + 10 + c`) count, per
+channel, the host-to-cart messages made visible: +1 each time an import of the host part finds `h2c_head` moved. A store by the program that
+changes a cart part's `c2h_head` (`0x3003E020 + c*0x7F8 + 1`) is the doorbell: the dirty pages are written (data, then commit words), a host
+that is alive gets up to MS milliseconds of wall clock (default 2; 0 = no wait) to answer, the channel's host part is read again, and the CPU
+goes on with no cycles charged. A host that answers later is imported at the frame boundary, where the counter then moves: code must work
+with the reply either early or at the boundary. The wait is wall clock, so a run with an answering external host is not cycle-repeatable:
+keep the option off in differential tests (off, the header, the flags word and the timing are bit-identical to before).
+`mailbox` shows rings, waits and early answers. Test: `tests/examples/bell.c` with `tests/doorbell_host.py` (harness section
+"--v32dev-doorbell", needs `V32IO=` the v32io project for `v32dev.py format`). v32nix's P-E1 (timer interrupt) is not built: v32nix
+declined it (D30/D37 preemption works without; recorded in `docs/PROPOSALS-STATUS.md`).
+
 ## The v32io Mouse
 
 The mouse, `v32mouse`, is two counters of 12 positions (X on Left/Right/X/Y, Y on Up/Down/L/R: a trit and a Gray-coded pair, so one

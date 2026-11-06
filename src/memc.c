@@ -2,10 +2,20 @@
 #include "memc.h"
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
 // memc.c: memory card persistence and the v32dev mailbox transport
+//
+// --v32dev-doorbell[=MS] (VS-17, v32nix P-E2; off by default, with it off nothing below changes a bit): the header gets
+//   word 8 bit 1 = "doorbell supported", and words 10..13 count, per channel, the host-to-cart messages made visible (the
+//   host part's h2c_head moved between two imports of it). A change of a cart part's c2h_head word is a doorbell: the card
+//   is flushed (data, then commit words), the host gets up to MS milliseconds of wall clock (default 2) to answer, the
+//   channel's host part is imported again, and the CPU goes on; no cycles are charged. A host that does not answer in
+//   time is imported at the next frame boundary as before, and the counter moves then. The counter words are
+//   emulator-owned and memory-only, like words 8 and 9. With an external host (v32dev.py serve) the wait is wall-clock,
+//   so cycle-exact repeatability is lost whenever a host answers early: do not use it in differential tests.
 //
 // This follows the DesktopEmulator (V32Console::RunNextFrame) and the v32dev emulator
 // patch of the v32io project:
@@ -55,6 +65,11 @@ static struct
     uint32_t   flushes;
     uint64_t   words_written;
 } mc = { .fd = -1 };
+
+uint8_t   memc_doorbell     = FALSE;         // --v32dev-doorbell
+uint32_t  memc_doorbell_ms  = 2;             // ...how long a host gets to answer (milliseconds)
+static uint32_t  bell_last[DEV_CHANNELS];    // each cart part's c2h_head word as last seen
+static uint32_t  bell_rings = 0, bell_early = 0, bell_waited = 0;
 
 static seg_t     segs[2 * MEMC_NUM_PAGES + 16];
 static uint8_t   iobuf[MEMC_WORDS * 4];
@@ -109,6 +124,21 @@ static int  header_valid (void)
 // memc_attach(): the card has been loaded into memory from this file. Open the file
 // for the rest of the session, and decide whether the mailbox is live
 //
+static void  bell_reset (void)
+{
+    int  chan  = 0;
+
+    bell_rings = bell_early = bell_waited = 0;
+    for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)
+    {
+        bell_last[chan]  = cw (DEV_CART_START + chan * DEV_PART_WORDS + DEV_CP_C2H_HEAD);
+        if (memc_doorbell == TRUE)
+        {
+            cw_set (DEV_REGION_START + DEV_H_BELL + chan, 0);
+        }
+    }
+}
+
 void  memc_attach (const char *path)
 {
     const char *env  = getenv ("V32DEV_DISABLE");
@@ -148,8 +178,9 @@ void  memc_attach (const char *path)
     if ((mc.disabled == FALSE) && (mc.fd >= 0) && (header_valid () != 0))
     {
         mc.mailbox  = TRUE;
-        cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, 1);
+        cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, (memc_doorbell == TRUE) ? 3 : 1);
         cw_set (DEV_REGION_START + DEV_H_EMU_BEAT,  0);
+        bell_reset ();
         fprintf (verbose, "[MEMC] v32dev mailbox active\n");
     }
 }
@@ -437,13 +468,23 @@ static void  sync_host (void)
         return;
     }
     mc.beat  = mc.beat + 1;
-    cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, 1);
+    cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, (memc_doorbell == TRUE) ? 3 : 1);
     cw_set (DEV_REGION_START + DEV_H_EMU_BEAT,  mc.beat);
 
     n  = pread (mc.fd, iobuf, bytes, (off_t) (2 * wordsize) + (off_t) DEV_HOST_START * 4);
     if (n != (ssize_t) bytes)
     {
         return;
+    }
+    if (memc_doorbell == TRUE)
+    {
+        for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)                  // the host's head moved: one more message for the cart
+        {
+            if (le32 (iobuf + 4 * (chan * DEV_PART_WORDS + DEV_HP_H2C_HEAD)) != cw (DEV_HOST_START + chan * DEV_PART_WORDS + DEV_HP_H2C_HEAD))
+            {
+                cw_set (DEV_REGION_START + DEV_H_BELL + chan, cw (DEV_REGION_START + DEV_H_BELL + chan) + 1);
+            }
+        }
     }
     for (i = 0; i < DEV_HOST_WORDS; i = i + 1)
     {
@@ -470,6 +511,96 @@ static void  sync_host (void)
             mc.host_still[chan]  = mc.host_still[chan] + 1;
         }
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// memc_bell(): the program stored to card word N (memory_set with a program's store)
+//
+static uint64_t  now_ns (void)
+{
+    struct timespec ts;
+
+    clock_gettime (CLOCK_MONOTONIC, &ts);
+    return ((uint64_t) ts.tv_sec * 1000000000ULL + (uint64_t) ts.tv_nsec);
+}
+
+void  memc_bell (uint32_t word)
+{
+    int       chan   = 0;
+    uint32_t  rel    = 0;
+    uint32_t  hp     = 0;
+    uint32_t  head   = 0;
+    uint64_t  limit  = 0;
+    uint32_t  seen   = 0;
+    ssize_t   n      = 0;
+    uint8_t   buf[4];
+    uint8_t  *part   = NULL;
+    int32_t   i      = 0;
+    data_t   *c      = NULL;
+
+    if ((memc_doorbell == FALSE) || (mc.mailbox == FALSE) || (word < DEV_CART_START) || (word >= DEV_CART_START + DEV_CHANNELS * DEV_PART_WORDS))
+    {
+        return;
+    }
+    rel   = word - DEV_CART_START;
+    chan  = (int) (rel / DEV_PART_WORDS);
+    if ((rel % DEV_PART_WORDS) != DEV_CP_C2H_HEAD)
+    {
+        return;
+    }
+    if (cw (word) == bell_last[chan])
+    {
+        return;                                    // not a change
+    }
+    bell_last[chan]  = cw (word);
+    bell_rings       = bell_rings + 1;
+
+    memc_flush ();                                 // data first, then the commit words
+
+    hp    = DEV_HOST_START + (uint32_t) chan * DEV_PART_WORDS;
+    head  = cw (hp + DEV_HP_H2C_HEAD);
+    if ((memc_doorbell_ms > 0) && ((cw (hp + DEV_HP_FLAGS) & 1) != 0) && (cw (hp + DEV_HP_TYPE) != 0) && (mc.host_still[chan] < DEV_HOST_STILL))
+    {
+        bell_waited  = bell_waited + 1;
+        limit        = now_ns () + (uint64_t) memc_doorbell_ms * 1000000ULL;
+        for (;;)
+        {
+            n = pread (mc.fd, buf, 4, (off_t) (2 * wordsize) + (off_t) (hp + DEV_HP_H2C_HEAD) * 4);
+            seen = (n == 4) ? le32 (buf) : head;
+            if ((seen != head) || (now_ns () >= limit))
+            {
+                break;
+            }
+            {
+                struct timespec d = { 0, 50000 };          // 50 us
+
+                nanosleep (&d, NULL);
+            }
+        }
+    }
+
+    part  = (uint8_t *) malloc ((size_t) DEV_PART_WORDS * 4);                  // the channel's host part, once more
+    c     = card ();
+    if ((part == NULL) || (c == NULL))
+    {
+        free (part);
+        return;
+    }
+    n  = pread (mc.fd, part, (size_t) DEV_PART_WORDS * 4, (off_t) (2 * wordsize) + (off_t) hp * 4);
+    if (n == (ssize_t) ((size_t) DEV_PART_WORDS * 4))
+    {
+        if (le32 (part + 4 * DEV_HP_H2C_HEAD) != head)
+        {
+            cw_set (DEV_REGION_START + DEV_H_BELL + chan, cw (DEV_REGION_START + DEV_H_BELL + chan) + 1);
+            bell_early  = bell_early + 1;
+        }
+        for (i = 0; i < DEV_PART_WORDS; i = i + 1)
+        {
+            (c + hp + i) -> value.raw  = le32 (part + 4 * i);
+        }
+    }
+    free (part);
 }
 
 void  memc_power_on (void)
@@ -514,6 +645,10 @@ void  memc_region_put (const uint32_t *in)
     for (i = 0; i < DEV_REGION_WORDS; i = i + 1)
     {
         cw_set (DEV_REGION_START + i, in[i]);
+    }
+    for (i = 0; i < DEV_CHANNELS; i = i + 1)
+    {
+        bell_last[i]  = cw (DEV_CART_START + i * DEV_PART_WORDS + DEV_CP_C2H_HEAD);       // a restored state is not a ring
     }
 }
 
@@ -640,6 +775,13 @@ void  memc_show (int channel)
     }
     fprintf (stdout, "  mailbox : LIVE  emulator heartbeat %u, host area read %u times, host changed it %u times\n",
                      mc.beat, mc.syncs, mc.changes);
+    if (memc_doorbell == TRUE)
+    {
+        fprintf (stdout, "  doorbell: on (a host gets %u ms): %u rings, %u waited for a live host, %u answered at once; counters %u %u %u %u\n",
+                         memc_doorbell_ms, bell_rings, bell_waited, bell_early,
+                         cw (DEV_REGION_START + DEV_H_BELL), cw (DEV_REGION_START + DEV_H_BELL + 1),
+                         cw (DEV_REGION_START + DEV_H_BELL + 2), cw (DEV_REGION_START + DEV_H_BELL + 3));
+    }
 
     for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)
     {

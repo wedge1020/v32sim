@@ -53,6 +53,7 @@
 #define  DEV_H_CONTROL_WORDS     5
 #define  DEV_H_EMU_FLAGS         8        // emulator-owned, memory only
 #define  DEV_H_EMU_BEAT          9        // emulator-owned, memory only
+#define  DEV_H_BELL              10       // 10..13: per channel, host messages made visible (--v32dev-doorbell; emulator-owned)
 
 // control words of a host part (relative to the part)
 #define  DEV_HP_TYPE             0
@@ -80,6 +81,9 @@
 void      memc_attach        (const char *);   // the card was loaded from this file
 void      memc_detach        (void);           // flush and forget the card
 void      memc_touch         (uint32_t);       // program wrote card word N
+void      memc_bell          (uint32_t);       // ...a store by the program: --v32dev-doorbell rings on a c2h_head change
+extern uint8_t   memc_doorbell;                      // --v32dev-doorbell[=MS]
+extern uint32_t  memc_doorbell_ms;
 void      memc_touch_all     (void);           // everything must reach the file
 void      memc_flush         (void);           // dirty pages -> file (two phases)
 void      memc_save          (void);           // flush, at exit / unload / crash

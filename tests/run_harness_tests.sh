@@ -286,6 +286,24 @@ echo "== counters against a cartridge with known counts (tests/examples/counts.c
 sh "$T/v32mkcart.sh" -o "$W/cnt" "$EX/counts.c" >/dev/null 2>&1
 printf 'run 300\nexpect stats gpu.draws.p50 == 6\nexpect stats gpu.scaled_draws.p50 == 4\nexpect stats gpu.rotated_draws.p50 == 3\nexpect stats gpu.region_defs.p50 == 12\nexpect stats gpu.color_changes.p50 == 2\nexpect stats gpu.blend_changes.p50 == 3\nexpect stats spu.assignments.p50 == 1\nexpect stats spu.param_writes.p50 == 3\nexpect stats bus.gamepad_reads.p50 == 4\nexpect stats spu.channels_playing.max == 0\nquit\n' | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" --stats-skip=250 "$W/cnt/counts.v32" >/dev/null 2>&1 && ok "known counts: draws, scaled, rotated, region defs, colour / blend writes, SPU assignments / parameters, gamepad reads" || bad "known counts"
 
+echo "== --v32dev-doorbell (VS-17, v32nix P-E2): tests/examples/bell.c with tests/doorbell_host.py"
+sh "$T/v32mkcart.sh" -o "$W/bell" "$EX/bell.c" >/dev/null 2>&1
+bell() {   # $1 = host seconds ("0" = no host), rest = v32sim options; prints "flags spin delta done"
+    local secs=$1; shift
+    python3 -I "$V32IO/tools/v32dev.py" format "$W/bell.memc" --ch0 serial --force >/dev/null 2>&1
+    local hp=""
+    if [ "$secs" != "0" ]; then python3 -I "$HERE/doorbell_host.py" "$W/bell.memc" "$secs" & hp=$!; fi
+    printf 'run 330\nprint [0x00200000]\nprint [0x00200001]\nprint [0x00200002]\nprint [0x00200003]\nquit\n' \
+      | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" -M "$W/bell.memc" "$@" "$W/bell/bell.v32" 2>&1 \
+      | sed -n 's/^\[0x0020000[0-3](0x\([0-9A-F]*\))\].*/\1/p' | tr '\n' ' '
+    [ -n "$hp" ] && { kill $hp 2>/dev/null; wait $hp 2>/dev/null; }
+}
+if [ -f "${V32IO:-/nonexistent}/tools/v32dev.py" ]; then
+    r=$(bell 20 --v32dev-doorbell=50); [ "$r" = "00000003 00000000 00000001 00000001 " ] && ok "doorbell on: flags bit 1, the reply counter moves at once (spin count 0)" || bad "doorbell on: '$r'"
+    r=$(bell 20); [ "$r" = "00000001 000186A0 00000000 00000001 " ] && ok "doorbell off: flags 1, no counter, the reply waits for the frame boundary (as before)" || bad "doorbell off: '$r'"
+    r=$(bell 0 --v32dev-doorbell=50); case "$r" in "00000003 000186A0 00000000 00000001 ") ok "doorbell on, no host: no wait, no counter change";; *) bad "doorbell, no host: '$r'";; esac
+else skipt "doorbell" "no v32dev.py (set V32IO to the v32io project)"; fi
+
 echo "== screenshot highlight"
 sh "$T/v32mkcart.sh" -o "$W/hlk" --cc-opt -DKEEP_RUNNING "$EX/hello_text.c" >/dev/null || exit 2
 shot() { printf "$1run 300\nscreenshot $W/$2.png\nquit\n" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/hlk/hello_text.v32" >/dev/null 2>&1; }
