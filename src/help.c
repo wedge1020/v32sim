@@ -54,6 +54,8 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --time-breakdown      at exit, where v32sim's own wall-clock time goes per frame (cpu / gpu / spu / output); --frame-log=FILE: every frame\n");
     fprintf (stdout, "     --v32dev-doorbell[=MS] v32dev mailbox: header flag bit 1, per-channel reply counters at header words 10..13, and a store to\n");
     fprintf (stdout, "                           a cart part's c2h_head rings: flush, give the host MS ms (2) to answer, import its reply, go on\n");
+    fprintf (stdout, "     --v32dev-host=N=SPEC  serve channel N of the card's v32dev mailbox natively: storage:FILE[,bytes][,ro][,sector=N][,create=S],\n");
+    fprintf (stdout, "                           serial:stdio|echo[,hup=N][,in=FILE][,out=FILE][,hangup]; --v32dev-host-force formats over other data\n");
     fprintf (stdout, "     --gpu-trace=FILE      record the program's GPU port writes by frame (binary, docs/TRACE-FORMAT.md); --spu-trace=FILE: SPU\n");
     fprintf (stdout, "     --trace-dump=FILE     print a trace file as text and exit\n");
     fprintf (stdout, "     --profile-by=KIND     address (default) or function: with function, --profile-top and the text\n");

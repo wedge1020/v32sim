@@ -1,4 +1,5 @@
 #include "defines.h"
+#include "devhost.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -459,6 +460,12 @@ int32_t   main (int32_t  argc, char **argv)
     {
         exit (FILE_POSITION_ERROR);
     }
+    if ((devhost_configured () == TRUE) && ((memcfile == NULL) || (devhost_ok () == FALSE) || (memc_mailbox () == FALSE)))
+    {
+        fprintf (stderr, "[ERROR:DEVHOST] --v32dev-host needs a memory card (-M FILE) that can be a v32dev mailbox\n");
+        exit (1);
+    }
+    devhost_stdin (runflag);
     memc_power_on ();   // a live v32dev mailbox is synchronized before the first instruction
 
     ////////////////////////////////////////////////////////////////////////////////////

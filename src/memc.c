@@ -1,5 +1,6 @@
 #include "defines.h"
 #include "memc.h"
+#include "devhost.h"
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
@@ -100,6 +101,16 @@ static void  cw_set (uint32_t word, uint32_t value)
     }
 }
 
+uint32_t  memc_word (uint32_t word)
+{
+    return (cw (word));
+}
+
+void  memc_word_set (uint32_t word, uint32_t value)
+{
+    cw_set (word, value);
+}
+
 static uint32_t  le32 (const uint8_t *b)
 {
     return ((uint32_t) b[0] | ((uint32_t) b[1] << 8) | ((uint32_t) b[2] << 16) | ((uint32_t) b[3] << 24));
@@ -139,6 +150,78 @@ static void  bell_reset (void)
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// native_format(): --v32dev-host on a card that is not a mailbox yet. Does what
+// 'v32dev.py format' does, to the file and to the card in memory: zero the region, set
+// the channel types, write the header last. It refuses to destroy other data in the
+// region unless --v32dev-host-force is given. Returns TRUE if the card is a mailbox now
+//
+static uint8_t  native_format (void)
+{
+    uint32_t  types[DEV_CHANNELS];
+    uint32_t  hdr[6]   = { DEV_MAGIC, DEV_VERSION, DEV_REGION_WORDS, DEV_CHANNELS, DEV_PART_WORDS, DEV_CONTROL_WORDS };
+    uint8_t  *zero     = NULL;
+    uint8_t   word[4];
+    int32_t   i        = 0;
+    int       chan     = 0;
+    int       any      = 0;
+    off_t     base     = (off_t) (2 * wordsize);
+
+    if (header_valid () != 0)
+    {
+        return (TRUE);
+    }
+    if ((mc.fd < 0) || (mc.writable == FALSE))
+    {
+        fprintf (stderr, "[ERROR:DEVHOST] the card file must be writable to be formatted as a v32dev mailbox\n");
+        return (FALSE);
+    }
+    for (i = 0; i < DEV_REGION_WORDS; i = i + 1)
+    {
+        any  = any | (cw (DEV_REGION_START + i) != 0);
+    }
+    if ((any != 0) && (devhost_force == FALSE))
+    {
+        fprintf (stderr, "[ERROR:DEVHOST] the last 64 KiB of '%s' already contain data that is not a v32dev mailbox; "
+                         "formatting would destroy it (--v32dev-host-force does it anyway)\n", mc.path);
+        return (FALSE);
+    }
+    devhost_types (types);
+    zero  = (uint8_t *) calloc ((size_t) DEV_REGION_WORDS, 4);
+    if (zero == NULL)
+    {
+        return (FALSE);
+    }
+    if (pwrite (mc.fd, zero, (size_t) DEV_REGION_WORDS * 4, base + (off_t) DEV_REGION_START * 4) != (ssize_t) ((size_t) DEV_REGION_WORDS * 4))
+    {
+        free (zero);
+        fprintf (stderr, "[ERROR:DEVHOST] could not format '%s'\n", mc.path);
+        return (FALSE);
+    }
+    free (zero);
+    for (i = 0; i < DEV_REGION_WORDS; i = i + 1)
+    {
+        cw_set (DEV_REGION_START + i, 0);
+    }
+    for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)
+    {
+        word[0] = (uint8_t) types[chan]; word[1] = (uint8_t) (types[chan] >> 8);
+        word[2] = (uint8_t) (types[chan] >> 16); word[3] = (uint8_t) (types[chan] >> 24);
+        (void) pwrite (mc.fd, word, 4, base + (off_t) (DEV_HOST_START + chan * DEV_PART_WORDS + DEV_HP_TYPE) * 4);
+        cw_set (DEV_HOST_START + chan * DEV_PART_WORDS + DEV_HP_TYPE, types[chan]);
+    }
+    for (i = 0; i < 6; i = i + 1)                                        // header last
+    {
+        word[0] = (uint8_t) hdr[i]; word[1] = (uint8_t) (hdr[i] >> 8);
+        word[2] = (uint8_t) (hdr[i] >> 16); word[3] = (uint8_t) (hdr[i] >> 24);
+        (void) pwrite (mc.fd, word, 4, base + (off_t) (DEV_REGION_START + i) * 4);
+        cw_set (DEV_REGION_START + i, hdr[i]);
+    }
+    fprintf (verbose, "[MEMC] formatted '%s' as a v32dev mailbox\n", mc.path);
+    return (TRUE);
+}
+
 void  memc_attach (const char *path)
 {
     const char *env  = getenv ("V32DEV_DISABLE");
@@ -175,11 +258,27 @@ void  memc_attach (const char *path)
     mc.disabled  = ((env != NULL) && (0 != strcmp (env, "0")));
     mc.mailbox   = FALSE;
 
+    if ((devhost_configured () == TRUE) && (mc.disabled == FALSE))
+    {
+        if (native_format () == FALSE)
+        {
+            devhost_fail ();
+        }
+    }
+    else if (devhost_configured () == TRUE)
+    {
+        fprintf (stderr, "[WARNING:DEVHOST] V32DEV_DISABLE is set: the native host is not started\n");
+    }
+
     if ((mc.disabled == FALSE) && (mc.fd >= 0) && (header_valid () != 0))
     {
         mc.mailbox  = TRUE;
         cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, (memc_doorbell == TRUE) ? 3 : 1);
         cw_set (DEV_REGION_START + DEV_H_EMU_BEAT,  0);
+        if (devhost_ok () == TRUE)
+        {
+            devhost_start ();
+        }
         bell_reset ();
         fprintf (verbose, "[MEMC] v32dev mailbox active\n");
     }
@@ -193,6 +292,7 @@ void  memc_detach (void)
 {
     if (mc.attached == TRUE)
     {
+        devhost_stop ();
         memc_flush ();
     }
     if (mc.fd >= 0)
@@ -452,6 +552,38 @@ void  memc_save (void)
 // host-owned area from the file. A short or failed read is retried next frame. These
 // words are not program writes: they are not marked dirty and never saved back
 //
+//
+// native_work(): the native host does its work on card memory; one channel (a doorbell
+// ring) or all of them (-1, at a frame boundary). A message it made visible counts for
+// the doorbell counter like one a file host made visible
+//
+static void  native_work (int chan)
+{
+    uint32_t  before[DEV_CHANNELS];
+    int       k  = 0;
+
+    if (devhost_configured () == FALSE)
+    {
+        return;
+    }
+    for (k = 0; k < DEV_CHANNELS; k = k + 1)
+    {
+        before[k]  = cw (DEV_HOST_START + k * DEV_PART_WORDS + DEV_HP_H2C_HEAD);
+    }
+    if (chan < 0)  devhost_frame ();
+    else           devhost_poll (chan);
+    if (memc_doorbell == TRUE)
+    {
+        for (k = 0; k < DEV_CHANNELS; k = k + 1)
+        {
+            if (cw (DEV_HOST_START + k * DEV_PART_WORDS + DEV_HP_H2C_HEAD) != before[k])
+            {
+                cw_set (DEV_REGION_START + DEV_H_BELL + k, cw (DEV_REGION_START + DEV_H_BELL + k) + 1);
+            }
+        }
+    }
+}
+
 static void  sync_host (void)
 {
     data_t   *c      = card ();
@@ -472,31 +604,36 @@ static void  sync_host (void)
     cw_set (DEV_REGION_START + DEV_H_EMU_BEAT,  mc.beat);
 
     n  = pread (mc.fd, iobuf, bytes, (off_t) (2 * wordsize) + (off_t) DEV_HOST_START * 4);
-    if (n != (ssize_t) bytes)
+    if (n == (ssize_t) bytes)
     {
-        return;
-    }
-    if (memc_doorbell == TRUE)
-    {
-        for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)                  // the host's head moved: one more message for the cart
+        if (memc_doorbell == TRUE)
         {
-            if (le32 (iobuf + 4 * (chan * DEV_PART_WORDS + DEV_HP_H2C_HEAD)) != cw (DEV_HOST_START + chan * DEV_PART_WORDS + DEV_HP_H2C_HEAD))
+            for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)              // the host's head moved: one more message for the cart
             {
-                cw_set (DEV_REGION_START + DEV_H_BELL + chan, cw (DEV_REGION_START + DEV_H_BELL + chan) + 1);
+                if ((devhost_serves (chan) == FALSE) &&
+                    (le32 (iobuf + 4 * (chan * DEV_PART_WORDS + DEV_HP_H2C_HEAD)) != cw (DEV_HOST_START + chan * DEV_PART_WORDS + DEV_HP_H2C_HEAD)))
+                {
+                    cw_set (DEV_REGION_START + DEV_H_BELL + chan, cw (DEV_REGION_START + DEV_H_BELL + chan) + 1);
+                }
             }
         }
-    }
-    for (i = 0; i < DEV_HOST_WORDS; i = i + 1)
-    {
-        w  = le32 (iobuf + 4*i);
-        if ((c + DEV_HOST_START + i) -> value.raw != w)
+        for (i = 0; i < DEV_HOST_WORDS; i = i + 1)
         {
-            (c + DEV_HOST_START + i) -> value.raw  = w;
-            diff                                   = 1;
+            if (devhost_serves (i / DEV_PART_WORDS) == TRUE)                  // served in here: the file's copy is not the host
+            {
+                continue;
+            }
+            w  = le32 (iobuf + 4*i);
+            if ((c + DEV_HOST_START + i) -> value.raw != w)
+            {
+                (c + DEV_HOST_START + i) -> value.raw  = w;
+                diff                                   = 1;
+            }
         }
+        mc.syncs    = mc.syncs + 1;
+        mc.changes  = mc.changes + (uint32_t) diff;
     }
-    mc.syncs    = mc.syncs + 1;
-    mc.changes  = mc.changes + (uint32_t) diff;
+    native_work (-1);
 
     for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)
     {
@@ -555,6 +692,14 @@ void  memc_bell (uint32_t word)
     }
     bell_last[chan]  = cw (word);
     bell_rings       = bell_rings + 1;
+
+    if (devhost_serves (chan) == TRUE)             // an in-process host answers at once: no file, no wall clock
+    {
+        bell_waited  = bell_waited + 1;
+        bell_early   = bell_early + 1;
+        native_work (chan);
+        return;
+    }
 
     memc_flush ();                                 // data first, then the commit words
 
@@ -650,6 +795,7 @@ void  memc_region_put (const uint32_t *in)
     {
         bell_last[i]  = cw (DEV_CART_START + i * DEV_PART_WORDS + DEV_CP_C2H_HEAD);       // a restored state is not a ring
     }
+    devhost_resync ();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -822,6 +968,12 @@ void  memc_show (int channel)
         fprintf (stdout, "      program->host  head %u tail %u: ", c2h_h, c2h_t);
         if (n2 == 0xFFFFFFFF)  fprintf (stdout, "CORRUPT INDEX\n");
         else                   fprintf (stdout, "%u words waiting\n", n2);
+        {
+            char  nat[400];
+
+            devhost_describe (chan, nat, sizeof (nat));
+            if (nat[0] != 0)  fprintf (stdout, "      %s\n", nat);
+        }
         fprintf (stdout, "      host descriptor:");
         for (k = 0; k < 8; k = k + 1)
         {

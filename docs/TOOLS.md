@@ -34,6 +34,7 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 | profile an OS: kernel plus programs swapped into a window | `tools/oracle` `sysprof` |
 | screenshot at chosen frames | `screenshot FILE` (PNG) in a session; `--screenshot-at=FRAMES` (PNG, with `screengrid` / `highlight` extras) from a run; `v32shot` (PPM, the stock core's quads) on the oracle |
 | trace the traps of a translated cartridge | `--v32trace=PREFIX` (`docs/V32TRACE-SPEC.md`, 2.1); replay a hit with `--input` and its `input=`, a session with `--input=@PREFIX.trace.txt` |
+| serve a v32dev disk / serial port from inside v32sim (no host process) | `--v32dev-host=1=storage:disk.img` (README), `tests/native_host_test.py` |
 | test v32dev / a host disk against the real `v32dev.py serve` | `tests/run_tests.sh`, `tests/v32sim_runner.sh` (a `dev_rom_runner` look-alike) |
 | build v32sim without flex/bison | `tools/build-nogen.sh` |
 | build the oracle tools | `tools/oracle/build.sh COMPUTERSOFTWARE [OUT]` |

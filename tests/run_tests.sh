@@ -39,6 +39,11 @@ out=$(python3 -I "$IOD/tests/v32dev/dev_rom_test.py" "$HERE/v32sim_runner.sh" "$
 echo "$out" | tail -1
 echo "$out" | grep -q " 0 failures" && ok || { bad "v32dev suite"; echo "$out" | grep FAIL; }
 
+echo "== native v32dev host (--v32dev-host)"
+out=$(python3 -I "$HERE/native_host_test.py" "$SIM" "$BIOS" "$W/roms/carts" "$W/native" "$IOD" 2>&1)
+echo "$out" | tail -1
+echo "$out" | grep -q " 0 failures" && ok || { bad "native host suite"; echo "$out" | grep FAIL; }
+
 # events NAME FRAMES INPUT_ARGS... : run t_kbd, stop after FRAMES frames, print the events
 # read by the program as "code[+|-][T]" (+ press, - release, T typed character)
 events() {

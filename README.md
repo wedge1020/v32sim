@@ -595,6 +595,27 @@ keep the option off in differential tests (off, the header, the flags word and t
 "--v32dev-doorbell", needs `V32IO=` the v32io project for `v32dev.py format`). v32nix's P-E1 (timer interrupt) is not built: v32nix
 declined it (D30/D37 preemption works without; recorded in `docs/PROPOSALS-STATUS.md`).
 
+**`--v32dev-host=N=SPEC`** (repeatable; opt-in; VS-19): a **native v32dev host inside the simulator**, for storage and serial devices, with the
+behaviour of `tools/v32dev.py` of the v32io project (the reference; the Python host and the DesktopEmulator patch stay in v32io, this is the
+third implementation). It works on the card's memory directly: no card-file round trip, no second process, no wall clock. Channel N (0..3) is served
+from the first frame; the card (`-M FILE`) must be a writable v32dev card, or one whose last 64 KiB are all zero (it is then formatted, as
+`v32dev.py format` does, header written last); other data there makes it refuse unless `--v32dev-host-force` is given. `V32DEV_DISABLE` with a
+native host is an error. SPEC, same syntax as `v32dev.py serve`:
+
+  * `storage:FILE[,bytes][,ro][,sector=N][,create=SECTORS]` a file as a block device (word mode: 4 bytes per word, 128-word sectors; `bytes`: one byte
+    per word, 512-word sectors; ops READ/WRITE/FLUSH, status OK/EINVAL/ERANGE/EROFS/EIO, descriptor `[sector_words, sectors, flags, max_sectors]`)
+  * `serial:stdio` program output to standard output (low 8 bits); input from standard input when running unprompted (`-r`; end of input = hangup)
+  * `serial:echo[,hup=N]` what the program writes comes back; hang up after N words
+  * v32sim extensions for serial: `in=FILE` (fed at start and at every reopen of the channel), `out=FILE` (program output, low 8 bits), `hangup` (hang up when
+    the `in=` data has been delivered); they combine with the others
+
+The host runs at every frame boundary (heartbeat once per frame, then every channel until no work is left). With `--v32dev-doorbell` a ring is
+answered **at once** (T = 0, no flush, no wait, no wall clock), so a run with a native host is repeatable (the tests compare two cards byte for
+byte). The session number is a counter, not the time. `mailbox [N]` shows the native host's counters per channel. A savestate load re-synchronises
+the host with the restored mailbox (a half-received message is dropped; the disk file is not part of a savestate). Test: `tests/native_host_test.py`
+(run by `tests/run_tests.sh`) runs the v32io real cartridges (`storage_test`, `serial_test`) against it and against `v32dev.py serve`: same report,
+same image.
+
 ## The v32io Mouse
 
 The mouse, `v32mouse`, is two counters of 12 positions (X on Left/Right/X/Y, Y on Up/Down/L/R: a trit and a Gray-coded pair, so one

@@ -4,6 +4,11 @@ Status as of version `20261106-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261106 (central maintenance), VS-19**: native v32dev host (`--v32dev-host=N=SPEC`, `src/devhost.c`): storage and serial, a port of `v32dev.py`
+    (Channel / StorageDevice / SerialDevice) working on card memory; opt-in, T = 0 doorbell answers, repeatable. `tests/native_host_test.py` (71 checks, in
+    `tests/run_tests.sh`): the v32io real cartridges give the same report and image as against `v32dev.py serve`. Open: pipe/socket classes, a
+    `dev` command to attach/swap devices at run time, a built-in `format`/`info`, savestates do not keep device state (disk files are outside them).
+
   * **20261106 (central maintenance), VS-17**: v32nix answered SN-2: P-E1 (timer interrupt) not wanted, only P-E2. `--v32dev-doorbell[=MS]` in
     `memc.c` (interface exactly as v32nix specified: header word 8 bit 1, per-channel counters at header words 10..13, a `c2h_head` store is the
     doorbell, flush + up to MS ms (2) wall-clock wait for a live host + re-import of that channel, no cycles charged, off = bit-identical).

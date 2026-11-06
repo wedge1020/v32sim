@@ -88,7 +88,8 @@ compare. From GBtoV32's Homebrew Hub harness, without the Game Boy parts.
 `tests/v32sim_runner.sh` makes v32sim a drop-in for the v32io project's `dev_rom_runner`, so its `dev_rom_test.py` (41 checks:
 storage, serial, host crash and recovery) runs against v32sim unchanged. For tests that must act on the host between two
 commands (stop `v32dev.py serve`, serve another image, start again), see V32DOS `tests/dev.py`: v32sim at 2.5 ms per frame
-as the emulator, `v32dev.py serve` as a separate process on the card *file*.
+as the emulator, `v32dev.py serve` as a separate process on the card *file*. The same cartridges run against the in-process host with
+`tests/native_host_test.py` (no second process; compares the report and image with the Python host).
 
 ## 6. Differential tests (is v32sim right?)
 

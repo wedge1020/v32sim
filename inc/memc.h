@@ -93,6 +93,8 @@ uint8_t   memc_attached      (void);
 uint8_t   memc_mailbox       (void);           // is the mailbox live?
 void      memc_region_get    (uint32_t *);     // copy the mailbox region out
 void      memc_region_put    (const uint32_t *);
+uint32_t  memc_word         (uint32_t);       // card word (for the native host)
+void      memc_word_set     (uint32_t, uint32_t);
 void      memc_show          (int);            // 'mailbox' command: -1 = overview
 
 #endif

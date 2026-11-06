@@ -1,4 +1,5 @@
 #include "defines.h"
+#include "devhost.h"
 
 void  process_args (int32_t  argc, int8_t **argv)
 {
@@ -80,6 +81,8 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "screengrid",     optional_argument, 0, 202 },
        { "noextra",        no_argument,       0, 203 },
        { "v32dev-doorbell",optional_argument, 0, 215 },
+       { "v32dev-host",    required_argument, 0, 216 },
+       { "v32dev-host-force", no_argument,    0, 217 },
        { "screenshot-at",  required_argument, 0, 204 },
        { "screenshot-file",required_argument, 0, 205 },
        { "exit-status",    no_argument,       0, 'x' },
@@ -306,6 +309,11 @@ void  process_args (int32_t  argc, int8_t **argv)
                 memc_doorbell = TRUE;
                 if (optarg != NULL)  memc_doorbell_ms = (uint32_t) strtoul (optarg, NULL, 0);
                 break;
+
+            case 216: // v32dev-host=N=SPEC
+                if (devhost_add (optarg) != 0)  exit (1);
+                break;
+            case 217: devhost_force = TRUE;  break;
 
             case 214: frame_log_out = optarg;  break;
             case 210: gpu_trace_out = optarg;  break;
