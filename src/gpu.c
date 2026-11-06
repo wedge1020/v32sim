@@ -60,7 +60,8 @@ static int       grid_on      = FALSE;
 static int       grid_dx      = 40;                      // 640/40 = 16 columns, 360/40 = 9 rows: square cells
 static int       grid_dy      = 40;
 static uint32_t  grid_rgb     = 0x00FF00;
-static int       grid_alpha   = 40;                      // percent
+static int       grid_alpha   = 55;                      // percent
+static int       grid_labels  = TRUE;                    // pixel coordinates on the lines
 static int       noextra      = FALSE;
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -1209,7 +1210,7 @@ void  gpu_highlight_show (FILE *out)
     }
 }
 
-int  gpu_grid_set (int on, int dx, int dy, int32_t rgb, int alpha)
+int  gpu_grid_set (int on, int dx, int dy, int32_t rgb, int alpha, int labels)
 {
     if ((dx < 0) || (dy < 0) || (dx > GPU_SCREEN_W) || (dy > GPU_SCREEN_H) || (alpha > 100))
     {
@@ -1220,6 +1221,7 @@ int  gpu_grid_set (int on, int dx, int dy, int32_t rgb, int alpha)
     if (dy > 0)    grid_dy     = dy;
     if (rgb >= 0)  grid_rgb    = (uint32_t) rgb;
     if (alpha >= 0) grid_alpha = alpha;
+    if (labels >= 0) grid_labels = (labels != 0) ? TRUE : FALSE;
     return (0);
 }
 
@@ -1230,8 +1232,8 @@ void  gpu_noextra (int on)
 
 void  gpu_grid_show (FILE *out)
 {
-    fprintf (out, "screengrid: %s, every %d x %d pixels (%d columns, %d rows), #%06X at %d%%\n", (grid_on == TRUE) ? "on" : "off",
-             grid_dx, grid_dy, GPU_SCREEN_W / grid_dx, GPU_SCREEN_H / grid_dy, grid_rgb, grid_alpha);
+    fprintf (out, "screengrid: %s, every %d x %d pixels (%d columns, %d rows), #%06X at %d%%, labels %s\n", (grid_on == TRUE) ? "on" : "off",
+             grid_dx, grid_dy, GPU_SCREEN_W / grid_dx, GPU_SCREEN_H / grid_dy, grid_rgb, grid_alpha, (grid_labels == TRUE) ? "on" : "off");
     fprintf (out, "noextra: %s\n", (noextra == TRUE) ? "on (screenshots are plain)" : "off");
 }
 
@@ -1243,6 +1245,68 @@ static void  grid_mix (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3], int x, int y
     for (k = 0; k < 3; k = k + 1)
     {
         shot[y][x][k]  = (uint8_t) ((shot[y][x][k] * (100 - grid_alpha) + c[k] * grid_alpha + 50) / 100);
+    }
+}
+
+//
+// pixel coordinates on the lines: 3 x 5 digits at double size, on a darkened patch, in the
+// grid color at full strength. Along the top for the vertical lines, down the left for the
+// horizontal ones; lines close together share labels (every 2nd, 3rd...)
+//
+static const uint16_t  digit_rows[10][5]  =
+{
+    { 7, 5, 5, 5, 7 }, { 2, 6, 2, 2, 7 }, { 7, 1, 7, 4, 7 }, { 7, 1, 7, 1, 7 }, { 5, 5, 7, 1, 1 },
+    { 7, 4, 7, 1, 7 }, { 7, 4, 7, 5, 7 }, { 7, 1, 1, 1, 7 }, { 7, 5, 7, 5, 7 }, { 7, 5, 7, 1, 7 }
+};
+
+static void  grid_label (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3], int x, int y, int value)
+{
+    char  text[8];
+    int   n    = snprintf (text, sizeof (text), "%d", value);
+    int   w    = n * 8 + 1;
+    int   i    = 0;
+    int   px   = 0;
+    int   py   = 0;
+    int   r    = 0;
+    int   c    = 0;
+    int   k    = 0;
+
+    for (py = -1; py < 11; py = py + 1)                      // the patch, a pixel wider than the digits
+    {
+        for (px = -1; px < w; px = px + 1)
+        {
+            if ((x + px >= 0) && (x + px < GPU_SCREEN_W) && (y + py >= 0) && (y + py < GPU_SCREEN_H))
+            {
+                for (k = 0; k < 3; k = k + 1)  shot[y + py][x + px][k]  = (uint8_t) (shot[y + py][x + px][k] / 3);
+            }
+        }
+    }
+    for (i = 0; i < n; i = i + 1)
+    {
+        for (r = 0; r < 5; r = r + 1)
+        {
+            for (c = 0; c < 3; c = c + 1)
+            {
+                if ((digit_rows[text[i] - '0'][r] >> (2 - c)) & 1)
+                {
+                    for (py = 0; py < 2; py = py + 1)
+                    {
+                        for (px = 0; px < 2; px = px + 1)
+                        {
+                            int  xx  = x + i * 8 + c * 2 + px;
+                            int  yy  = y + r * 2 + py;
+
+                            if ((xx >= 0) && (xx < GPU_SCREEN_W) && (yy >= 0) && (yy < GPU_SCREEN_H))
+                            {
+                                shot[yy][xx][0]  = (uint8_t) (grid_rgb >> 16);
+                                shot[yy][xx][1]  = (uint8_t) (grid_rgb >> 8);
+                                shot[yy][xx][2]  = (uint8_t) grid_rgb;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1267,6 +1331,21 @@ static void  grid_paint (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3])
         for (x = 0; x < GPU_SCREEN_W; x = x + 1)
         {
             if ((x % grid_dx) != 0)  grid_mix (shot, x, y);      // a crossing is mixed once
+        }
+    }
+    if (grid_labels == TRUE)
+    {
+        int  sx  = (36 + grid_dx - 1) / grid_dx;             // a label is up to 4 digits (33 pixels) wide, 11 high
+        int  sy  = (12 + grid_dy - 1) / grid_dy;
+        int  k   = 0;
+
+        for (k = 1; (k * grid_dx) < GPU_SCREEN_W; k = k + 1)
+        {
+            if ((k % sx) == 0)  grid_label (shot, k * grid_dx + 2, 2, k * grid_dx);
+        }
+        for (k = 1; (k * grid_dy) < GPU_SCREEN_H; k = k + 1)
+        {
+            if ((k % sy) == 0)  grid_label (shot, 2, k * grid_dy + 2, k * grid_dy);
         }
     }
 }

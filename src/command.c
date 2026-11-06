@@ -1716,6 +1716,7 @@ static void  exec_screengrid (cmd_t *c)
     int       dx    = 0;
     int       dy    = 0;
     int       alpha = -1;
+    int       labels = -1;
     int       nums  = 0;
     int32_t   rgb   = -1;
     uint32_t  v     = 0;
@@ -1732,6 +1733,10 @@ static void  exec_screengrid (cmd_t *c)
     {
         if      (0 == strcasecmp (tok[i], "on"))   on = 1;
         else if (0 == strcasecmp (tok[i], "off"))  on = 0;
+        else if ((0 == strcasecmp (tok[i], "labels")) && (i + 1 < n))
+        {
+            labels  = (0 == strcasecmp (tok[++i], "on")) ? 1 : 0;
+        }
         else if ((0 == strcasecmp (tok[i], "color")) && (i + 1 < n))
         {
             if (parse_rgb (tok[++i], &v) != 0)  { fprintf (stderr, "[ERROR] screengrid: bad color '%s'\n", tok[i]);  return; }
@@ -1754,10 +1759,68 @@ static void  exec_screengrid (cmd_t *c)
             return;
         }
     }
-    if (gpu_grid_set (on, dx, dy, rgb, alpha) != 0)
+    if (gpu_grid_set (on, dx, dy, rgb, alpha, labels) != 0)
     {
         fprintf (stderr, "[ERROR] screengrid: spacing must be 1-640 x 1-360 and alpha 0-100\n");
     }
+}
+
+//
+// the same settings from the command line (args.c): --highlight=TEX:REGION[:COLOR][,...] and --screengrid[=SPEC],
+// SPEC = DX[xDY] | color=C | alpha=N | labels | nolabels | off, separated by commas. 0 = ok
+//
+int  cli_highlight (const char *list)
+{
+    char  *copy  = strdup (list);
+    char  *p     = NULL;
+    int    rc    = 0;
+
+    for (p = strtok (copy, ","); (p != NULL) && (rc == 0); p = strtok (NULL, ","))
+    {
+        char      *colon  = strchr (p, ':');
+        char      *second = (colon != NULL) ? strchr (colon + 1, ':') : NULL;
+        int32_t    tex    = 0;
+        int32_t    reg    = 0;
+        uint32_t   rgb    = 0xFF0000;
+
+        if (second != NULL)
+        {
+            *second  = '\0';
+            if (parse_rgb (second + 1, &rgb) != 0)  rc = -1;
+        }
+        if ((rc == 0) && ((parse_region (p, &tex, &reg) != 0) || (gpu_highlight_add (tex, reg, rgb) != 0)))  rc = -1;
+        if (rc != 0)  fprintf (stderr, "[ERROR] --highlight: '%s' is not TEXTURE:REGION[:COLOR]\n", p);
+    }
+    free (copy);
+    return (rc);
+}
+
+int  cli_screengrid (const char *spec)
+{
+    char      *copy   = (spec != NULL) ? strdup (spec) : strdup ("");
+    char      *p      = NULL;
+    int        rc     = 0;
+    int        dx     = 0;
+    int        dy     = 0;
+    int        alpha  = -1;
+    int        labels = -1;
+    int32_t    rgb    = -1;
+    uint32_t   v      = 0;
+
+    for (p = strtok (copy, ","); (p != NULL) && (rc == 0); p = strtok (NULL, ","))
+    {
+        char  *x  = strchr (p, 'x');
+
+        if      (0 == strncasecmp (p, "color=", 6))    { if (parse_rgb (p + 6, &v) == 0)  rgb = (int32_t) v;  else  rc = -1; }
+        else if (0 == strncasecmp (p, "alpha=", 6))    alpha   = atoi (p + 6);
+        else if (0 == strcasecmp (p, "labels"))        labels  = 1;
+        else if (0 == strcasecmp (p, "nolabels"))      labels  = 0;
+        else if (atoi (p) > 0)                         { dx = atoi (p);  dy = (x != NULL) ? atoi (x + 1) : dx;  if (dy < 1)  rc = -1; }
+        else                                           rc = -1;
+        if (rc != 0)  fprintf (stderr, "[ERROR] --screengrid: '%s' is not DX[xDY], color=C, alpha=N, labels or nolabels\n", p);
+    }
+    free (copy);
+    return (rc != 0) ? rc : gpu_grid_set (1, dx, dy, rgb, alpha, labels);
 }
 
 //

@@ -133,6 +133,7 @@ void update_frame(void) {
     //
     // update all the ports that require per-frame changes
     //
+    shots_frame ();                      // --screenshot-at: the screen as this frame left it
     gpu_new_frame ();
     spu_new_frame ();
     update_ioports();

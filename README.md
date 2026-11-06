@@ -202,6 +202,12 @@ Mandatory arguments to long options are mandatory for short options too.
  --v32kbd[=PORT]           emulate a v32kbd keyboard on gamepad PORT (default 0)
  --kbd-input=SOURCE        host key source: stdin, fd:N, FIFO/pipe/file (implies --v32kbd)
  --v32mouse[=PORT]         emulate a v32mouse on gamepad PORT (default 1); drive it with `mouse`
+ --screenshot-at=FRAMES    write the screen after these cartridge frames: N, A-B, A-B/STEP, comma separated (frame 0 = the
+                           cartridge's first frame, as for --input); with --screenshot-file=PATTERN (%d = the frame,
+                           default v32sim-shot-%05d.png)
+ --screengrid[=SPEC]       grid over screenshots; SPEC = DX[xDY], color=C, alpha=N, labels, nolabels (comma separated)
+ --highlight=T:R[:COLOR]   outline texture T region R (bios:R) in screenshots; comma separated list
+ --noextra                 no grid and no outlines in screenshots
  --fast                    do not throttle to real time
  --frame-us=N              wall-clock microseconds per frame (default 16666)
  --max-frames=N            stop after N frames
@@ -394,9 +400,10 @@ forgets earlier ones), and a draw the GPU dropped for lack of pixels has none. `
 forgets, `highlight off|on` hides and shows them. Only draws made after the command are outlined: let a frame run before the screenshot.
 
 `screengrid [on|off] [DX [DY]] [color C] [alpha PERCENT]` mixes a light grid into the screenshots, to judge where things were drawn: green at
-40 % every 40 x 40 pixels by default (16 x 9 square cells; 8, 10, 20 and 40 divide both 640 and 360 evenly; `screengrid 32 30` gives 20 x 12
+55 % every 40 x 40 pixels by default (16 x 9 square cells; 8, 10, 20 and 40 divide both 640 and 360 evenly; `screengrid 32 30` gives 20 x 12
 cells). Outlines from `highlight` are drawn over it. `noextra [on|off]` leaves the grid and the outlines out of every screenshot while
-keeping their settings, and `screenshot --plain [FILE]` does that for one. None of this touches the screen the program sees.
+keeping their settings, and `screenshot --plain [FILE]` does that for one. The grid has the pixel coordinates on its lines (`screengrid labels off`
+turns them off); lines closer together than a label share them. None of this touches the screen the program sees.
 
 ### Save and Restore
 

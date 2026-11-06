@@ -64,6 +64,11 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "frame-stats-skip", required_argument, 0, 45 },
        { "input",          required_argument, 0, 46  },
        { "input-port",     required_argument, 0, 47  },
+       { "highlight",      required_argument, 0, 201 },
+       { "screengrid",     optional_argument, 0, 202 },
+       { "noextra",        no_argument,       0, 203 },
+       { "screenshot-at",  required_argument, 0, 204 },
+       { "screenshot-file",required_argument, 0, 205 },
        { "exit-status",    no_argument,       0, 'x' },
        { "help",           no_argument,       0, 'h' },
        { 0,                0,                 0,  0  }
@@ -281,6 +286,30 @@ void  process_args (int32_t  argc, int8_t **argv)
 
             case 46: // input
                 pad_input          = optarg;
+                break;
+
+            case 201: // highlight
+                if (cli_highlight (optarg) != 0)  exit (1);
+                break;
+
+            case 202: // screengrid[=SPEC]
+                if (cli_screengrid (optarg) != 0)  exit (1);
+                break;
+
+            case 203: // noextra
+                gpu_noextra (1);
+                break;
+
+            case 204: // screenshot-at
+                if (shots_set_frames (optarg) != 0)
+                {
+                    fprintf (stderr, "[ERROR] --screenshot-at: '%s' is not N, FIRST-LAST or FIRST-LAST/STEP, separated by commas\n", optarg);
+                    exit (1);
+                }
+                break;
+
+            case 205: // screenshot-file
+                shots_set_file (optarg);
                 break;
 
             case 47: // input-port

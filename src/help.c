@@ -54,6 +54,11 @@ void  usage (int8_t *program)
     fprintf (stdout, "                           --profile-out add up the addresses of each function (the closest label)\n");
     fprintf (stdout, "     --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... or @FILE (V32_INPUT\n");
     fprintf (stdout, "                           syntax, frame 0 = the cart's first; V32TRACE input=); --input-port=N (default 0)\n");
+    fprintf (stdout, "     --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma separated)\n");
+    fprintf (stdout, "     --screenshot-file=PAT   file name for those; %%d = the frame (default v32sim-shot-%%05d.png)\n");
+    fprintf (stdout, "     --screengrid[=SPEC]     grid over screenshots: DX[xDY],color=C,alpha=N,labels|nolabels (default 40x40)\n");
+    fprintf (stdout, "     --highlight=T:R[:COLOR] outline texture T region R (or bios:R) in screenshots; comma separated\n");
+    fprintf (stdout, "     --noextra             no grid and no outlines in screenshots\n");
     fprintf (stdout, "     --frame-stats=FILE    write one CSV row per frame (cycles, CPU %%, GPU pixels, GPU %%) and print a summary\n");
     fprintf (stdout, "                           (mean, p95, max, frames at 100%%) to stderr when the run ends\n");
     fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
@@ -458,7 +463,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    screengrid on | off\n");
             fprintf (stdout, "    screengrid DX [DY]             spacing in pixels (one number = both); turns it on\n");
             fprintf (stdout, "    screengrid color COLOR         a name (see 'help highlight') or RRGGBB; green by default\n");
-            fprintf (stdout, "    screengrid alpha PERCENT       0-100, 40 by default\n\n");
+            fprintf (stdout, "    screengrid alpha PERCENT       0-100, 55 by default\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    'screenshot' mixes a light grid into the PNG, to judge where things were drawn.\n");
             fprintf (stdout, "    The default is 40 x 40 pixels: 16 columns and 9 rows of square cells, the\n");

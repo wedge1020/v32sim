@@ -254,5 +254,18 @@ cmp -s "$W/plain.png" "$W/gridoff.png" && ok "noextra gives the plain screenshot
 printf "screengrid on\nrun 300\nscreenshot --plain $W/plain2.png\nquit\n" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/hlk/hello_text.v32" >/dev/null 2>&1
 cmp -s "$W/plain.png" "$W/plain2.png" && ok "screenshot --plain leaves the grid out" || bad "screenshot --plain"
 
+rm -f "$W"/cli-*.png
+"$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --screenshot-at=3,5-9/2 --screenshot-file="$W/cli-%03d.png" --highlight=bios:104 "$W/hlk/hello_text.v32" >/dev/null 2>&1
+n=$(ls "$W"/cli-*.png 2>/dev/null | wc -l)
+[ "$n" = 4 ] && [ -f "$W/cli-003.png" ] && [ -f "$W/cli-009.png" ] && ok "--screenshot-at=3,5-9/2 writes cart frames 3 5 7 9" || bad "--screenshot-at wrote $n files"
+"$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --screenshot-at=5 --screenshot-file="$W/cli-g.png" --screengrid "$W/hlk/hello_text.v32" >/dev/null 2>&1
+"$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --screenshot-at=5 --screenshot-file="$W/cli-n.png" --screengrid=nolabels "$W/hlk/hello_text.v32" >/dev/null 2>&1
+"$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --screenshot-at=5 --screenshot-file="$W/cli-x.png" --screengrid --noextra "$W/hlk/hello_text.v32" >/dev/null 2>&1
+cmp -s "$W/cli-005.png" "$W/cli-g.png" && bad "--screengrid: no grid" || ok "--screengrid puts the grid (with coordinates) on a --screenshot-at shot"
+cmp -s "$W/cli-g.png" "$W/cli-n.png" && bad "--screengrid=nolabels: same as labels" || ok "--screengrid=nolabels leaves the coordinates out"
+"$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --screenshot-at=5 --screenshot-file="$W/cli-p.png" "$W/hlk/hello_text.v32" >/dev/null 2>&1
+cmp -s "$W/cli-x.png" "$W/cli-p.png" && ok "--noextra drops grid and outlines" || bad "--noextra"
+"$SIM" --batch --screenshot-at=x -B "$V32BIOS" "$W/hlk/hello_text.v32" </dev/null >/dev/null 2>&1; [ $? = 1 ] && ok "a bad --screenshot-at is refused (exit 1)" || bad "bad --screenshot-at accepted"
+
 echo "== $pass passed, $fail failed, $skip skipped"
 [ $fail -eq 0 ]
