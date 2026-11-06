@@ -202,6 +202,14 @@ if [ $HAVE_ORACLE = 1 ] && [ -x "$ORACLE/v32orun" ]; then
     r=$("$ORACLE/vrun" "$W/ex/hello_text.vbin" -f 3 -d 1 | tail -1); [ "$r" = "STATUS timeout" ] || [ "$r" = "STATUS halted" ] && ok "vrun wrapper: a .vbin as BIOS" || bad "vrun: $r"
     r=$("$ORACLE/v32run" "$V32BIOS" "$W/ex/hello_text.v32" - 0 400 2>/dev/null | tail -1); case "$r" in "frames="*" halted="*" ram[0]="*) ok "v32run wrapper: BIOS + cart, one RAM word";; *) bad "v32run: $r";; esac
     r=$("$ORACLE/refrun" "$V32BIOS" "$W/ex/hello_text.v32" 400 --dump 1@0 | head -1); [ -n "$r" ] && ok "refrun wrapper: RAM words" || bad "refrun"
+    [ -x "$ORACLE/v32peek" ] && [ -x "$ORACLE/v32prof" ] && ok "v32prof and v32peek are wrappers over v32orun" || bad "v32prof/v32peek wrappers missing"
+    printf '0 connect 1 1\n5 segment run\n20 end\n' > "$W/pp.script"
+    r=$("$ORACLE/v32peek" "$V32BIOS" "$W/ex/hello_text.v32" "$W/pp.script" 20 0 2 2>&1 | head -1); case "$r" in "frames=21 "*) ok "v32peek wrapper: CPU state after 21 frames";; *) bad "v32peek: $r";; esac
+    if [ $HAVE_STOCK = 1 ]; then
+        sh "$T/v32mkcart.sh" --stock -o "$W/pst" "$EX/load_pattern.c" >/dev/null 2>&1 || exit 2
+        r=$("$ORACLE/v32prof" "$V32BIOS" "$W/pst/load_pattern.v32" "$W/pst/load_pattern.vbin.debug" "$W/pp.script" 2>&1 | sed -n 1p)
+        [ "$r" = "frames run: 20" ] && ok "v32prof wrapper: segments and per-function cycles" || bad "v32prof: $r"
+    fi
 else skipt "v32orun" "no ORACLE with v32orun"; fi
 
 echo "== v32mouse (v32io mouse on a gamepad port)"

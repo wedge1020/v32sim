@@ -40,7 +40,7 @@ tools/               scripts for people who test other projects with v32sim (doc
   vprof2cmd.py         v32prof/v32peek input scripts -> v32sim commands
   v32io-script.py      keyboard/mouse actions -> input script (from v32cxx)
   build-nogen.sh       build v32sim with cc + readline only, using gen/ (from v32nix / V32DOS)
-  oracle/              C++ tools on the stock ConsoleLogic: v32orun (the one runner; refrun v32run vrun are wrappers) v32prof v32shot v32peek sysprof (+ build.sh)
+  oracle/              C++ tools on the stock ConsoleLogic: v32orun (the one runner; refrun v32run vrun v32prof v32peek are wrappers) v32shot sysprof (+ build.sh)
 tests/               the suites; run_harness_tests.sh covers tools/ (examples/ holds its cartridges)
 docs/                TOOLS TESTING PROFILING AGENTS-SNIPPET CONSOLIDATION V32DBG-STATUS PROPOSALS-STATUS, the specs
                      (V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS), repro/ (cases for other projects), agents/ (one card per tool),

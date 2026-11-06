@@ -128,7 +128,7 @@ software — and to automate cart testing.
 ├── bios/                 BIOS data files
 ├── gen/                  flex/bison output, checked in (`make gen`), for builds without flex/bison
 ├── tools/                scripts and oracle tools for testing other projects (docs/TOOLS.md)
-│   └── oracle/           C++ tools on the stock ConsoleLogic: v32orun (refrun v32run vrun wrap it) v32prof v32shot v32peek sysprof
+│   └── oracle/           C++ tools on the stock ConsoleLogic: v32orun (refrun v32run vrun v32prof v32peek wrap it) v32shot sysprof
 ├── AGENTS.md CLAUDE.md   notes for agents (CLAUDE.md imports AGENTS.md)
 ├── cart/                 cartridge data files
 └── screenshots/          reference screenshots

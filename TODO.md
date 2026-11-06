@@ -4,6 +4,10 @@ Status as of version `20261106-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261106 (central maintenance), VS-12 leftover, part 1**: `v32prof` and `v32peek` are `v32orun --compat=prof|peek` (scripted input,
+    segments, per-function cycles, RAM dump; output byte-identical to the old programs on the stock-chain example: report, CSV and RAM dump);
+    `v32prof.cpp`/`v32peek.cpp` deleted, `build.sh` writes the two wrappers. `make clean` removes any `../v32sim-project-YYYYMMDD.zip`.
+
   * **20261106 (central maintenance), VS-11 v32mouse**: `src/v32mouse.c`, `--v32mouse[=PORT]`, the `mouse` command (`attach detach move
     click|down|up wait clear`, status); counters and Gray/trit encoding as the v32io protocol, <=5 steps per axis per frame, a 4096-action
     queue delivered one per frame; savestate restore resyncs. Tests: `tests/vectors/mouse_{move,buttons}.vec` through
@@ -87,7 +91,7 @@ Status as of version `20261106-dev`.
 
 
   * **VS-9 beyond `--frame-stats`** - GPU/SPU counters, texture/region switches, `--profile-event`, `expect stats`, traces + replay.
-  * **Fold `v32prof`/`v32shot`/`v32peek` into `v32orun`** (frame-stamped input script, `--peek`, `--shot`); `sysprof` and `v32trace-ref` too, eventually.
+  * **Fold `v32shot`, `sysprof` and `v32trace-ref` into `v32orun`** (`--shot` needs the software rasterizer; `sysprof` is v32nix-specific; `v32trace-ref` needs the patched checkout). `v32prof`/`v32peek` are done.
 
   * **Locals, what is left (V32DBG section 4)** - Lua table walking (`locals` shows `table: 0xADDR`), struct members (needs
     member names in `type=`), globals' `type=` (`loc=@ADDR` from v32cc), upvalues in closures (v32lua), `display NAME` that

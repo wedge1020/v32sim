@@ -168,7 +168,7 @@ archive: clean
 	@zip -r $(ARCHIVE) *
 
 clean:
-	@rm -vf .*.sw[op] *.save* *~ core errors *.patch *.zip ../v32sim-project.zip $(ARCHIVE)
+	@rm -vf .*.sw[op] *.save* *~ core errors *.patch *.zip ../v32sim-project.zip ../v32sim-project-[0-9]*.zip
 	@rm -vf $(DEPS) $(GENSRC) $(GENHDR) $(BINDIR)/$(TARGET)
 	@rm -rf $(OBJDIR)
 

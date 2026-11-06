@@ -55,7 +55,7 @@ nothing else: no SDL, OpenGL or OpenAL).
 | `sysprof BIOS CART KERNEL.map CART.asm FRAMES PROG.x:PROG.sym...` | v32nix | whole-system profile: BIOS, kernel and every user program resident in the swapped window, self and inclusive time |
 
 The input script of `v32prof`, `v32shot` and `v32peek` is frame-stamped (`320 press 1 left`, `end`); its format is in
-the header of `tools/oracle/v32prof.cpp`. `tools/vprof2cmd.py` turns the same script into v32sim commands.
+the header of `tools/oracle/orun.cpp` (`v32prof` and `v32peek` are `v32orun --compat=prof|peek`). `tools/vprof2cmd.py` turns the same script into v32sim commands.
 
 The other projects keep no runner of their own: v32cc's `make vrun` and v32lua's `runlua`, `trap`, `unittest.py` and the Windows
 `scripts/testing_harness` call `v32orun` (v32lua's `v32bench` is its `-b`). They find it through `$V32SIM_HOME/tools/oracle/bin`.

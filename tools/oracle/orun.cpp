@@ -30,8 +30,14 @@
 //    --date Y,D --time S   set the clock    --cfi=x86|arm --cfi-log --spu-state --no-memcard --fixed-time --trail=N
 //                                           (the environment variables V32_CFI, V32_CFI_LOG, V32_SPU_STATE,
 //                                           V32_NO_MEMCARD, V32_FIXED_TIME and V32_TRAIL do the same)
-//    --compat=refrun|v32run|vrun   the command line and output of the old runner of that name (the wrappers
-//                                  tools/oracle/bin/{refrun,v32run,vrun} are this)
+//    --compat=refrun|v32run|vrun|peek|prof   the command line and output of the old tool of that name (the wrappers
+//                                  tools/oracle/bin/{refrun,v32run,vrun,v32peek,v32prof} are this)
+//
+//  v32prof and v32peek (v32c++'s tools) are --compat=prof / --compat=peek, with their command lines and output:
+//    v32prof BIOS CART CART.vbin.debug SCRIPT [heavy%=85] [csv]    v32peek BIOS CART SCRIPT FRAME ADDRESS COUNT [...]
+//  SCRIPT, one command per line (# comments): "<frame> connect <port> <0|1>", "<frame> press|release|tap <port> <control>"
+//  (left right up down start a b x y l r), "<frame> segment <name>" and "<frame> end" (v32prof). tools/vprof2cmd.py turns
+//  the same script into v32sim commands.
 //
 //  Output: GPU/SPU lines "F<frame> GPU ..." / "F<frame> SPU ...", then
 //    STATUS <FRAMES_EXHAUSTED|HALT|TRAPPED|CYCLE_LIMIT|HWERROR ...> frames= cycles= ip= overruns= gpu_dropped=
@@ -53,6 +59,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <map>
@@ -336,10 +343,254 @@ static void parse_keys(const char* keys, PadScript& pad)
 }
 
 // ===================================================================================================================
+//  v32peek and v32prof (v32c++'s tools) as --compat=peek / --compat=prof: the scripted-input runs
+//  script: "<frame> connect|press|release|tap <port> <arg>", "<frame> segment <name>", "<frame> end"
+// ===================================================================================================================
+struct ScriptCmd { int frame; string op; int port; string arg; };
+
+static bool control_from_name(const string& n, GamepadControls& c)
+{
+    static const map<string, GamepadControls> names = {
+        {"left", GamepadControls::Left}, {"right", GamepadControls::Right}, {"up", GamepadControls::Up}, {"down", GamepadControls::Down},
+        {"start", GamepadControls::ButtonStart}, {"a", GamepadControls::ButtonA}, {"b", GamepadControls::ButtonB},
+        {"x", GamepadControls::ButtonX}, {"y", GamepadControls::ButtonY}, {"l", GamepadControls::ButtonL}, {"r", GamepadControls::ButtonR}};
+    auto it = names.find(n);
+    if (it == names.end()) return false;
+    c = it->second;
+    return true;
+}
+
+static vector<ScriptCmd> read_script(const char* path, bool sort_by_frame)
+{
+    vector<ScriptCmd> script;
+    ifstream in(path);
+    string line;
+    while (getline(in, line)) {
+        size_t h = line.find('#');
+        if (h != string::npos) line.erase(h);
+        istringstream ss(line);
+        ScriptCmd c{-1, "", 0, ""};
+        if (!(ss >> c.frame >> c.op)) continue;
+        if (c.op == "segment") ss >> c.arg;
+        else if (c.op != "end") ss >> c.port >> c.arg;
+        script.push_back(c);
+    }
+    if (sort_by_frame)
+        stable_sort(script.begin(), script.end(), [](const ScriptCmd& a, const ScriptCmd& b) { return a.frame < b.frame; });
+    return script;
+}
+
+// one scripted command on the console (segment and end are the caller's)
+static void apply_script_cmd(const ScriptCmd& c, vector<pair<int, GamepadControls>>& pending_release)
+{
+    GamepadControls ctl;
+    if (c.op == "connect") con.SetGamepadConnection(c.port, c.arg == "1");
+    else if (control_from_name(c.arg, ctl)) {
+        if (c.op == "press" || c.op == "tap") con.SetGamepadControl(c.port, ctl, true);
+        if (c.op == "release") con.SetGamepadControl(c.port, ctl, false);
+        if (c.op == "tap") pending_release.push_back({c.port, ctl});
+    }
+}
+
+// v32peek bios cart script frame address count [address count...]   (V32PEEK_CARD=file)
+static int compat_peek(int argc, char** argv)
+{
+    if (argc < 7 || (argc - 5) % 2 != 0) {
+        fprintf(stderr, "usage: v32peek bios.v32 cart.v32 script frame address count [address count...]\n");
+        return 2;
+    }
+    vector<ScriptCmd> script = read_script(argv[3], false);
+    int last_frame = atoi(argv[4]);
+    vector<pair<int, GamepadControls>> pending_release;
+    try {
+        con.LoadBios(argv[1]);
+        con.LoadCartridge(argv[2]);
+        if (getenv("V32PEEK_CARD")) {
+            const char* card = getenv("V32PEEK_CARD");
+            FILE* existing = fopen(card, "rb");
+            if (existing) fclose(existing); else con.CreateMemoryCard(card);
+            con.LoadMemoryCard(card);
+        }
+        con.SetPower(true);
+        size_t next = 0;
+        int frame = 0;
+        for (; frame <= last_frame && !con.IsCPUHalted(); frame++) {
+            for (auto& r : pending_release) con.SetGamepadControl(r.first, r.second, false);
+            pending_release.clear();
+            for (; next < script.size() && script[next].frame == frame; next++) {
+                if (script[next].op == "segment") continue;
+                apply_script_cmd(script[next], pending_release);
+            }
+            con.RunNextFrame();
+        }
+        if (con.HasMemoryCard()) con.SaveMemoryCard();
+        printf("frames=%d %s ip=0x%08X sp=%d bp=%d\n", frame, con.IsCPUHalted() ? "halted" : "running",
+               (unsigned)con.CPU.InstructionPointer.AsBinary, con.CPU.StackPointer.AsInteger, con.CPU.BasePointer.AsInteger);
+        for (int i = 5; i + 1 < argc; i += 2) {
+            int address = (int)strtol(argv[i], nullptr, 0), count = atoi(argv[i + 1]);
+            if (address < 0 || count < 1 || (size_t)address + (size_t)count > con.RAM.Memory.size()) {
+                fprintf(stderr, "v32peek: %d..%d is outside RAM\n", address, address + count - 1);
+                return 2;
+            }
+            printf("ram[%d..%d]:", address, address + count - 1);
+            for (int k = 0; k < count; k++) {
+                if (k % 8 == 0) printf("\n  %8d:", address + k);
+                printf(" %d", con.RAM.Memory[address + k].AsInteger);
+            }
+            printf("\n");
+        }
+    } catch (const exception& e) { fprintf(stderr, "v32peek: %s\n", e.what()); return 1; }
+    return 0;
+}
+
+struct ProfFunction { uint32_t start; string name; };
+struct ProfSegment { string name; vector<float> cpu, gpu; vector<uint64_t> hist; };
+
+static double percentile(vector<float> v, double p)
+{
+    if (v.empty()) return 0;
+    sort(v.begin(), v.end());
+    return v[(size_t)(p * (v.size() - 1))];
+}
+
+static void report_functions(const char* title, const vector<uint64_t>& hist, const vector<ProfFunction>& funcs, uint64_t total)
+{
+    printf("\n%s (%llu cycles)\n", title, (unsigned long long)total);
+    if (total == 0) return;
+    vector<pair<uint64_t, string>> rows;
+    for (size_t i = 0; i < funcs.size(); i++) if (hist[i]) rows.push_back({hist[i], funcs[i].name});
+    sort(rows.rbegin(), rows.rend());
+    for (size_t i = 0; i < rows.size() && i < 25; i++) printf("  %6.2f%%  %s\n", 100.0 * rows[i].first / total, rows[i].second.c_str());
+}
+
+// v32prof bios cart cart.vbin.debug script [heavy%=85] [csv]   (V32PROF_SEGTOP=N, V32PROF_RAMDUMP=file)
+static int compat_prof(int argc, char** argv)
+{
+    if (argc < 5) { fprintf(stderr, "usage: v32prof bios.v32 cart.v32 cart.vbin.debug script [heavy%%=85] [csv]\n"); return 2; }
+    float heavy = (argc > 5) ? (float)atof(argv[5]) : 85.0f;
+    FILE* csv = (argc > 6) ? fopen(argv[6], "w") : nullptr;
+    vector<ProfFunction> funcs;                 // from `assemble -g program`: addr,file,line[,label]
+    {
+        ifstream in(argv[3]);
+        string line;
+        while (getline(in, line)) {
+            stringstream ss(line);
+            string addr, file, ln, label;
+            getline(ss, addr, ','); getline(ss, file, ','); getline(ss, ln, ','); getline(ss, label, ',');
+            if (label.rfind("__function_", 0) == 0 && label.find("_return") == string::npos)
+                funcs.push_back({(uint32_t)strtoul(addr.c_str(), nullptr, 16), label.substr(11)});
+            else if (label == "__global_scope_initialization")
+                funcs.push_back({(uint32_t)strtoul(addr.c_str(), nullptr, 16), "(startup)"});
+        }
+        sort(funcs.begin(), funcs.end(), [](const ProfFunction& a, const ProfFunction& b) { return a.start < b.start; });
+        if (funcs.empty()) { fprintf(stderr, "v32prof: no function labels in %s\n", argv[3]); return 2; }
+    }
+    funcs.push_back({0xFFFFFFFFu, "(BIOS / outside cartridge)"});
+    const size_t OUTSIDE = funcs.size() - 1;
+    vector<ScriptCmd> script = read_script(argv[4], true);
+    vector<uint64_t> hist_all(funcs.size(), 0), hist_heavy(funcs.size(), 0), frame_hist(funcs.size(), 0);
+    vector<ProfSegment> segments{{"(boot)", {}, {}, vector<uint64_t>(funcs.size(), 0)}};
+    vector<pair<int, GamepadControls>> pending_release;
+    try {
+        con.LoadBios(argv[1]);
+        con.LoadCartridge(argv[2]);
+        con.SetPower(true);
+        size_t next = 0;
+        int frame = 0, last_frame = script.empty() ? 600 : script.back().frame;
+        for (; frame <= last_frame && !con.IsCPUHalted(); frame++) {
+            for (auto& r : pending_release) con.SetGamepadControl(r.first, r.second, false);
+            pending_release.clear();
+            bool stop = false;
+            for (; next < script.size() && script[next].frame == frame; next++) {
+                const ScriptCmd& c = script[next];
+                if (c.op == "segment") segments.push_back({c.arg, {}, {}, vector<uint64_t>(funcs.size(), 0)});
+                else if (c.op == "end") stop = true;
+                else apply_script_cmd(c, pending_release);
+            }
+            if (stop) break;
+            // V32Console::RunNextFrame, with the instruction pointer sampled every cycle
+            con.Timer.ChangeFrame(); con.CPU.ChangeFrame(); con.GPU.ChangeFrame(); con.SPU.ChangeFrame(); con.GamepadController.ChangeFrame();
+            fill(frame_hist.begin(), frame_hist.end(), 0);
+            size_t cached = 0;
+            try {
+                for (int i = 0; i < Constants::CyclesPerFrame; i++) {
+                    if (con.CPU.Waiting || con.CPU.Halted) break;
+                    uint32_t ip = (uint32_t)con.CPU.InstructionPointer.AsInteger;
+                    size_t f = OUTSIDE;
+                    if (ip >= (uint32_t)Constants::CartridgeProgramROMFirstAddress) {
+                        uint32_t rel = ip;      // `-g program` addresses are absolute
+                        if (!(cached < OUTSIDE && funcs[cached].start <= rel && funcs[cached + 1].start > rel)) {
+                            auto it = upper_bound(funcs.begin(), funcs.end() - 1, rel, [](uint32_t v, const ProfFunction& fn) { return v < fn.start; });
+                            cached = (it == funcs.begin()) ? OUTSIDE : (size_t)(it - funcs.begin()) - 1;
+                        }
+                        f = cached;
+                    }
+                    frame_hist[f]++;
+                    con.Timer.RunNextCycle();
+                    con.CPU.RunNextCycle();
+                }
+            } catch (CPUException&) {}
+            float cpu = 100.0f * con.Timer.CycleCounter / Constants::CyclesPerFrame;
+            int used = Constants::GPUPixelCapacityPerFrame - max(0, (int)con.GPU.RemainingPixels);
+            float gpu = 100.0f * used / Constants::GPUPixelCapacityPerFrame;
+            segments.back().cpu.push_back(cpu);
+            segments.back().gpu.push_back(gpu);
+            for (size_t i = 0; i < funcs.size(); i++) {
+                hist_all[i] += frame_hist[i];
+                segments.back().hist[i] += frame_hist[i];
+                if (cpu >= heavy) hist_heavy[i] += frame_hist[i];
+            }
+            if (csv) fprintf(csv, "%d,%s,%.2f,%.2f\n", frame, segments.back().name.c_str(), cpu, gpu);
+        }
+        if (getenv("V32PROF_RAMDUMP")) {        // whole RAM (4M words, little-endian) for post-mortem inspection
+            FILE* dump = fopen(getenv("V32PROF_RAMDUMP"), "wb");
+            if (dump) { fwrite(&con.RAM.Memory[0], 4, con.RAM.Memory.size(), dump); fclose(dump); }
+        }
+        printf("frames run: %d\n\n", frame);
+        printf("%-22s %7s %7s %7s %7s %8s %7s %7s\n", "segment", "frames", "cpu avg", "p95", "max", ">=100%", "gpu avg", "gpu max");
+        for (auto& s : segments) {
+            if (s.cpu.empty()) continue;
+            double avg = 0, gavg = 0;
+            int over = 0;
+            for (float v : s.cpu) { avg += v; if (v >= 99.99f) over++; }
+            for (float v : s.gpu) gavg += v;
+            printf("%-22s %7zu %6.1f%% %6.1f%% %6.1f%% %8d %6.1f%% %6.1f%%\n", s.name.c_str(), s.cpu.size(), avg / s.cpu.size(),
+                   percentile(s.cpu, 0.95), *max_element(s.cpu.begin(), s.cpu.end()), over, gavg / s.gpu.size(),
+                   *max_element(s.gpu.begin(), s.gpu.end()));
+        }
+        for (auto& s : segments) {
+            if (s.cpu.empty()) continue;
+            uint64_t t = 0;
+            for (uint64_t h : s.hist) t += h;
+            printf("\nsegment %s: top functions", s.name.c_str());
+            vector<pair<uint64_t, string>> rows;
+            for (size_t i = 0; i < funcs.size(); i++) if (s.hist[i]) rows.push_back({s.hist[i], funcs[i].name});
+            sort(rows.rbegin(), rows.rend());
+            size_t top = getenv("V32PROF_SEGTOP") ? (size_t)atoi(getenv("V32PROF_SEGTOP")) : 8;
+            for (size_t i = 0; i < rows.size() && i < top; i++)
+                printf("%s %.1f%% %s", i ? "," : "", 100.0 * rows[i].first / (t ? t : 1), rows[i].second.c_str());
+            printf("\n");
+        }
+        uint64_t total_all = 0, total_heavy = 0;
+        for (size_t i = 0; i < funcs.size(); i++) { total_all += hist_all[i]; total_heavy += hist_heavy[i]; }
+        report_functions("CPU time by function, all frames", hist_all, funcs, total_all);
+        char title[96];
+        snprintf(title, sizeof title, "CPU time by function, heavy frames (cpu >= %.0f%%)", heavy);
+        report_functions(title, hist_heavy, funcs, total_heavy);
+        if (csv) fclose(csv);
+        return 0;
+    } catch (exception& e) { fprintf(stderr, "v32prof: %s\n", e.what()); return 3; }
+}
+
+// ===================================================================================================================
 //  the old runners' command lines, on the same engine
 // ===================================================================================================================
 static int compat_run(const string& which, int argc, char** argv)
 {
+    if (which == "peek" || which == "prof") {
+        install_callbacks(NoLog);
+        return which == "peek" ? compat_peek(argc, argv) : compat_prof(argc, argv);
+    }
     install_callbacks(which == "v32run" ? [](const std::string& s) { fprintf(stderr, "[console] %s\n", s.c_str()); } : NoLog);
     if (which == "refrun") {
         Callbacks::ThrowException = [](const std::string& m) { fprintf(stderr, "refrun: %s\n", m.c_str()); exit(3); };
@@ -430,7 +681,7 @@ int main(int argc, char** argv)
     // the old names, as command-line compatibility: v32orun --compat=NAME ARGS...
     if (argc >= 2 && !strncmp(argv[1], "--compat=", 9)) {
         string which = argv[1] + 9;
-        if (which != "refrun" && which != "v32run" && which != "vrun") { fprintf(stderr, "v32orun: unknown --compat=%s\n", which.c_str()); return 2; }
+        if (which != "refrun" && which != "v32run" && which != "vrun" && which != "peek" && which != "prof") { fprintf(stderr, "v32orun: unknown --compat=%s\n", which.c_str()); return 2; }
         try { return compat_run(which, argc - 1, argv + 1); }
         catch (std::exception& e) { fprintf(stderr, "%s: %s\n", which.c_str(), e.what()); return which == "vrun" ? 2 : 3; }
     }
