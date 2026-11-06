@@ -1151,6 +1151,8 @@ int32_t   main (int32_t  argc, char **argv)
     {
         exitstatus                  = quit_status;
     }
+    gputrace_close ();
+    ft_write ();
     addrprof_write ();
     framestats_write ();
     v32trace_write ();

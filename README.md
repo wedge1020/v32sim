@@ -222,6 +222,9 @@ Mandatory arguments to long options are mandatory for short options too.
      --frame-stats=FILE    one CSV row per frame (cycles, CPU %, GPU pixels, GPU %); summary on stderr at exit
      --frame-stats-skip=N  leave the first N frames out of that summary
      --frame-stats-top=N   regions charged the most GPU pixels, listed in it (default 8, 0 = none)
+     --profile-event=KIND  what --profile-out / --profile-top / --profile-by count: instr (default), cycles, gpu-draw, gpu-portwrite, spu-write
+     --gpu-trace=FILE      the program's GPU port writes by frame (--spu-trace=FILE: SPU), docs/TRACE-FORMAT.md; --trace-dump=FILE prints one
+     --time-breakdown      at exit: v32sim's own wall-clock time per frame (cpu / gpu / spu / output); --frame-log=FILE: a row per frame
      --stats-format=json   JSON Lines instead of CSV (--stats / --stats-skip / --stats-top are synonyms of the --frame-stats ones)
      --symbol-file=FILE    load data symbols (v32cc NAME.asm.sym) from FILE
  -h, --help                display this information

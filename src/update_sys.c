@@ -95,6 +95,8 @@ void timer_change_frame(void) {
 }
 
 void update_frame(void) {
+    uint64_t ft_t_enter = ft_now ();
+    ft_enter ();
     ////////////////////////////////////////////////////////////////////////////////////
     //
     // --frame-stats: the load of the frame that has just ended (reads ports only)
@@ -135,6 +137,7 @@ void update_frame(void) {
     // update all the ports that require per-frame changes
     //
     shots_frame ();                      // --screenshot-at: the screen as this frame left it
+    gputrace_frame ();                   // --gpu-trace / --spu-trace: the frame boundary
     gpu_new_frame ();
     spu_new_frame ();
     update_ioports();
@@ -167,6 +170,7 @@ void update_frame(void) {
     padscript_frame ();
 
     // === NEW: Frame-based throttling with busy-wait ===
+    uint64_t ft_t_throttle = ft_now ();
     uint64_t now_ns = get_ns();
     uint64_t elapsed_ns = now_ns - frame_start_ns;
 
@@ -185,6 +189,11 @@ void update_frame(void) {
                 #endif
             }
         }
+    }
+    {
+        uint64_t  ft_t_end  = ft_now ();
+
+        ft_frame (frame_start_ns, ft_t_enter, ft_t_throttle, ft_t_end);
     }
     frame_start_ns = get_ns();
 }

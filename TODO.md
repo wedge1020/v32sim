@@ -4,6 +4,12 @@ Status as of version `20261106-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261106 (central maintenance), VS-13 complete (4.2-4.4)**: `--profile-event=instr|cycles|gpu-draw|gpu-portwrite|spu-write` (with
+    `--profile-by=function`: which function issues the draws); `--gpu-trace` / `--spu-trace` (versioned binary, `docs/TRACE-FORMAT.md`) and
+    `--trace-dump`; `v32gpureplay` (= `v32orun --compat=gpureplay`, built by `tools/oracle/build.sh`): the trace on the stock V32GPU / V32SPU,
+    draws / drops / clears / pixels equal the live run's, replay time per frame; `--time-breakdown` and `--frame-log=FILE`. Left (small):
+    channels-playing and memory-card counters (no per-frame hook), a host-drawing build of the replay (needs the user's callbacks).
+
   * **20261106 (central maintenance), VS-13 part 2 + VS-18**: `perfstats.c` is table-driven with stable dotted names (`gpu.draws`, `spu.plays`,
     `bus.movs_words`, `cpu.instructions`, `cpu.cycles`, `gpu.pixels`...) and the per-frame history (`stats on|off`): aggregates `.last .mean .min
     .max .p50 .p95 .p99 .total` for every counter, `expect stats gpu.draws.p95 <= 600` (rewritten to `stats expect`; fails like `expect`, exit 1

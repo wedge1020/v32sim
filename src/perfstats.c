@@ -118,6 +118,7 @@ void  perf_gpu_draw (int32_t tex, int32_t region, int32_t before, int32_t after)
     int        dropped  = ((before < 0) || (after < 0)) ? TRUE : FALSE;
 
     cur[C_DRAWS]  = cur[C_DRAWS] + 1;
+    addrprof_event (PROFEV_GPU_DRAW);
     if (dropped == TRUE)
     {
         cur[C_DROPPED]  = cur[C_DROPPED] + 1;
@@ -168,6 +169,8 @@ void  perf_spu_command (int32_t command)
 //
 void  perf_port_write (uint16_t port)
 {
+    if      ((port & 0x700) == 0x200)  addrprof_event (PROFEV_GPU_PORTWRITE);
+    else if ((port & 0x700) == 0x300)  addrprof_event (PROFEV_SPU_WRITE);
     switch (port)
     {
         case GPU_MultiplyColor:        cur[C_COLORS]  = cur[C_COLORS] + 1;  break;

@@ -51,6 +51,7 @@ nothing else: no SDL, OpenGL or OpenAL).
 | `vrun --bios B --cart C [--memc F] [--keys S] [-f N] [-d N] [-a ADDR]` / `vrun PROG.vbin` | v32cc | `--compat=vrun`: RAM words and `STATUS halted\|timeout`; `.vbin` run as the BIOS |
 | `v32prof BIOS CART CART.vbin.debug SCRIPT [heavy%] [csv]` | v32cxx | per-frame CPU/GPU load by script segment; cycles per function (all frames and heavy frames); scripted input |
 | `v32shot BIOS CART SCRIPT PREFIX FRAME...` | v32cxx | PPM screenshots at chosen frames, scripted input |
+| `v32gpureplay GPU.trace [--spu SPU.trace]` | v32sim | replay a `--gpu-trace` / `--spu-trace` on the stock GPU / SPU logic, time it ([TRACE-FORMAT.md](TRACE-FORMAT.md)) |
 | `v32peek BIOS CART SCRIPT FRAME ADDR COUNT...` | v32cxx | CPU state and RAM words at a frame, scripted input |
 | `v32trace-ref BIOS CART SCRIPT FRAMES OUTDIR [--norestart]` | new | the DesktopEmulator V32TRACE recorder, headless (built only from a ConsoleLogic patched with GBtoV32's `emulator-v32trace.patch`); script lines may also be `FRAME mark NOTE` |
 | `sysprof BIOS CART KERNEL.map CART.asm FRAMES PROG.x:PROG.sym...` | v32nix | whole-system profile: BIOS, kernel and every user program resident in the swapped window, self and inclusive time |
@@ -60,7 +61,7 @@ the header of `tools/oracle/orun.cpp` (`v32prof` and `v32peek` are `v32orun --co
 
 The other projects keep no runner of their own: v32cc's `make vrun` and v32lua's `runlua`, `trap`, `unittest.py` and the Windows
 `scripts/testing_harness` call `v32orun` (v32lua's `v32bench` is its `-b`). They find it through `$V32SIM_HOME/tools/oracle/bin`.
-`v32prof`, `v32shot` and `v32peek` are `v32orun --compat=prof|shot|peek` (wrappers of those names are built).
+`v32prof`, `v32shot`, `v32peek` and `v32gpureplay` are `v32orun --compat=prof|shot|peek|gpureplay` (wrappers of those names are built).
 Short cards for every tool of the ecosystem, for agents: `docs/agents/`.
 
 ## Debug information (who writes what)

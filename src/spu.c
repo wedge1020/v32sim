@@ -47,6 +47,28 @@ static int32_t    selchannel      = 0;
 
 #define  SPUP(port)   ((*(ioports+SPU_PORT)) + ((port) & 0xFF))
 
+//
+// --spu-trace: the sound table at the start of the trace
+//
+void  spu_trace_snapshot (FILE *f)
+{
+    uint32_t  i  = 0;
+
+    fputc ('N', f);
+    gputrace_write_u16 (f, loaded_sounds);
+    for (i = 0; i <= loaded_sounds; i = i + 1)
+    {
+        sound_t  *s  = (i == 0) ? &biossound : &sounds[i - 1];
+
+        fputc ('S', f);
+        gputrace_write_u32 (f, (i == 0) ? 0xFFFFFFFFu : (i - 1));
+        gputrace_write_u32 (f, s -> length);
+        gputrace_write_u32 (f, (uint32_t) s -> loop);
+        gputrace_write_u32 (f, (uint32_t) s -> loopstart);
+        gputrace_write_u32 (f, (uint32_t) s -> loopend);
+    }
+}
+
 static sound_t *sound_ptr (int32_t id)
 {
     return ((id < 0) ? &biossound : &sounds[id]);
@@ -210,7 +232,7 @@ static int32_t  clampi (int32_t v, int32_t lo, int32_t hi)
 // SPU semantics (validation, clamping, side effects). Writes that the console would
 // ignore leave the port value untouched.
 //
-void  spu_write (uint16_t port, int32_t i32, float f32)
+static void  spu_write_impl (uint16_t port, int32_t i32, float f32)
 {
     sound_t    *s  = sound_ptr (selsound);
     channel_t  *c  = &channels[selchannel];
@@ -331,7 +353,7 @@ void  spu_write (uint16_t port, int32_t i32, float f32)
 //
 // spu_new_frame(): advance every playing channel by one frame of samples
 //
-void  spu_new_frame (void)
+static void  spu_new_frame_impl (void)
 {
     int  i  = 0;
     int  n  = 0;
@@ -452,4 +474,20 @@ int  spu_restore (FILE *f)
     refresh_sound ();
     refresh_channel ();
     return (0);
+}
+
+void  spu_write (uint16_t port, int32_t i32, float f32)
+{
+    uint64_t  t0  = ft_now ();
+
+    spu_write_impl (port, i32, f32);
+    ft_spu (t0);
+}
+
+void  spu_new_frame (void)
+{
+    uint64_t  t0  = ft_now ();
+
+    spu_new_frame_impl ();
+    ft_spu (t0);
 }

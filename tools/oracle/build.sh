@@ -13,6 +13,7 @@
 #    refrun v32run vrun   the old command lines of those runners, as one-line wrappers over v32orun --compat=NAME:
 #                 refrun = the differential tests' oracle (tests/run_gaps.sh); v32run = until HLT, one RAM word
 #                 (v32c++); vrun = v32cc's (--keys, --memc, a .vbin as BIOS, STATUS halted|timeout)
+#    v32gpureplay   a v32sim --gpu-trace / --spu-trace replayed on the stock GPU / SPU logic (v32orun --compat=gpureplay)
 #    v32prof v32peek v32shot   per-frame CPU/GPU load and cycles per function / CPU state and RAM at a frame / PPM
 #                 screenshots at chosen frames, all with scripted input (from v32c++): wrappers over v32orun --compat=prof|peek|shot
 #    sysprof      whole-system profiler: BIOS, kernel and the programs in a swapped user window (from v32nix)
@@ -68,7 +69,7 @@ if want wav2vircon; then
         echo "skipping wav2vircon: needs SDL2 (only needed to pack sounds)"
     fi
 fi
-if want v32orun || want refrun || want v32run || want vrun || want v32prof || want v32peek || want v32shot; then
+if want v32orun || want refrun || want v32run || want vrun || want v32prof || want v32peek || want v32shot || want v32gpureplay; then
     echo "building v32orun..."
     # the one runner (orun.cpp). CFI of NaN/out-of-range floats is host-dependent in the stock core, so v32orun is
     # linked with a copy of V32CPUProcessors.cpp whose float->int conversion calls v32orun_cfi() (--cfi=arm, --cfi-log).
@@ -81,8 +82,8 @@ if want v32orun || want refrun || want v32run || want vrun || want v32prof || wa
     $CXX -O2 -std=c++17 -w -I"$CL" -I"$SRC/DesktopEmulator" -I"$SRC/VirconDefinitions" "$HERE/orun.cpp" $OTHERS "$GEN/V32CPUProcessors.cpp" -o "$OUT/v32orun"
     rm -rf "$GEN"
     # the old runners are this program under their old command lines
-    for w in refrun v32run vrun peek prof shot; do
-        n=$w; case $w in peek|prof|shot) n=v32$w;; esac
+    for w in refrun v32run vrun peek prof shot gpureplay; do
+        n=$w; case $w in peek|prof|shot|gpureplay) n=v32$w;; esac
         printf '#!/bin/sh\nexec "$(dirname "$0")/v32orun" --compat=%s "$@"\n' $w > "$OUT/$n"; chmod +x "$OUT/$n"
     done
 fi

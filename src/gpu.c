@@ -1018,7 +1018,7 @@ static void  gpu_draw (uint8_t scaling, uint8_t rotation)
 // gpu_command(): execute a value written to GPU_Command (unknown commands are
 // ignored, as on the hardware)
 //
-void  gpu_command (int32_t command)
+static void  gpu_command_impl (int32_t command)
 {
     perf_gpu_command (command);
     int32_t  remaining  = 0;
@@ -1535,4 +1535,12 @@ uint8_t  gpu_screenshot (const char *filename)
 uint8_t  gpu_screenshot_plain (const char *filename)
 {
     return (shot_write (filename, TRUE));
+}
+
+void  gpu_command (int32_t command)
+{
+    uint64_t  t0  = ft_now ();
+
+    gpu_command_impl (command);
+    ft_gpu (t0);
 }

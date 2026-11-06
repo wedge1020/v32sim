@@ -638,6 +638,19 @@ uint8_t  ioports_chk  (uint16_t  portaddr, uint8_t  mode, uint8_t  sys_force)
     return (result);
 }
 
+const char  *ioports_name (uint16_t portaddr)
+{
+    uint16_t  type  = (portaddr & 0x0700) >> 8;
+    uint16_t  attr  = (portaddr & 0x00FF);
+    data_t   *pptr  = *(ioports+type);
+
+    if ((pptr == NULL) || (attr >= pptr -> qty) || ((pptr+attr) -> name == NULL) || ((pptr+attr) -> name[0] == '\0'))
+    {
+        return ("?");
+    }
+    return ((const char *) ((pptr+attr) -> name));
+}
+
 int16_t  ioports_num (uint8_t *symbol)
 {
     data_t   *dtmp         = NULL;
@@ -806,6 +819,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
         if (sys_force                 == FALSE)
         {
             perf_port_write (portaddr);
+            gputrace_write (portaddr, i32, f32);
         }
         iptr                           = &((pptr+attr) -> value.i32);
         fptr                           = &((pptr+attr) -> value.f32);

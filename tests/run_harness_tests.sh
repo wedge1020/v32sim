@@ -261,6 +261,27 @@ sed 's/,12,3,/,24,3,/' "$W/pod.csv" > "$W/pod2.csv"
 python3 -I "$T/v32sim-statdiff.py" "$W/pod.csv" "$W/pod2.csv" --skip 250 --fail-over 10 >/dev/null 2>&1; [ $? = 1 ] && ok "statdiff: doubled draws fail --fail-over 10" || bad "statdiff gate"
 python3 -I "$T/v32sim-statdiff.py" "$W/pod.csv" "$W/pod2.csv" --skip 250 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if any(c["column"]=="draws" and c["mean_change_pct"]>90 for c in d["columns"]) else 1)' && ok "statdiff --json" || bad "statdiff json"
 
+echo "== VS-13 4.2 / 4.3 / 4.4: --profile-event, traces and replay, time breakdown"
+r=$("$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --profile-event=gpu-draw --profile-by=function --profile-top=5 "$W/pod/overdraw.v32" 2>&1)
+case "$r" in *"600 "*"draw_region_at"*|*"gpu-draw; hottest functions"*"draw_region_at"*) ok "--profile-event=gpu-draw --profile-by=function names the function that draws";; *) bad "profile-event: $r";; esac
+r=$("$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --profile-event=bogus "$W/pod/overdraw.v32" 2>&1); [ $? = 1 ] && ok "--profile-event refuses an unknown kind" || bad "profile-event bogus"
+"$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --profile-out="$W/pi.txt" "$W/pod/overdraw.v32" >/dev/null 2>&1
+"$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --profile-out="$W/pc.txt" --profile-event=cycles "$W/pod/overdraw.v32" >/dev/null 2>&1
+[ "$(grep -v '^#' "$W/pi.txt")" = "$(grep -v '^#' "$W/pc.txt")" ] && ok "--profile-event=cycles equals instr (a cycle per instruction)" || bad "profile-event cycles"
+"$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --gpu-trace="$W/g.trc" --spu-trace="$W/s.trc" --stats="$W/gt.csv" --stats-skip=0 "$W/pod/overdraw.v32" >/dev/null 2>&1
+"$SIM" --trace-dump="$W/g.trc" > "$W/g.dump" 2>&1; head -1 "$W/g.dump" | grep -q "^V32TRACE version 1 gpu" && grep -q "^W 0x200 GPU_Command = 0x00000011" "$W/g.dump" && tail -1 "$W/g.dump" | grep -q "^E 300" && ok "--gpu-trace and --trace-dump: header, named port writes, end record" || bad "trace dump: $(head -3 "$W/g.dump")"
+"$SIM" --trace-dump="$W/s.trc" 2>&1 | head -1 | grep -q "gpu" && bad "spu trace is a gpu trace" || ok "--spu-trace is a SPU trace"
+if [ $HAVE_ORACLE = 1 ] && [ -x "$ORACLE/v32gpureplay" ]; then
+    rep=$("$ORACLE/v32gpureplay" "$W/g.trc" --spu "$W/s.trc" 2>&1)
+    case "$rep" in *"gpu draws 920 dropped 150 clears 141 pixels 105967622"*) ok "v32gpureplay: the stock GPU logic on the trace gives the draws, drops, clears and pixels of the live run";; *) bad "gpureplay: $rep";; esac
+    echo "$rep" | grep -q "replay time per frame" && ok "v32gpureplay reports the replay time per frame" || bad "gpureplay timing"
+else skipt "v32gpureplay" "no ORACLE/v32gpureplay"; fi
+r=$("$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --time-breakdown --frame-log="$W/fl.csv" "$W/pod/overdraw.v32" 2>&1)
+case "$r" in *"[time]"*"cpu_us"*"gpu_us"*"work_us"*) ok "--time-breakdown prints the per-frame wall-clock split";; *) bad "time-breakdown: $r";; esac
+[ "$(head -1 "$W/fl.csv")" = "frame,cpu_us,gpu_us,spu_us,output_us,sleep_us,work_us,late_us" ] && [ "$(wc -l < "$W/fl.csv")" -gt 250 ] && ok "--frame-log writes a row per frame" || bad "frame-log"
+printf 'run 300\nscreenshot %s/tbon.png\nquit\n' "$W" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" --time-breakdown --gpu-trace="$W/g2.trc" --profile-event=gpu-draw "$W/pod/overdraw.v32" >/dev/null 2>&1
+cmp -s "$W/tbon.png" "$W/son.png" && ok "traces, --time-breakdown and --profile-event leave the machine's output identical" || bad "observability changed the machine"
+
 echo "== screenshot highlight"
 sh "$T/v32mkcart.sh" -o "$W/hlk" --cc-opt -DKEEP_RUNNING "$EX/hello_text.c" >/dev/null || exit 2
 shot() { printf "$1run 300\nscreenshot $W/$2.png\nquit\n" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/hlk/hello_text.v32" >/dev/null 2>&1; }

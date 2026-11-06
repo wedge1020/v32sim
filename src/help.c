@@ -50,6 +50,10 @@ void  usage (int8_t *program)
     fprintf (stdout, "                           executed (needs no prompt and no -p); debug labels add a third column\n");
     fprintf (stdout, "     --profile-format=FMT  text (default) or bin (V32PROF1 header, then LE32 address,count pairs)\n");
     fprintf (stdout, "     --profile-top=N       print the N hottest addresses to stderr when the run ends\n");
+    fprintf (stdout, "     --profile-event=KIND  what the profile counts: instr (default), gpu-draw, gpu-portwrite, spu-write, cycles\n");
+    fprintf (stdout, "     --time-breakdown      at exit, where v32sim's own wall-clock time goes per frame (cpu / gpu / spu / output); --frame-log=FILE: every frame\n");
+    fprintf (stdout, "     --gpu-trace=FILE      record the program's GPU port writes by frame (binary, docs/TRACE-FORMAT.md); --spu-trace=FILE: SPU\n");
+    fprintf (stdout, "     --trace-dump=FILE     print a trace file as text and exit\n");
     fprintf (stdout, "     --profile-by=KIND     address (default) or function: with function, --profile-top and the text\n");
     fprintf (stdout, "                           --profile-out add up the addresses of each function (the closest label)\n");
     fprintf (stdout, "     --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... or @FILE (V32_INPUT\n");

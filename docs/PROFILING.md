@@ -58,8 +58,7 @@ the percentiles, `off` stops that), `stats save FILE [json]` (every frame, by co
 [--skip N] [--sort ratio] [--fail-over PCT] [--fail-columns a,b] [--json]` compares two runs (CSV or JSON Lines; mean, p95, max per column;
 `--sort ratio` lists the biggest changes first; exit 1 if the mean of cycles, gpu_pixels or draws rose by more than PCT percent).
 
-Not there yet (the VS-9 proposal): `--profile-event`, GPU/SPU traces and replay (v32orun's logs are most of the format), the
-time breakdown and `--frame-log`, channels-playing and memory-card counters. The counters only watch commands go by (a test checks that
+Not there yet: channels-playing and memory-card counters (the SPU mixer and the card controller have no per-frame hook yet). The counters only watch commands go by (a test checks that
 `stats off` leaves the machine's output identical).
 Segments (v32prof's named script segments) are not modelled: use `--frame-stats-skip`, or cut the CSV by frame number.
 
@@ -80,3 +79,23 @@ and `ASM.COM` running under DOS this way.
 frames and over heavy frames (>= `heavy%`) only, which is what explains slowdowns. It needs `__function_` labels in the
 debug file (`assemble -g program`, or `v32as -g`). `sysprof` is v32nix's whole-system version: it recognizes the program
 resident in the user window by comparing words with each candidate image and charges cycles to `k:FUNCTION` / `PROG:FUNCTION`.
+
+## Attribution, traces and self-timing (VS-13 4.2 - 4.4)
+
+`--profile-event=KIND` chooses what `--profile-out` / `--profile-top` / `--profile-by=function` count: `instr` (the default),
+`cycles` (one per instruction, so the same), `gpu-draw` (draw commands), `gpu-portwrite` (writes to any GPU port), `spu-write`
+(writes to any SPU port). The count is charged to the instruction that wrote the port, so `--profile-event=gpu-draw --profile-by=function`
+answers "which function issues the draws?" (`draw_region_at  600  65 %`), and for translated cartridges the address maps back to the guest
+through the debug files. The report says which event it counted (`# event gpu-draw`).
+
+`--gpu-trace=FILE` and `--spu-trace=FILE` record the program's GPU / SPU port writes by frame in a versioned binary file
+([TRACE-FORMAT.md](TRACE-FORMAT.md)); `--trace-dump=FILE` prints one as text. `v32gpureplay GPU.trace [--spu SPU.trace]` (in
+`tools/oracle/bin` after `build.sh`; it is `v32orun --compat=gpureplay`) replays the writes on the DesktopEmulator's own GPU and SPU
+logic with no CPU and no cartridge, prints the draws / drops / clears / pixels (equal to the live run's) and the replay time per
+frame (mean, p95, max, frames over 16.7 ms), `--csv FILE` per frame. Its host callbacks are empty: it times the console logic's
+share of "this exact draw stream", the place to link a host's own drawing to measure that.
+
+`--time-breakdown` prints, when the run ends, where v32sim's own wall-clock time per frame went (cpu / gpu / spu / output / sleep, mean,
+p95, max, share, frames longer than `--frame-us`); `--frame-log=FILE` writes a row per frame (`frame,cpu_us,gpu_us,spu_us,output_us,
+sleep_us,work_us,late_us`). `--frame-stats-skip` applies. These are relative indicators of v32sim only (its GPU is a software model,
+not OpenGL): never read them as the DesktopEmulator's speed. None of the three changes the machine (a test compares screenshots).

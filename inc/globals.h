@@ -200,6 +200,10 @@ extern uint32_t   frame_stats_skip;           // --frame-stats-skip=N
 extern uint32_t   frame_stats_top;            // --frame-stats-top=N
 extern int8_t    *pad_input2;                 // --input2=SCRIPT (padscript.c)
 extern int8_t     frame_stats_json;           // --stats-format=json
+enum { PROFEV_INSTR, PROFEV_GPU_DRAW, PROFEV_GPU_PORTWRITE, PROFEV_SPU_WRITE, PROFEV_CYCLES, PROFEV_N };
+extern uint8_t    profile_event;               // --profile-event=KIND
+extern const char *const profile_event_name[PROFEV_N];
+void      addrprof_event (int);
 extern uint8_t    profile_by_function;         // --profile-by=function
 extern int8_t    *symbolfile;                  // --symbol-file=FILE
 extern uint8_t    exitstatus;
@@ -356,6 +360,24 @@ void      perf_regions (FILE *, const char *, int);
 void      perf_summary (FILE *, const char *);
 void      perf_show (FILE *);
 int       perf_stat (const char *, double *);
+extern uint8_t   time_breakdown;                                    // frametime.c: --time-breakdown
+extern int8_t   *frame_log_out;                                     // --frame-log=FILE
+uint64_t  ft_now (void);
+void      ft_gpu (uint64_t);
+void      ft_spu (uint64_t);
+void      ft_enter (void);
+void      ft_frame (uint64_t, uint64_t, uint64_t, uint64_t);
+void      ft_write (void);
+const char *ioports_name (uint16_t);                                // ioports.c
+extern int8_t    *gpu_trace_out;                                    // gputrace.c: --gpu-trace=FILE
+extern int8_t    *spu_trace_out;                                    // --spu-trace=FILE
+void      gputrace_write (uint16_t, int32_t, float);
+void      gputrace_frame (void);
+void      gputrace_close (void);
+int       gputrace_dump (const char *);
+void      spu_trace_snapshot (FILE *);
+void      gputrace_write_u16 (FILE *, uint32_t);
+void      gputrace_write_u32 (FILE *, uint32_t);
 void      perf_gpu_command (int32_t);
 void      perf_port_write (uint16_t);
 void      perf_port_read (uint16_t);

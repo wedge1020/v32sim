@@ -70,6 +70,12 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "stats-top",      required_argument, 0, 206 },
        { "stats-format",   required_argument, 0, 207 },
        { "input2",         required_argument, 0, 208 },
+       { "profile-event",  required_argument, 0, 209 },
+       { "time-breakdown", no_argument,       0, 213 },
+       { "frame-log",      required_argument, 0, 214 },
+       { "gpu-trace",      required_argument, 0, 210 },
+       { "spu-trace",      required_argument, 0, 211 },
+       { "trace-dump",     required_argument, 0, 212 },
        { "highlight",      required_argument, 0, 201 },
        { "screengrid",     optional_argument, 0, 202 },
        { "noextra",        no_argument,       0, 203 },
@@ -292,6 +298,29 @@ void  process_args (int32_t  argc, int8_t **argv)
 
             case 46: // input
                 pad_input          = optarg;
+                break;
+
+            case 213: time_breakdown = TRUE;  break;
+            case 214: frame_log_out = optarg;  break;
+            case 210: gpu_trace_out = optarg;  break;
+            case 211: spu_trace_out = optarg;  break;
+            case 212: exit (gputrace_dump (optarg));
+
+            case 209: // profile-event
+                {
+                    int  k  = 0;
+
+                    for (k = 0; k < PROFEV_N; k = k + 1)
+                    {
+                        if (0 == strcmp (optarg, profile_event_name[k]))  break;
+                    }
+                    if (k == PROFEV_N)
+                    {
+                        fprintf (stderr, "[ERROR] --profile-event: instr, gpu-draw, gpu-portwrite, spu-write or cycles\n");
+                        exit (1);
+                    }
+                    profile_event  = (uint8_t) k;
+                }
                 break;
 
             case 208: // input2

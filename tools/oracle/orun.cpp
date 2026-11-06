@@ -30,7 +30,7 @@
 //    --date Y,D --time S   set the clock    --cfi=x86|arm --cfi-log --spu-state --no-memcard --fixed-time --trail=N
 //                                           (the environment variables V32_CFI, V32_CFI_LOG, V32_SPU_STATE,
 //                                           V32_NO_MEMCARD, V32_FIXED_TIME and V32_TRAIL do the same)
-//    --compat=refrun|v32run|vrun|peek|prof|shot   the command line and output of the old tool of that name (the wrappers
+//    --compat=refrun|v32run|vrun|peek|prof|shot|gpureplay   the command line and output of the old tool of that name (the wrappers
 //                                  tools/oracle/bin/{refrun,v32run,vrun,v32peek,v32prof,v32shot} are this)
 //
 //  v32prof and v32peek (v32c++'s tools) are --compat=prof / --compat=peek, with their command lines and output:
@@ -57,6 +57,7 @@
 #include "../../VirconDefinitions/Constants.hpp"
 #include "../../VirconDefinitions/DataStructures.hpp"
 #include <cstdint>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -696,11 +697,140 @@ static int compat_shot(int argc, char** argv)
     return 0;
 }
 
+
+// ===================================================================================================================
+//  v32gpureplay (VS-13 4.3): replay a --gpu-trace / --spu-trace of v32sim on the DesktopEmulator's own GPU and SPU
+//  logic, no CPU and no cartridge, and time it
+//
+//    v32gpureplay GPU.trace [--spu SPU.trace] [--csv FILE] [--repeat N] [--frame-us US=16667]
+//
+//  The writes of each frame are applied to a stock V32GPU (and V32SPU); at every frame boundary ChangeFrame() runs. The
+//  host callbacks (DrawQuad, ...) are empty: what is timed is the console logic's cost of the stream plus the call out to
+//  the host, not a renderer. A host that wants to measure its own drawing links its callbacks in place of the empty ones
+//  (this function is the self-contained reproducer). Prints draws, dropped draws (the 9-screen pixel budget), clears, the
+//  pixels charged, SPU writes, and the replay time per frame (mean / p95 / max, frames over --frame-us).
+// ===================================================================================================================
+struct TraceRec { char tag; uint32_t a, b; int32_t c[8]; };
+struct TraceFile { vector<TraceRec> recs; bool ok = false; uint32_t kind = 0; };
+
+static TraceFile read_trace(const char* path)
+{
+    TraceFile t; FILE* f = fopen(path, "rb");
+    if (!f) { perror(path); return t; }
+    auto g8 = [&]() { return fgetc(f); };
+    auto g16 = [&]() { uint32_t a = (uint32_t)g8(); uint32_t b = (uint32_t)g8(); return a | (b << 8); };
+    auto g32 = [&]() { uint32_t a = g16(); uint32_t b = g16(); return a | (b << 16); };
+    char magic[9] = {0};
+    if (fread(magic, 1, 8, f) != 8 || strcmp(magic, "V32TRACE")) { fprintf(stderr, "%s: not a v32sim trace\n", path); fclose(f); return t; }
+    uint32_t ver = g16(); t.kind = g16(); g32();
+    if (ver != 1) { fprintf(stderr, "%s: trace version %u is not known\n", path, ver); fclose(f); return t; }
+    int tag;
+    while ((tag = g8()) != EOF) {
+        TraceRec r; memset(&r, 0, sizeof r); r.tag = (char)tag;
+        switch (tag) {
+            case 'N': r.a = g16(); t.recs.push_back(r); break;
+            case 'T': {
+                r.c[0] = (int16_t)g16(); r.c[1] = (int)g16(); r.c[2] = (int)g16(); uint32_t n = g16();
+                t.recs.push_back(r);
+                for (uint32_t i = 0; i < n; i++) {
+                    TraceRec q; memset(&q, 0, sizeof q); q.tag = 'R'; q.a = g16();
+                    for (int k = 0; k < 6; k++) q.c[k] = (int16_t)g16();
+                    t.recs.push_back(q);
+                }
+                break;
+            }
+            case 'S': r.c[0] = (int32_t)g32(); r.a = g32(); r.c[1] = (int32_t)g32(); r.c[2] = (int32_t)g32(); r.c[3] = (int32_t)g32(); t.recs.push_back(r); break;
+            case 'W': r.a = g16(); r.b = g32(); t.recs.push_back(r); break;
+            case 'F': case 'E': r.a = g32(); t.recs.push_back(r); break;
+            default: fprintf(stderr, "%s: unknown record 0x%02X\n", path, tag); fclose(f); return t;
+        }
+    }
+    fclose(f); t.ok = true; return t;
+}
+
+static int compat_gpureplay(int argc, char** argv)
+{
+    if (argc < 2) { fprintf(stderr, "usage: v32gpureplay GPU.trace [--spu SPU.trace] [--csv FILE] [--repeat N] [--frame-us US]\n"); return 2; }
+    const char* spath = nullptr; const char* csv = nullptr; int repeat = 1; double frame_us = 16667.0;
+    for (int i = 2; i < argc; i++) {
+        if (!strcmp(argv[i], "--spu") && i + 1 < argc) spath = argv[++i];
+        else if (!strcmp(argv[i], "--csv") && i + 1 < argc) csv = argv[++i];
+        else if (!strcmp(argv[i], "--repeat") && i + 1 < argc) repeat = max(1, atoi(argv[++i]));
+        else if (!strcmp(argv[i], "--frame-us") && i + 1 < argc) frame_us = atof(argv[++i]);
+    }
+    TraceFile gt = read_trace(argv[1]);
+    if (!gt.ok || gt.kind != 1) { fprintf(stderr, "%s: not a GPU trace\n", argv[1]); return 1; }
+    TraceFile st; if (spath) { st = read_trace(spath); if (!st.ok || st.kind != 2) { fprintf(stderr, "%s: not an SPU trace\n", spath); return 1; } }
+    vector<double> frame_us_v; unsigned long long draws = 0, dropped = 0, clears = 0, pixels = 0, spuw = 0, gpuw = 0;
+    FILE* cf = csv ? fopen(csv, "w") : nullptr;
+    if (cf) fprintf(cf, "frame,replay_us,draws,dropped,clears,pixels,spu_writes\n");
+    for (int rep = 0; rep < repeat; rep++) {
+        V32GPU gpu; V32SPU spu; gpu.Reset(); spu.Reset();
+        size_t gi = 0, si = 0; uint32_t frame = 0;
+        auto setup = [&](TraceFile& t, size_t& i) {      // the snapshot: records up to the first W / F
+            int cur = -2;
+            for (; i < t.recs.size(); i++) {
+                const TraceRec& r = t.recs[i];
+                if (r.tag == 'W' || r.tag == 'F' || r.tag == 'E') break;
+                if (r.tag == 'N') { if (t.kind == 1) gpu.InsertCartridgeTextures(r.a); else spu.LoadedCartridgeSounds = r.a; }
+                else if (r.tag == 'T') cur = r.c[0];
+                else if (r.tag == 'R') {
+                    GPURegion* g = (cur == -1) ? &gpu.BiosTexture.Regions[r.a] : &gpu.CartridgeTextures[cur].Regions[r.a];
+                    g->MinX = r.c[0]; g->MinY = r.c[1]; g->MaxX = r.c[2]; g->MaxY = r.c[3]; g->HotspotX = r.c[4]; g->HotspotY = r.c[5];
+                } else if (r.tag == 'S') {
+                    SPUSound* s = (r.c[0] < 0) ? &spu.BiosSound : &spu.CartridgeSounds[r.c[0]];
+                    s->Length = (int32_t)r.a; s->PlayWithLoop = r.c[1]; s->LoopStart = r.c[2]; s->LoopEnd = r.c[3];
+                    s->Samples.assign(r.a, SPUSample());
+                }
+            }
+        };
+        setup(gt, gi); if (spath) setup(st, si);
+        for (bool done = false; !done; ) {
+            auto t0 = chrono::steady_clock::now();
+            unsigned long long fd = 0, fx = 0, fc = 0, fp = 0, fs = 0;
+            for (; gi < gt.recs.size(); gi++) {                      // the GPU writes of this frame
+                const TraceRec& r = gt.recs[gi];
+                if (r.tag == 'F') { frame = r.a; gi++; break; }
+                if (r.tag == 'E') { done = true; break; }
+                if (r.tag != 'W') continue;
+                V32Word w; w.AsInteger = (int32_t)r.b; int32_t local = (int32_t)(r.a & 0xFF);
+                bool isdraw = local == 0 && w.AsInteger >= 0x11 && w.AsInteger <= 0x14, isclear = local == 0 && w.AsInteger == 0x10;
+                long before = gpu.RemainingPixels;
+                gpu.WritePort(local, w); gpuw++;
+                if (isclear) fc++;
+                if (isdraw) { fd++; if (before < 0 || gpu.RemainingPixels < 0) fx++; else fp += (unsigned long long)(before - gpu.RemainingPixels); }
+            }
+            if (spath) for (; si < st.recs.size(); si++) {
+                const TraceRec& r = st.recs[si];
+                if (r.tag == 'F') { si++; break; }
+                if (r.tag == 'E') break;
+                if (r.tag != 'W') continue;
+                V32Word w; w.AsInteger = (int32_t)r.b; spu.WritePort((int32_t)(r.a & 0xFF), w); fs++;
+            }
+            gpu.ChangeFrame(); if (spath) spu.ChangeFrame();
+            double us = chrono::duration<double, micro>(chrono::steady_clock::now() - t0).count();
+            if (done && gi >= gt.recs.size()) break;
+            draws += fd; dropped += fx; clears += fc; pixels += fp; spuw += fs;
+            frame_us_v.push_back(us);
+            if (cf) fprintf(cf, "%u,%.1f,%llu,%llu,%llu,%llu,%llu\n", frame, us, fd, fx, fc, fp, fs);
+        }
+    }
+    if (cf) fclose(cf);
+    size_t n = frame_us_v.size(); vector<double> v = frame_us_v; sort(v.begin(), v.end());
+    double sum = 0; size_t over = 0; for (double x : v) { sum += x; if (x > frame_us) over++; }
+    printf("frames %zu  gpu writes %llu  spu writes %llu\n", n, gpuw, spuw);
+    printf("gpu draws %llu dropped %llu clears %llu pixels %llu\n", draws, dropped, clears, pixels);
+    if (n) printf("replay time per frame (us, the console logic with empty host callbacks): mean %.1f  p95 %.1f  max %.1f  over %.0f us: %zu\n",
+                  sum / n, v[(n - 1) * 95 / 100], v[n - 1], frame_us, over);
+    return 0;
+}
+
 // ===================================================================================================================
 //  the old runners' command lines, on the same engine
 // ===================================================================================================================
 static int compat_run(const string& which, int argc, char** argv)
 {
+    if (which == "gpureplay") { install_callbacks(NoLog); return compat_gpureplay(argc, argv); }
     if (which == "peek" || which == "prof" || which == "shot") {
         install_callbacks(NoLog);
         return which == "peek" ? compat_peek(argc, argv) : which == "prof" ? compat_prof(argc, argv) : compat_shot(argc, argv);
@@ -795,7 +925,7 @@ int main(int argc, char** argv)
     // the old names, as command-line compatibility: v32orun --compat=NAME ARGS...
     if (argc >= 2 && !strncmp(argv[1], "--compat=", 9)) {
         string which = argv[1] + 9;
-        if (which != "refrun" && which != "v32run" && which != "vrun" && which != "peek" && which != "prof" && which != "shot") { fprintf(stderr, "v32orun: unknown --compat=%s\n", which.c_str()); return 2; }
+        if (which != "refrun" && which != "v32run" && which != "vrun" && which != "peek" && which != "prof" && which != "shot" && which != "gpureplay") { fprintf(stderr, "v32orun: unknown --compat=%s\n", which.c_str()); return 2; }
         try { return compat_run(which, argc - 1, argv + 1); }
         catch (std::exception& e) { fprintf(stderr, "%s: %s\n", which.c_str(), e.what()); return which == "vrun" ? 2 : 3; }
     }

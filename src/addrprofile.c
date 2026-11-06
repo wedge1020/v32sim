@@ -15,6 +15,10 @@ uint8_t   profile_bin        = FALSE;    // --profile-format=bin
 uint32_t  profile_top        = 0;        // --profile-top=N
 uint8_t   fixed_cycles       = FALSE;    // --fixed-cycles
 uint8_t   profile_by_function = FALSE;   // --profile-by=function
+uint8_t   profile_event      = PROFEV_INSTR;   // --profile-event=KIND (VS-13 4.2)
+static uint32_t  cur_ip      = 0;        // the instruction being executed, for the events it causes
+
+const char *const profile_event_name[PROFEV_N] = { "instr", "gpu-draw", "gpu-portwrite", "spu-write", "cycles" };
 
 static uint32_t *counts[NUM_MEMORY_PAGES];
 static uint64_t  total       = 0;
@@ -58,7 +62,7 @@ uint8_t  addrprof_enabled (void)
     return ((profile_out != NULL) || (profile_top != 0));
 }
 
-void  addrprof_count (uint32_t  address)
+static void  count_at (uint32_t  address)
 {
     uint32_t  page   = (address & V32_PAGE_MASK) >> 28;    // the bus ignores bits 30-31
     uint32_t  offset = (address & 0x0FFFFFFF);
@@ -68,6 +72,30 @@ void  addrprof_count (uint32_t  address)
     {
         counts[page][offset] = counts[page][offset] + 1;
         total                = total + 1;
+    }
+}
+
+//
+// called for every instruction executed (before it runs): the default event, and the address later events are charged to
+// (a cycle is charged per instruction, so "cycles" gives the same counts as "instr")
+//
+void  addrprof_count (uint32_t  address)
+{
+    cur_ip  = address;
+    if ((profile_event == PROFEV_INSTR) || (profile_event == PROFEV_CYCLES))
+    {
+        count_at (address);
+    }
+}
+
+//
+// --profile-event: the instruction at the current address just caused one event of this kind
+//
+void  addrprof_event (int kind)
+{
+    if (kind == profile_event)
+    {
+        count_at (cur_ip);
     }
 }
 
@@ -345,6 +373,7 @@ void  addrprof_write (void)
         {
             qsort (funcs, nfuncs, sizeof (func_t), cmp_func_addr);
             fprintf (fptr, "# v32sim function profile v1\n");
+            if (profile_event != PROFEV_INSTR)  fprintf (fptr, "# event %s\n", profile_event_name[profile_event]);
             fprintf (fptr, "# cycles %llu frames %u\n", (unsigned long long) total, frames_run);
             for (i = 0; i < nfuncs; i = i + 1)
             {
@@ -370,6 +399,7 @@ void  addrprof_write (void)
         else
         {
             fprintf (fptr, "# v32sim address profile v1\n");
+            if (profile_event != PROFEV_INSTR)  fprintf (fptr, "# event %s\n", profile_event_name[profile_event]);
             fprintf (fptr, "# cycles %llu frames %u\n", (unsigned long long) total, frames_run);
             for (i = 0; i < nprof; i = i + 1)
             {
@@ -391,7 +421,7 @@ void  addrprof_write (void)
     if ((profile_top > 0) && (funcs != NULL))
     {
         qsort (funcs, nfuncs, sizeof (func_t), cmp_func_hot);
-        fprintf (stderr, "# %llu instructions executed; hottest functions:\n", (unsigned long long) total);
+        fprintf (stderr, "# %llu %s; hottest functions:\n", (unsigned long long) total, (profile_event == PROFEV_INSTR) ? "instructions executed" : profile_event_name[profile_event]);
         for (i = 0; (i < nfuncs) && (i < profile_top); i = i + 1)
         {
             func_label (&funcs[i], fname, sizeof (fname));
@@ -404,7 +434,7 @@ void  addrprof_write (void)
     else if (profile_top > 0)
     {
         qsort (prof, nprof, sizeof (prof_t), cmp_hot);
-        fprintf (stderr, "# %llu instructions executed; hottest addresses:\n", (unsigned long long) total);
+        fprintf (stderr, "# %llu %s; hottest addresses:\n", (unsigned long long) total, (profile_event == PROFEV_INSTR) ? "instructions executed" : profile_event_name[profile_event]);
         for (i = 0; (i < nprof) && (i < profile_top); i = i + 1)
         {
             name = (labs != NULL) ? cover (labs, nlabs, prof[i].addr) : NULL;
