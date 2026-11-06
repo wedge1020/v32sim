@@ -416,6 +416,7 @@ uint8_t  state_restore (const char *filename)
     REG(IR)     = ISYSMEMGET (REG(IP));
     REG(IV)     = (0 < (REG(IR) & IMMVAL_MASK)) ? ISYSMEMGET (REG(IP) + 1) : 0;
     v32io_kbd_clear ();     // queued keys belong to the time before the state
+    v32mouse_clear ();      // so do queued mouse actions; the counters follow the restored gamepad
     ok          = TRUE;
     goto done;
 

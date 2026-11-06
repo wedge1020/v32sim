@@ -41,6 +41,8 @@ software — and to automate cart testing.
 - **v32io keyboard**: a `v32kbd` on any gamepad port, fed from the prompt
   (`kbd type`, `kbd key`) or from the host (a terminal, pipe, FIFO or file),
   see *The v32io Keyboard*
+- **v32io mouse**: a `v32mouse` on another gamepad port, driven from the prompt
+  (`mouse move`, `mouse click`), see *The v32io Mouse*
 - **Watchpoints** on registers, IOPorts, and memory words, compared with a
   number or with another register/IOPort/memory word; edge-triggered
 - **Save / restore** of the whole machine state
@@ -199,6 +201,7 @@ Mandatory arguments to long options are mandatory for short options too.
  -V, --version             display version information and exit
  --v32kbd[=PORT]           emulate a v32kbd keyboard on gamepad PORT (default 0)
  --kbd-input=SOURCE        host key source: stdin, fd:N, FIFO/pipe/file (implies --v32kbd)
+ --v32mouse[=PORT]         emulate a v32mouse on gamepad PORT (default 1); drive it with `mouse`
  --fast                    do not throttle to real time
  --frame-us=N              wall-clock microseconds per frame (default 16666)
  --max-frames=N            stop after N frames
@@ -551,6 +554,20 @@ host area alone.
 
 The v32dev real-cartridge test suite of the v32io project (`dev_rom_test.py`)
 passes unchanged against v32sim: see *Tests*.
+
+## The v32io Mouse
+
+The mouse, `v32mouse`, is two counters of 12 positions (X on Left/Right/X/Y, Y on Up/Down/L/R: a trit and a Gray-coded pair, so one
+control changes per step) and three buttons (Start = middle, A = left, B = right). A program reads the counters once per frame, so the
+device sends at most 5 steps per axis per frame; a longer move takes several frames. v32sim emulates one on any port but the keyboard's:
+
+    v32sim --v32mouse=1 -B bios.v32 cart.v32            (then drive it from the prompt or a --batch script)
+
+`mouse attach [PORT]` (default 1), `mouse detach`, `mouse move DX DY`, `mouse click|down|up [left|right|middle]` (a click is down, two
+frames, up), `mouse wait N` (frames), `mouse clear`, `mouse` (status: counters, buttons, queue). Actions wait in a 4096-entry queue and
+are delivered one per frame, in order, before the frame runs. Restoring a saved state forgets queued actions and takes the counters from
+the restored gamepad. `tests/vectors/mouse_*.vec` (from the v32io project) are checked frame by frame by
+`tests/run_mouse_vectors.py`, which `run_harness_tests.sh` runs.
 
 ## The v32io Keyboard
 

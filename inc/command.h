@@ -36,6 +36,7 @@ enum cmd_id
     CMD_IGNORE,
     CMD_INVENTORY,
     CMD_KBD,
+    CMD_MOUSE,
     CMD_LABEL,
     CMD_LOAD,
     CMD_MAILBOX,

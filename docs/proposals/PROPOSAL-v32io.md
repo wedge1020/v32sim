@@ -32,7 +32,7 @@ without building the patched emulator. No code change.
 
 ## SI-3  v32mouse queue  (C)
 
-v32nix asked for a 64-event `v32mouse` queue like `v32kbd`'s (PROPOSALS P-I2). Status? v32sim will emulate a v32mouse (backlog VS-11)
+v32nix asked for a 64-event `v32mouse` queue like `v32kbd`'s (PROPOSALS P-I2). Status? v32sim emulates a v32mouse (VS-11, done 20261106: `--v32mouse`, `mouse` commands)
 and would follow whatever the library expects.
 
 ## Questions

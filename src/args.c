@@ -37,6 +37,7 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "version",        no_argument,       0, 'V' },
        { "v32kbd",         optional_argument, 0, 22  },
        { "kbd-input",      required_argument, 0, 23  },
+       { "v32mouse",       optional_argument, 0, 60  },
        { "fast",           no_argument,       0, 24  },
        { "frame-us",       required_argument, 0, 25  },
        { "max-frames",     required_argument, 0, 26  },
@@ -222,6 +223,15 @@ void  process_args (int32_t  argc, int8_t **argv)
                 if ((kbdport < 0) || (kbdport >= V32_NUM_GAMEPADS))
                 {
                     fprintf (stderr, "[ERROR] --v32kbd: gamepad port must be 0-3\n");
+                    exit (1);
+                }
+                break;
+
+            case 60: // v32mouse[=PORT]
+                mouseport          = (optarg != NULL) ? atoi (optarg) : 1;
+                if ((mouseport < 0) || (mouseport >= V32_NUM_GAMEPADS))
+                {
+                    fprintf (stderr, "[ERROR] --v32mouse: gamepad port must be 0-3\n");
                     exit (1);
                 }
                 break;

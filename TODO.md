@@ -1,8 +1,13 @@
 # TODO
 
-Status as of version `20261105-dev`.
+Status as of version `20261106-dev`.
 
 ## DONE (removed from this list)
+
+  * **20261106 (central maintenance), VS-11 v32mouse**: `src/v32mouse.c`, `--v32mouse[=PORT]`, the `mouse` command (`attach detach move
+    click|down|up wait clear`, status); counters and Gray/trit encoding as the v32io protocol, <=5 steps per axis per frame, a 4096-action
+    queue delivered one per frame; savestate restore resyncs. Tests: `tests/vectors/mouse_{move,buttons}.vec` through
+    `tests/run_mouse_vectors.py` + `tests/examples/pad_bits.c`, `--v32mouse`, same-port refusal (harness section "v32mouse"). `make archive` now writes `../v32sim-project-YYYYMMDD.zip`.
 
   * **20261105 (central maintenance), VS-12 one oracle runner**: `tools/oracle/orun.cpp` -> `v32orun`, on `V32Console`: a bare `.vbin`
     on logging stand-ins (v32lua's runner: `-g -s -d -D -p -t -B -P -m -G -c -q`, `V32_SPU_STATE`, `V32_CFI`, `V32_FIXED_TIME`, byte-identical

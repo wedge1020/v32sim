@@ -49,6 +49,7 @@ static const struct
     { "inventory",   2, CMD_INVENTORY },
     { "kbd",         2, CMD_KBD       },
     { "mailbox",     2, CMD_MAILBOX   },
+    { "mouse",       2, CMD_MOUSE     },
     { "label",       1, CMD_LABEL     },
     { "load",        2, CMD_LOAD      },
     { "next",        1, CMD_NEXT      },
@@ -818,6 +819,55 @@ static int  gp_resolve (const char *word)
     if (gp_prefix (word, "up",         2))  return (INP_GamepadUp);
     if (gp_prefix (word, "down",       2))  return (INP_GamepadDown);
     return (GP_UNKNOWN);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// mouse: the v32mouse mouse (see v32io.h)
+//
+static void  exec_mouse (cmd_t *c)
+{
+    char   line[256];
+    char  *verb  = NULL;
+    char  *a     = NULL;
+    char  *b     = NULL;
+    char  *p     = NULL;
+
+    if (c -> path == NULL)
+    {
+        v32mouse_show ();
+        return;
+    }
+    snprintf (line, sizeof (line), "%s", c -> path);
+    verb  = line;
+    p     = line;
+    while ((*p != '\0') && (*p != ' ') && (*p != '\t'))  p = p + 1;
+    if (*p != '\0')  { *p = '\0';  p = p + 1;  while ((*p == ' ') || (*p == '\t'))  p = p + 1; }
+    a  = p;
+    while ((*p != '\0') && (*p != ' ') && (*p != '\t'))  p = p + 1;
+    if (*p != '\0')  { *p = '\0';  p = p + 1;  while ((*p == ' ') || (*p == '\t'))  p = p + 1; }
+    b  = p;
+
+    if (0 == strcasecmp (verb, "attach"))        v32mouse_attach ((*a != '\0') ? atoi (a) : 1);
+    else if (0 == strcasecmp (verb, "detach"))   v32mouse_detach ();
+    else if (0 == strcasecmp (verb, "move"))
+    {
+        if ((*a == '\0') || (*b == '\0'))
+            fprintf (stderr, "[ERROR] mouse: move needs DX DY (steps; 5 per axis per frame)\n");
+        else
+            v32mouse_move (atoi (a), atoi (b));
+    }
+    else if ((0 == strcasecmp (verb, "down")) || (0 == strcasecmp (verb, "up")) || (0 == strcasecmp (verb, "click")))
+    {
+        v32mouse_button ((*a != '\0') ? a : "left", verb);
+    }
+    else if (0 == strcasecmp (verb, "wait"))     v32mouse_wait (atoi (a));
+    else if (0 == strcasecmp (verb, "clear"))    v32mouse_clear ();
+    else if (0 == strcasecmp (verb, "status"))   v32mouse_show ();
+    else
+    {
+        fprintf (stderr, "[ERROR] mouse: unknown subcommand '%s' (try 'help mouse')\n", verb);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -1756,6 +1806,7 @@ static void  exec_help (cmd_t *c)
         case CMD_GAMEPAD:     help (INPUT_GAMEPAD);    break;
         case CMD_CONSOLE:     help (INPUT_CONSOLE);    break;
         case CMD_KBD:         help (INPUT_KBD);        break;
+        case CMD_MOUSE:       help (INPUT_MOUSE);      break;
         case CMD_MAILBOX:     help (INPUT_MAILBOX);    break;
         case CMD_IGNORE:      help (INPUT_IGNORE);     break;
         case CMD_INVENTORY:   help (INPUT_INVENTORY);  break;
@@ -1813,6 +1864,7 @@ uint8_t  cmd_execute (cmd_t *c)
         case CMD_GAMEPAD:     exec_gamepad (c);                     break;
         case CMD_CONSOLE:     exec_console (c);                     break;
         case CMD_KBD:         exec_kbd (c);                         break;
+        case CMD_MOUSE:       exec_mouse (c);                       break;
         case CMD_MAILBOX:     exec_mailbox (c);                     break;
         case CMD_ASM:         exec_asm (c);                         break;
         case CMD_HELP:        exec_help (c);                        break;

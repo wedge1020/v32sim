@@ -23,13 +23,13 @@ before it or use `--dump`.
 `frame/up/down`, `list`, **`locals [NAME]`** (also `info locals`), `print/fmt X` (`/d /u /x /f /s /D`; registers, `[mem]`, ports,
 symbols, locals), `x/d NAME [N]`, `display`, `watch LOC OP VALUE` (`watch/d` signed), `run N`, `until "TEXT" [timeout N]`,
 `expect LOC OP VALUE` / `expect console "TEXT"`, `console [FILE]` / `console --attrs`, `screenshot FILE.png`, `gamepad N CONTROL`
-(toggles), `kbd attach N` / `kbd type "..."` / `kbd key K`, `mailbox`, `save` / `restore`, `asm` (patch an instruction),
+(toggles), `kbd attach N` / `kbd type "..."` / `kbd key K`, `mouse attach N` / `mouse move DX DY` / `mouse click`, `mailbox`, `save` / `restore`, `asm` (patch an instruction),
 `profile`, `quit N`.
 
 ## Options worth knowing
 
 `--fast`, `--max-frames=N`, `-x`, `--batch`, `-B BIOS`, `-M card.memc`, `--fixed-clock --seed=1 --fixed-cycles` (reproducible),
-`--input=BUTTON@FIRST-LAST,...` (gamepad by cartridge frame, V32_INPUT syntax), `--v32kbd=N`, `--kbd-input=...`, `--tty`,
+`--input=BUTTON@FIRST-LAST,...` (gamepad by cartridge frame, V32_INPUT syntax), `--v32kbd=N`, `--kbd-input=...`, `--v32mouse=N`, `--tty`,
 `--frame-stats=FILE` (per-frame CPU/GPU load), `--profile-out=FILE --profile-by=function --profile-top=N`, `--dump=N@SYM`,
 `--v32trace=PREFIX` (translator traps, V32TRACE 2.1: `traps.txt`, `blocks.txt`, the `trace.txt` report; `mark NOTE` sets a marker), `--symbol-file`, `--debug-dir`, `-n` (no debug files).
 Debug files are found next to the `.v32` (`NAME.vbin.debug`, `NAME.vbin.vars`, `NAME.asm.sym`, `NAME.asm`).

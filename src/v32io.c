@@ -773,6 +773,11 @@ int  v32io_kbd_attach (int port)
     {
         v32io_kbd_detach ();
     }
+    if (port == v32mouse_port ())
+    {
+        fprintf (stderr, "[ERROR] kbd: gamepad %d has the mouse on it\n", port);
+        return (-1);
+    }
     kbd.port  = port;
     gamepad_connect ((uint8_t) port, TRUE);
     v32io_kbd_clear ();
@@ -830,6 +835,7 @@ void  v32io_frame (void)
 {
     kev_t  ev;
 
+    v32mouse_frame ();
     if (kbd.port < 0)
     {
         return;

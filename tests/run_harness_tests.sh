@@ -204,5 +204,14 @@ if [ $HAVE_ORACLE = 1 ] && [ -x "$ORACLE/v32orun" ]; then
     r=$("$ORACLE/refrun" "$V32BIOS" "$W/ex/hello_text.v32" 400 --dump 1@0 | head -1); [ -n "$r" ] && ok "refrun wrapper: RAM words" || bad "refrun"
 else skipt "v32orun" "no ORACLE with v32orun"; fi
 
+echo "== v32mouse (v32io mouse on a gamepad port)"
+sh "$T/v32mkcart.sh" -o "$W/pbits" "$EX/pad_bits.c" >/dev/null || exit 2
+r=$(python3 -I "$HERE/run_mouse_vectors.py" "$SIM" "$V32BIOS" "$W/pbits/pad_bits.v32") && ok "mouse commands reproduce the v32io vectors (tests/vectors/mouse_*.vec): $(echo $r | tr -s ' \n' ' ')" || bad "mouse vectors: $r"
+printf 'run 300\nrun 5\nquit\n' > "$W/m.cmd"
+r=$("$SIM" --batch --fast -x --max-frames=700 -B "$V32BIOS" --v32mouse=2 "$W/pbits/pad_bits.v32" < "$W/m.cmd" 2>&1; printf 'mouse\nquit\n' | "$SIM" --batch --fast -x --max-frames=2 -B "$V32BIOS" --v32mouse=2 "$W/pbits/pad_bits.v32" 2>&1)
+case "$r" in *"v32mouse: on gamepad 2"*) ok "--v32mouse=PORT attaches the mouse";; *) bad "--v32mouse: $r";; esac
+r=$(printf 'mouse attach 1\nkbd attach 1\nquit\n' | "$SIM" --batch -x --max-frames=2 -B "$V32BIOS" "$W/pbits/pad_bits.v32" 2>&1)
+case "$r" in *"has the mouse on it"*|*"has the keyboard on it"*) ok "mouse and keyboard refuse the same port";; *) bad "same port: $r";; esac
+
 echo "== $pass passed, $fail failed, $skip skipped"
 [ $fail -eq 0 ]

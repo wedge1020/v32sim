@@ -9,7 +9,7 @@
 // builds. It may be overridden at build time, eg: make CFLAGS_EXTRA='-DVERSION=\"x\"'
 //
 #ifndef  VERSION
-#define  VERSION                 "20261105-dev"
+#define  VERSION                 "20261106-dev"
 #endif
 
 #endif

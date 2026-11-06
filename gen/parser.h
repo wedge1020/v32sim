@@ -96,24 +96,25 @@ extern int yydebug;
     T_WATCH = 297,                 /* T_WATCH  */
     T_WATCHLIST = 298,             /* T_WATCHLIST  */
     T_KBD = 299,                   /* T_KBD  */
-    T_MAILBOX = 300,               /* T_MAILBOX  */
-    T_CONSOLE = 301,               /* T_CONSOLE  */
-    T_RUN = 302,                   /* T_RUN  */
-    T_UNTIL = 303,                 /* T_UNTIL  */
-    T_EXPECT = 304,                /* T_EXPECT  */
-    T_EXAMINE = 305,               /* T_EXAMINE  */
-    T_SSTEP = 306,                 /* T_SSTEP  */
-    T_SNEXT = 307,                 /* T_SNEXT  */
-    T_FINISH = 308,                /* T_FINISH  */
-    T_TBREAK = 309,                /* T_TBREAK  */
-    T_LIST = 310,                  /* T_LIST  */
-    T_FRAME = 311,                 /* T_FRAME  */
-    T_UP = 312,                    /* T_UP  */
-    T_DOWN = 313,                  /* T_DOWN  */
-    T_LOCALS = 314,                /* T_LOCALS  */
-    T_MARK = 315,                  /* T_MARK  */
-    T_BADCMD = 316,                /* T_BADCMD  */
-    T_BAD = 317                    /* T_BAD  */
+    T_MOUSE = 300,                 /* T_MOUSE  */
+    T_MAILBOX = 301,               /* T_MAILBOX  */
+    T_CONSOLE = 302,               /* T_CONSOLE  */
+    T_RUN = 303,                   /* T_RUN  */
+    T_UNTIL = 304,                 /* T_UNTIL  */
+    T_EXPECT = 305,                /* T_EXPECT  */
+    T_EXAMINE = 306,               /* T_EXAMINE  */
+    T_SSTEP = 307,                 /* T_SSTEP  */
+    T_SNEXT = 308,                 /* T_SNEXT  */
+    T_FINISH = 309,                /* T_FINISH  */
+    T_TBREAK = 310,                /* T_TBREAK  */
+    T_LIST = 311,                  /* T_LIST  */
+    T_FRAME = 312,                 /* T_FRAME  */
+    T_UP = 313,                    /* T_UP  */
+    T_DOWN = 314,                  /* T_DOWN  */
+    T_LOCALS = 315,                /* T_LOCALS  */
+    T_MARK = 316,                  /* T_MARK  */
+    T_BADCMD = 317,                /* T_BADCMD  */
+    T_BAD = 318                    /* T_BAD  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -129,7 +130,7 @@ union YYSTYPE
     int     op;
     symv_t  s;
 
-#line 133 "obj/parser.h"
+#line 134 "obj/parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

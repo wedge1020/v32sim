@@ -32,6 +32,7 @@ void  usage (int8_t *program)
     fprintf (stdout, " -V, --version             display version information and exit\n");
     fprintf (stdout, "     --v32kbd[=PORT]       emulate a v32kbd keyboard on gamepad PORT (default 0)\n");
     fprintf (stdout, "     --kbd-input=SOURCE    host key source: stdin, fd:N, FIFO/pipe/file (implies --v32kbd)\n");
+    fprintf (stdout, "     --v32mouse[=PORT]     emulate a v32mouse on gamepad PORT (default 1); drive it with the\n                           'mouse' command\n");
     fprintf (stdout, "     --fast                do not throttle to real time (frames run as fast as possible)\n");
     fprintf (stdout, "     --frame-us=N          wall-clock microseconds per frame (default 16666; 0 = --fast)\n");
     fprintf (stdout, "     --max-frames=N        stop after N frames\n");
@@ -120,6 +121,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "  gamepad [#] [COMMAND]   view/simulate gamepad state\n");
             fprintf (stdout, "  console [FILE]          show BIOS-font text drawn on the screen, as text (or write it to FILE)\n");
             fprintf (stdout, "  kbd [SUBCOMMAND]        v32kbd keyboard: type text, press keys, host input\n");
+            fprintf (stdout, "  mouse [SUBCOMMAND]      v32mouse mouse: move, buttons, on a gamepad port\n");
             fprintf (stdout, "  mailbox [CHANNEL]       v32dev mailbox state of the memory card\n");
             fprintf (stdout, "  load cart|memc:file     load component into memory\n");
             fprintf (stdout, "  unload bios|cart|memc   unload component from memory\n");
@@ -157,6 +159,23 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    When pressed, the button's value will be a positive number\n");
             fprintf (stdout, "    of frames it has been pressed. When not pressed, a negative\n");
             fprintf (stdout, "    number of frames it has not been pressed\n\n");
+            break;
+
+        case INPUT_MOUSE:
+            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    mouse                    show the mouse state\n");
+            fprintf (stdout, "    mouse attach [PORT]      emulate a v32mouse on gamepad PORT (default 1)\n");
+            fprintf (stdout, "    mouse detach\n");
+            fprintf (stdout, "    mouse move DX DY         move by steps (the device sends at most 5 per axis per\n");
+            fprintf (stdout, "                             frame, so a long move takes several frames)\n");
+            fprintf (stdout, "    mouse down|up|click [left|right|middle]   buttons (click = down, 2 frames, up)\n");
+            fprintf (stdout, "    mouse wait N             let N frames pass before the next action\n");
+            fprintf (stdout, "    mouse clear              forget queued actions\n\n");
+            fprintf (stdout, "DESCRIPTION:\n");
+            fprintf (stdout, "    The v32io mouse looks like a gamepad: two counters of 12 positions (X on\n");
+            fprintf (stdout, "    Left/Right/X/Y, Y on Up/Down/L/R) carry the movement, Start/A/B are the\n");
+            fprintf (stdout, "    middle/left/right buttons. Actions are delivered one per frame, in order.\n");
+            fprintf (stdout, "    See lib/v32io/mouse.h of the v32io project.\n\n");
             break;
 
         case INPUT_KBD:

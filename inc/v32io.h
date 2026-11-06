@@ -7,7 +7,8 @@
 //
 // v32io devices (the RP2350 adapter, or the v32io patch of the DesktopEmulator) look
 // like an ordinary gamepad to the console and carry their data on its 11 controls. This
-// module emulates the keyboard, v32kbd, on one of the 4 gamepad ports:
+// module emulates the keyboard, v32kbd (v32io.c), and the mouse, v32mouse (v32mouse.c), on
+// gamepad ports of their own. The keyboard:
 //
 //   Left / Right   strobe: it switches side at every key event
 //   Up / Down      the event is a key press (Up) or a key release (Down)
@@ -74,5 +75,16 @@ void      v32io_shutdown      (void);
 void      v32io_tty           (int);                      // --tty full-screen mode
 int       v32io_tty_on        (void);
 void      v32io_tty_frame     (void);
+
+// v32mouse.c: the v32mouse mouse on another gamepad port (counters, buttons, an action queue)
+int       v32mouse_attach     (int);                      // device on a gamepad port
+void      v32mouse_detach     (void);
+int       v32mouse_port       (void);                     // -1 = none
+int       v32mouse_move       (int, int);                 // steps in x, y (5 per axis per frame)
+int       v32mouse_button     (const char *, const char *); // left|right|middle, down|up|click
+int       v32mouse_wait       (int);                      // let frames pass
+void      v32mouse_clear      (void);                     // forget queued actions, resync
+void      v32mouse_frame      (void);                     // once per frame, before it runs
+void      v32mouse_show       (void);                     // 'mouse' command
 
 #endif

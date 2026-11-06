@@ -27,7 +27,7 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 | run it unattended and get an exit status | `v32sim --batch --fast -x --max-frames=N` ([TESTING.md](TESTING.md)) |
 | read a variable / buffer after N frames | `tools/v32sim-peek.sh` (or `--dump=N@SYMBOL`); `v32peek` on the oracle |
 | type at a shell/DOS/monitor and check the screen | `tools/v32sim-session.py` + `tools/v32sim-golden.sh`, or a hand-written `.cmd` ([TESTING.md](TESTING.md)) |
-| replay gamepad / keyboard / mouse input from a script | `--input=A@40-44,...` (cart frames, V32_INPUT syntax), `tools/vprof2cmd.py` (v32prof scripts), `tools/v32io-script.py` (actions -> script), `kbd` commands |
+| replay gamepad / keyboard / mouse input from a script | `--input=A@40-44,...` (cart frames, V32_INPUT syntax), `tools/vprof2cmd.py` (v32prof scripts), `tools/v32io-script.py` (actions -> script), `kbd` and `mouse` commands |
 | see CPU and GPU load per frame, p95, frames over budget | `--frame-stats=FILE` ([PROFILING.md](PROFILING.md)); `v32prof` on the oracle |
 | find the hot functions | `--profile-by=function --profile-top=N`; `tools/v32sim-addrprof.py` across kernel / BIOS / loaded modules |
 | profile an OS: kernel plus programs swapped into a window | `tools/oracle` `sysprof` |

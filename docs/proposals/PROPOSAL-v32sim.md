@@ -23,7 +23,7 @@ From the 2026-11-03 consolidation and V32DBG / V32TRACE work, against v32sim 202
 chunk-level local. Read those too, registering `NAME` (and `var_NAME`), with size 1. Three lines; a test in `run_harness_tests.sh`
 with a v32lua global. Independent of SL-2.
 
-## VS-11  v32mouse  (B)
+## VS-11  v32mouse  (B) -- DONE 20261106 (`mouse` command, `--v32mouse`; README "The v32io Mouse")
 
 The protocol (v32io `lib/v32io/README.md`, v32c++'s `v32io-script.py`): X and Y as a trit counter (Left/Right, Up/Down) plus a Gray-coded
 pair per axis (X/Y, L/R), at most 5 steps per axis per frame, buttons on Start/A/B. Commands `mouse move DX DY`, `mouse down|up|click

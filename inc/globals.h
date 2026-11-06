@@ -204,6 +204,7 @@ extern int8_t    *dumpspec;
 extern uint8_t    consoleflag;
 extern int8_t    *kbdinput;
 extern int32_t    kbdport;
+extern int32_t    mouseport;
 extern uint8_t    wordsize;
 extern uint32_t   profcount;
 extern uint32_t   profcountsub;

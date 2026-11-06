@@ -60,6 +60,7 @@ int8_t   *dumpspec;        // --dump=N[@ADDR|@LABEL]: print N RAM words after th
 uint8_t   exitflag;        // -x: the exit status reports how the program ended
 int8_t   *symbolfile;      // --symbol-file=FILE: data symbols (v32cc NAME.asm.sym format)
 int8_t   *kbdinput;        // --kbd-input: host source of v32kbd keys
+int32_t   mouseport;       // --v32mouse: gamepad port of the mouse, -1 = none
 int32_t   kbdport;         // --v32kbd: gamepad port of the keyboard, -1 = none
 uint8_t   turboflag;
 uint8_t   waitflag;
@@ -217,6 +218,7 @@ int32_t   main (int32_t  argc, char **argv)
     consoleflag                     = FALSE;
     kbdinput                        = NULL;
     kbdport                         = -1;
+    mouseport                       = -1;
     frame_us                        = 1000000 / 60;
     turboflag                       = FALSE;
     waitflag                        = FALSE;
@@ -466,6 +468,10 @@ int32_t   main (int32_t  argc, char **argv)
     if (kbdport                    >= 0)
     {
         v32io_kbd_attach (kbdport);
+    }
+    if (mouseport                  >= 0)
+    {
+        v32mouse_attach (mouseport);
     }
     if ((v32io_tty_on () == TRUE) && (kbdinput == NULL))
     {

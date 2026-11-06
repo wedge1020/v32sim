@@ -160,11 +160,15 @@ sysinstall: $(BIN)
 sysuninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET); rm -rf $(DESTDIR)$(PREFIX)/share/v32sim
 
+# the archive carries the date of the version: ../v32sim-project-YYYYMMDD.zip
+ARCHIVE = ../v32sim-project-$(shell echo $(VERSION_STRING) | cut -c1-8).zip
+
 archive: clean
-	@zip -r ../v32sim-project.zip *
+	@rm -f $(ARCHIVE)
+	@zip -r $(ARCHIVE) *
 
 clean:
-	@rm -vf .*.sw[op] *.save* *~ core errors *.patch *.zip ../v32sim-project.zip
+	@rm -vf .*.sw[op] *.save* *~ core errors *.patch *.zip ../v32sim-project.zip $(ARCHIVE)
 	@rm -vf $(DEPS) $(GENSRC) $(GENHDR) $(BINDIR)/$(TARGET)
 	@rm -rf $(OBJDIR)
 

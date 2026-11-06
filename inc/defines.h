@@ -130,6 +130,7 @@
 #define  INPUT_RESTORE           32
 #define  INPUT_ASM               33
 #define  INPUT_KBD               34
+#define  INPUT_MOUSE             71
 #define  INPUT_MAILBOX           35
 #define  INPUT_CONSOLE           36
 #define  INPUT_RUN               37
