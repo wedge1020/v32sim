@@ -19,7 +19,7 @@ STABLE = {'gpu.draws': 'draws', 'gpu.dropped': 'dropped', 'gpu.clears': 'clears'
           'gpu.color_changes': 'color_changes', 'gpu.blend_changes': 'blend_changes', 'spu.assignments': 'spu_assigns',
           'spu.param_writes': 'spu_params', 'bus.movs_words': 'movs_words', 'bus.sets_words': 'sets_words',
           'bus.gamepad_reads': 'gamepad_reads', 'cpu.instructions': 'instructions', 'cpu.cycles': 'cycles',
-          'gpu.pixels': 'gpu_pixels', 'cpu.pct': 'cpu_pct', 'gpu.pct': 'gpu_pct'}
+          'gpu.pixels': 'gpu_pixels', 'bus.memcard_accesses': 'memcard_accesses', 'spu.channels_playing': 'spu_playing', 'cpu.pct': 'cpu_pct', 'gpu.pct': 'gpu_pct'}
 
 def read_rows(path):
     with open(path, newline='') as f:

@@ -689,7 +689,7 @@ budget, GPU pixels against the 9-screen capacity; `end` is `w` for a frame ended
 prints a summary (mean, 95th percentile, maximum, frames at 100%) to stderr when the run ends. `--frame-stats-skip=N`
 leaves the first N frames (the BIOS logo takes about 250) out of the summary. After those columns come the GPU / SPU counters
 (`draws,dropped,clears,tex_switches,region_switches,regions,spu_cmds,spu_plays`, then `scaled_draws,rotated_draws,region_defs,color_changes,
-blend_changes,spu_assigns,spu_params,movs_words,sets_words,gamepad_reads,instructions`), and the summary lists them (mean, p50, p95, p99,
+blend_changes,spu_assigns,spu_params,movs_words,sets_words,gamepad_reads,instructions,memcard_accesses,spu_playing`), and the summary lists them (mean, p50, p95, p99,
 max, total) and the regions charged the most pixels. `--stats-format=json` writes JSON Lines instead (one object per frame with the stable
 names `gpu.draws`, `cpu.cycles`, ..., and a `{"type":"summary"...}` line last); `--stats`, `--stats-skip`, `--stats-top` are the same
 options as the `--frame-stats` ones. In a session `stats` shows the counters, `expect stats gpu.draws.p95 <= 600` (or

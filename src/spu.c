@@ -69,6 +69,18 @@ void  spu_trace_snapshot (FILE *f)
     }
 }
 
+int  spu_channels_playing (void)
+{
+    int  i  = 0;
+    int  n  = 0;
+
+    for (i = 0; i < SPU_CHANNELS; i = i + 1)
+    {
+        if (channels[i].state == SPUChannelState_Playing)  n = n + 1;
+    }
+    return (n);
+}
+
 static sound_t *sound_ptr (int32_t id)
 {
     return ((id < 0) ? &biossound : &sounds[id]);

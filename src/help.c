@@ -478,7 +478,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    NAME is a stable dotted name (gpu.draws gpu.dropped gpu.clears gpu.tex_switches gpu.region_switches\n");
             fprintf (stdout, "    gpu.regions gpu.scaled_draws gpu.rotated_draws gpu.region_defs gpu.color_changes gpu.blend_changes\n");
             fprintf (stdout, "    gpu.pixels spu.cmds spu.plays spu.assignments spu.param_writes bus.movs_words bus.sets_words\n");
-            fprintf (stdout, "    bus.gamepad_reads cpu.instructions cpu.cycles) or its CSV column name (draws, spu_plays, ...).\n");
+            fprintf (stdout, "    bus.gamepad_reads bus.memcard_accesses spu.channels_playing cpu.instructions cpu.cycles) or its CSV column name (draws, spu_plays, ...).\n");
             fprintf (stdout, "    AGG is last (default) mean min max p50 p95 p99 total over the frames counted; the old total_NAME\n");
             fprintf (stdout, "    and max_NAME, frames and total_pixels still work. A dropped draw is one the GPU did not render\n");
             fprintf (stdout, "    because the frame's pixel budget was spent. --frame-stats=FILE writes the counters per frame.\n\n");

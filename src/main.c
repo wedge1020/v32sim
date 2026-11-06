@@ -566,6 +566,7 @@ int32_t   main (int32_t  argc, char **argv)
     v32trace_init ();
     v32trace_ready ();
     addrprof_init ();
+    perf_skip_frames (frame_stats_skip);   // --stats-skip applies to the session counters too
     padscript_init ();     // --input / V32_INPUT: the gamepad is set before the first frame      // the page sizes are known once the BIOS, cart and card are loaded
 
     /*

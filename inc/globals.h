@@ -382,6 +382,8 @@ void      perf_gpu_command (int32_t);
 void      perf_port_write (uint16_t);
 void      perf_port_read (uint16_t);
 void      perf_instruction (void);
+void      perf_memc_access (void);
+int       spu_channels_playing (void);
 void      perf_bus_words (int);
 void      perf_history (int);
 void      perf_json_row (FILE *);

@@ -43,9 +43,9 @@ pixels:
 55 % of the CPU budget; the biggest cost is the full-screen bezel region; the p50/p99 figures above are illustrative.) More columns follow
 `spu_plays`: `scaled_draws`, `rotated_draws` (a rotozoomed draw is both), `region_defs` (writes to the region ports), `color_changes`
 (GPU_MultiplyColor), `blend_changes`, `spu_assigns`, `spu_params` (channel volume / speed / loop / position writes), `movs_words`,
-`sets_words`, `gamepad_reads`, `instructions`. Every counter also has a stable dotted name: `gpu.draws gpu.dropped gpu.clears
+`sets_words`, `gamepad_reads`, `instructions`, `memcard_accesses` (words of the card the program read or wrote), `spu_playing` (a gauge: channels playing when the frame ended). Every counter also has a stable dotted name: `gpu.draws gpu.dropped gpu.clears
 gpu.tex_switches gpu.region_switches gpu.regions gpu.scaled_draws gpu.rotated_draws gpu.region_defs gpu.color_changes gpu.blend_changes
-spu.cmds spu.plays spu.assignments spu.param_writes bus.movs_words bus.sets_words bus.gamepad_reads cpu.instructions`, plus `cpu.cycles` and
+spu.cmds spu.plays spu.assignments spu.param_writes bus.movs_words bus.sets_words bus.gamepad_reads bus.memcard_accesses spu.channels_playing cpu.instructions`, plus `cpu.cycles` and
 `gpu.pixels` (the two budget columns). `--stats-format=json` writes JSON Lines with those names (`{"frame":N,"gpu.draws":..., ...}`, then a
 `{"type":"summary","frames":N,"stats":{"gpu.draws":{"mean","min","p50","p95","p99","max","total"},...}}` line); `--stats`, `--stats-skip`,
 `--stats-top` are synonyms of the `--frame-stats` options. `--frame-stats-skip=N` leaves the first N frames out of the counters too.
@@ -58,7 +58,7 @@ the percentiles, `off` stops that), `stats save FILE [json]` (every frame, by co
 [--skip N] [--sort ratio] [--fail-over PCT] [--fail-columns a,b] [--json]` compares two runs (CSV or JSON Lines; mean, p95, max per column;
 `--sort ratio` lists the biggest changes first; exit 1 if the mean of cycles, gpu_pixels or draws rose by more than PCT percent).
 
-Not there yet: channels-playing and memory-card counters (the SPU mixer and the card controller have no per-frame hook yet). The counters only watch commands go by (a test checks that
+`tests/examples/counts.c` issues a fixed number of each command per frame and the harness checks the counters against those numbers. `--stats-skip` applies to the session counters (`stats`, `expect stats`) too. The counters only watch commands go by (a test checks that
 `stats off` leaves the machine's output identical).
 Segments (v32prof's named script segments) are not modelled: use `--frame-stats-skip`, or cut the CSV by frame number.
 

@@ -25,6 +25,8 @@
 //     sets_words       bus.sets_words        words set by SETS
 //     gamepad_reads    bus.gamepad_reads     reads of the gamepad ports by the program
 //     instructions     cpu.instructions      instructions executed (a MOVS / SETS word counts as one)
+//     memcard_accesses bus.memcard_accesses  words of the memory card the program read or wrote
+//     spu_playing      spu.channels_playing  channels playing when the frame ended (a gauge: its total is channel-frames)
 //     cycles           cpu.cycles            cycles the frame took (TIM_CycleCounter when it ends)
 //     gpu_pixels       gpu.pixels            pixels the frame drew
 //
@@ -37,8 +39,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
+static void  sample (void);
+
 enum { C_DRAWS, C_DROPPED, C_CLEARS, C_TEXSW, C_REGSW, C_REGIONS, C_SPUCMDS, C_SPUPLAYS,
-       C_SCALED, C_ROTATED, C_REGDEFS, C_COLORS, C_BLENDS, C_SPUASSIGN, C_SPUPARAM, C_MOVS, C_SETS, C_PADREADS, C_INSTR,
+       C_SCALED, C_ROTATED, C_REGDEFS, C_COLORS, C_BLENDS, C_SPUASSIGN, C_SPUPARAM, C_MOVS, C_SETS, C_PADREADS, C_INSTR, C_MEMC, C_SPUPLAYING,
        C_CYCLES, C_PIXELS, P_N };
 
 #define  C_CSV_N  C_CYCLES                       // the counters that follow the original CSV columns; cycles and pixels have columns of their own
@@ -52,7 +56,8 @@ static const cdef_t  cdef[P_N] =
     { "scaled_draws", "gpu.scaled_draws" }, { "rotated_draws", "gpu.rotated_draws" }, { "region_defs", "gpu.region_defs" },
     { "color_changes", "gpu.color_changes" }, { "blend_changes", "gpu.blend_changes" }, { "spu_assigns", "spu.assignments" },
     { "spu_params", "spu.param_writes" }, { "movs_words", "bus.movs_words" }, { "sets_words", "bus.sets_words" },
-    { "gamepad_reads", "bus.gamepad_reads" }, { "instructions", "cpu.instructions" }, { "cycles", "cpu.cycles" }, { "gpu_pixels", "gpu.pixels" }
+    { "gamepad_reads", "bus.gamepad_reads" }, { "instructions", "cpu.instructions" },
+    { "memcard_accesses", "bus.memcard_accesses" }, { "spu_playing", "spu.channels_playing" }, { "cycles", "cpu.cycles" }, { "gpu_pixels", "gpu.pixels" }
 };
 
 #define  HIST_MAX_FRAMES  (4u * 1024u * 1024u)
@@ -198,6 +203,7 @@ void  perf_port_read (uint16_t port)
     }
 }
 
+void  perf_memc_access (void)             { cur[C_MEMC] = cur[C_MEMC] + 1; }
 void  perf_instruction (void)             { cur[C_INSTR] = cur[C_INSTR] + 1; }
 void  perf_bus_words (int sets)           { if (sets) cur[C_SETS] = cur[C_SETS] + 1; else cur[C_MOVS] = cur[C_MOVS] + 1; }
 
@@ -208,6 +214,7 @@ static void  sample (void)
 {
     int32_t  remain  = (int32_t) ISYSPORTGET(GPU_RemainingPixels);
 
+    cur[C_SPUPLAYING]  = (uint32_t) spu_channels_playing ();          // a gauge: the channels playing as the frame ends
     cur[C_CYCLES]  = (uint32_t) ISYSPORTGET(TIM_CycleCounter);
     cur[C_PIXELS]  = (remain < 0) ? (9u * 640u * 360u) : (uint32_t) (9 * 640 * 360 - remain);
 }
@@ -355,6 +362,7 @@ void  perf_csv_row (FILE *out)
 {
     int  i  = 0;
 
+    sample ();
     for (i = 0; i < C_CSV_N; i = i + 1)
     {
         fprintf (out, ",%u", cur[i]);

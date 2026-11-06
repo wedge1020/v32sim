@@ -237,7 +237,7 @@ case "$r" in *"has the mouse on it"*|*"has the keyboard on it"*) ok "mouse and k
 echo "== GPU / SPU counters (VS-13)"
 sh "$T/v32mkcart.sh" -o "$W/pod" "$EX/overdraw.c" >/dev/null || exit 2
 r=$("$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --frame-stats="$W/pod.csv" --frame-stats-skip=250 --frame-stats-top=3 "$W/pod/overdraw.v32" 2>&1)
-[ "$(sed -n 1p "$W/pod.csv")" = "frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end,draws,dropped,clears,tex_switches,region_switches,regions,spu_cmds,spu_plays,scaled_draws,rotated_draws,region_defs,color_changes,blend_changes,spu_assigns,spu_params,movs_words,sets_words,gamepad_reads,instructions" ] && ok "--frame-stats CSV: the six original columns, then the counters" || bad "CSV header"
+[ "$(sed -n 1p "$W/pod.csv")" = "frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end,draws,dropped,clears,tex_switches,region_switches,regions,spu_cmds,spu_plays,scaled_draws,rotated_draws,region_defs,color_changes,blend_changes,spu_assigns,spu_params,movs_words,sets_words,gamepad_reads,instructions,memcard_accesses,spu_playing" ] && ok "--frame-stats CSV: the six original columns, then the counters" || bad "CSV header"
 [ "$(sed -n 280p "$W/pod.csv" | cut -d, -f7,8)" = "12,3" ] && ok "overdraw.c: 12 draws, 3 dropped per frame (9 screens of budget)" || bad "per-frame counters: $(sed -n 280p "$W/pod.csv")"
 case "$r" in *"gpu.draws "*"12.00"*"12      12      12      12"*"gpu.dropped"*"3.00"*"-1:0 "*) ok "the summary has the counters (skip applied) and the top regions";; *) bad "summary: $r";; esac
 printf 'run 300\nstats expect dropped = 3\nstats expect total_draws >= 600\nquit\n' | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1 && ok "stats expect passes" || bad "stats expect"
@@ -281,6 +281,10 @@ case "$r" in *"[time]"*"cpu_us"*"gpu_us"*"work_us"*) ok "--time-breakdown prints
 [ "$(head -1 "$W/fl.csv")" = "frame,cpu_us,gpu_us,spu_us,output_us,sleep_us,work_us,late_us" ] && [ "$(wc -l < "$W/fl.csv")" -gt 250 ] && ok "--frame-log writes a row per frame" || bad "frame-log"
 printf 'run 300\nscreenshot %s/tbon.png\nquit\n' "$W" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" --time-breakdown --gpu-trace="$W/g2.trc" --profile-event=gpu-draw "$W/pod/overdraw.v32" >/dev/null 2>&1
 cmp -s "$W/tbon.png" "$W/son.png" && ok "traces, --time-breakdown and --profile-event leave the machine's output identical" || bad "observability changed the machine"
+
+echo "== counters against a cartridge with known counts (tests/examples/counts.c)"
+sh "$T/v32mkcart.sh" -o "$W/cnt" "$EX/counts.c" >/dev/null 2>&1
+printf 'run 300\nexpect stats gpu.draws.p50 == 6\nexpect stats gpu.scaled_draws.p50 == 4\nexpect stats gpu.rotated_draws.p50 == 3\nexpect stats gpu.region_defs.p50 == 12\nexpect stats gpu.color_changes.p50 == 2\nexpect stats gpu.blend_changes.p50 == 3\nexpect stats spu.assignments.p50 == 1\nexpect stats spu.param_writes.p50 == 3\nexpect stats bus.gamepad_reads.p50 == 4\nexpect stats spu.channels_playing.max == 0\nquit\n' | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" --stats-skip=250 "$W/cnt/counts.v32" >/dev/null 2>&1 && ok "known counts: draws, scaled, rotated, region defs, colour / blend writes, SPU assignments / parameters, gamepad reads" || bad "known counts"
 
 echo "== screenshot highlight"
 sh "$T/v32mkcart.sh" -o "$W/hlk" --cc-opt -DKEEP_RUNNING "$EX/hello_text.c" >/dev/null || exit 2
