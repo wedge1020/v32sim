@@ -64,6 +64,12 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "frame-stats-skip", required_argument, 0, 45 },
        { "input",          required_argument, 0, 46  },
        { "input-port",     required_argument, 0, 47  },
+       { "frame-stats-top",required_argument, 0, 206 },
+       { "stats",          required_argument, 0, 44  },
+       { "stats-skip",     required_argument, 0, 45  },
+       { "stats-top",      required_argument, 0, 206 },
+       { "stats-format",   required_argument, 0, 207 },
+       { "input2",         required_argument, 0, 208 },
        { "highlight",      required_argument, 0, 201 },
        { "screengrid",     optional_argument, 0, 202 },
        { "noextra",        no_argument,       0, 203 },
@@ -286,6 +292,24 @@ void  process_args (int32_t  argc, int8_t **argv)
 
             case 46: // input
                 pad_input          = optarg;
+                break;
+
+            case 208: // input2
+                pad_input2         = optarg;
+                break;
+
+            case 207: // stats-format
+                if      (0 == strcasecmp (optarg, "json"))  frame_stats_json = TRUE;
+                else if (0 == strcasecmp (optarg, "csv"))   frame_stats_json = FALSE;
+                else
+                {
+                    fprintf (stderr, "[ERROR] --stats-format: csv or json (got '%s')\n", optarg);
+                    exit (1);
+                }
+                break;
+
+            case 206: // frame-stats-top
+                frame_stats_top    = (uint32_t) strtoul (optarg, NULL, 10);
                 break;
 
             case 201: // highlight

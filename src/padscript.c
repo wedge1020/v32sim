@@ -28,10 +28,18 @@ uint8_t    pad_input_port  = 0;         // --input-port=N
 
 typedef struct { int32_t from, to; uint16_t mask; } prun_t;
 
-static prun_t   *runs      = NULL;
-static int       nruns     = 0;
-static int32_t   next_cf   = -1;        // the cart frame that runs next (-1: the BIOS is still running)
-static uint8_t   active    = FALSE;
+typedef struct
+{
+    prun_t   *runs;
+    int       nruns;
+    int32_t   next_cf;                  // the cart frame that runs next (-1: the BIOS is still running)
+    uint8_t   active;
+    uint8_t   port;
+} pstate_t;
+
+int8_t    *pad_input2      = NULL;      // --input2=SCRIPT: the same for gamepad 2 (port 1)
+
+static pstate_t  st[2];
 
 static const char *const names[11] = { "LEFT", "RIGHT", "UP", "DOWN", "START", "A", "B", "X", "Y", "L", "R" };
 
@@ -53,7 +61,7 @@ static int  button_of (const char *s, size_t n)
     return (-1);
 }
 
-static int  parse (const char *text)
+static int  parse (pstate_t *s, const char *text)
 {
     const char  *p     = text;
     int          room  = 0;
@@ -107,49 +115,107 @@ static int  parse (const char *text)
         {
             return (FALSE);
         }
-        if (nruns == room)
+        if (s->nruns == room)
         {
-            prun_t  *n  = realloc (runs, (size_t) (room = (room == 0) ? 32 : room * 2) * sizeof (prun_t));
+            prun_t  *n  = realloc (s->runs, (size_t) (room = (room == 0) ? 32 : room * 2) * sizeof (prun_t));
 
             if (n == NULL)
             {
                 return (FALSE);
             }
-            runs  = n;
+            s->runs  = n;
         }
-        runs[nruns]  = r;
-        nruns        = nruns + 1;
+        s->runs[s->nruns]  = r;
+        s->nruns        = s->nruns + 1;
         p            = (*end == ',') ? (end + 1) : end;
     }
     return (TRUE);
 }
 
-static void  apply (int32_t cf)
+static void  apply (pstate_t *s, int32_t cf)
 {
     uint16_t  mask  = 0;
     int       i     = 0;
 
-    for (i = 0; i < nruns; i = i + 1)
+    for (i = 0; i < s->nruns; i = i + 1)
     {
-        if ((cf >= runs[i].from) && (cf <= runs[i].to))
+        if ((cf >= s->runs[i].from) && (cf <= s->runs[i].to))
         {
-            mask  = mask | runs[i].mask;
+            mask  = mask | s->runs[i].mask;
         }
     }
     for (i = 0; i < 11; i = i + 1)
     {
-        if (((mask >> i) & 1) != (gamepad_pressed (pad_input_port, (uint8_t) i) ? 1 : 0))
+        if (((mask >> i) & 1) != (gamepad_pressed (s->port, (uint8_t) i) ? 1 : 0))
         {
-            gamepad_control (pad_input_port, (uint8_t) i, (mask >> i) & 1);
+            gamepad_control (s->port, (uint8_t) i, (mask >> i) & 1);
         }
     }
-    gamepad_publish (pad_input_port);
+    gamepad_publish (s->port);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
 // padscript_init(): after the machine is set up: parse, connect the gamepad, frame 0's state
 //
+static void  init_one (pstate_t *s, const char *text, uint8_t port, const char *option, const char *key)
+{
+    s -> port  = port;
+    if (text == NULL)
+    {
+        return;
+    }
+    if (text[0] == '@')                          // @FILE: the KEY= line of a file (a V32TRACE .trace.txt), or its first line
+    {
+        static char  line[65536];
+        FILE        *f      = fopen (text + 1, "r");
+        int          found  = FALSE;
+        size_t       klen   = strlen (key);
+
+        if (f == NULL)
+        {
+            fprintf (stderr, "[ERROR] %s: cannot read '%s'\n", option, text + 1);
+            exit (1);
+        }
+        while (fgets (line, sizeof (line), f) != NULL)
+        {
+            line[strcspn (line, "\r\n")] = '\0';
+            if ((0 == strncmp (line, key, klen)) && (line[klen] == '='))
+            {
+                memmove (line, line + klen + 1, strlen (line + klen + 1) + 1);
+                found = TRUE;
+                break;
+            }
+        }
+        if (found == FALSE)
+        {
+            rewind (f);
+            if ((port == 0) && (fgets (line, sizeof (line), f) != NULL))  line[strcspn (line, "\r\n")] = '\0';
+            else                                                            line[0] = '\0';      // gamepad 2: no such line, no buttons
+        }
+        fclose (f);
+        text = line;
+    }
+    if (port >= V32_NUM_GAMEPADS)
+    {
+        fprintf (stderr, "[ERROR] --input-port: 0 to %d\n", V32_NUM_GAMEPADS - 1);
+        exit (1);
+    }
+    if (parse (s, text) == FALSE)
+    {
+        fprintf (stderr, "[ERROR] %s: cannot read '%s' (BUTTON[+BUTTON]@FIRST-LAST,...)\n", option, text);
+        exit (1);
+    }
+    if ((gamepad + port) -> connected != TRUE)
+    {
+        gamepad_reset (port);
+        (gamepad + port) -> connected  = TRUE;
+    }
+    s -> active   = TRUE;
+    s -> next_cf  = -1;
+    apply (s, 0);                                // what the cartridge's first frame sees
+}
+
 void  padscript_init (void)
 {
     const char  *text  = (const char *) pad_input;
@@ -159,78 +225,45 @@ void  padscript_init (void)
         text  = getenv ("V32_INPUT");
         fprintf (stderr, "[input] using V32_INPUT from the environment\n");
     }
-    if (text == NULL)
+    init_one (st, text, pad_input_port, "--input", "V32_INPUT");
+    text  = (const char *) pad_input2;
+    if ((text == NULL) && (getenv ("V32_INPUT2") != NULL))
     {
-        return;
+        text  = getenv ("V32_INPUT2");
+        fprintf (stderr, "[input] using V32_INPUT2 from the environment\n");
     }
-    if (text[0] == '@')                          // @FILE: the V32_INPUT= line of a file (a V32TRACE .trace.txt), or its first line
+    if ((text != NULL) && (pad_input_port == 1))
     {
-        static char  line[65536];
-        FILE        *f      = fopen (text + 1, "r");
-        int          found  = FALSE;
-
-        if (f == NULL)
-        {
-            fprintf (stderr, "[ERROR] --input: cannot read '%s'\n", text + 1);
-            exit (1);
-        }
-        while (fgets (line, sizeof (line), f) != NULL)
-        {
-            line[strcspn (line, "\r\n")] = '\0';
-            if (0 == strncmp (line, "V32_INPUT=", 10))
-            {
-                memmove (line, line + 10, strlen (line + 10) + 1);
-                found = TRUE;
-                break;
-            }
-        }
-        if (found == FALSE)
-        {
-            rewind (f);
-            if (fgets (line, sizeof (line), f) == NULL)  line[0] = '\0';
-            line[strcspn (line, "\r\n")] = '\0';
-        }
-        fclose (f);
-        text = line;
-    }
-    if (pad_input_port >= V32_NUM_GAMEPADS)
-    {
-        fprintf (stderr, "[ERROR] --input-port: 0 to %d\n", V32_NUM_GAMEPADS - 1);
+        fprintf (stderr, "[ERROR] --input2 drives gamepad 2 (port 1): --input-port must not be 1 as well\n");
         exit (1);
     }
-    if (parse (text) == FALSE)
-    {
-        fprintf (stderr, "[ERROR] --input: cannot read '%s' (BUTTON[+BUTTON]@FIRST-LAST,...)\n", text);
-        exit (1);
-    }
-    if ((gamepad + pad_input_port) -> connected != TRUE)
-    {
-        gamepad_reset (pad_input_port);
-        (gamepad + pad_input_port) -> connected  = TRUE;
-    }
-    active   = TRUE;
-    next_cf  = -1;
-    apply (0);                                   // what the cartridge's first frame sees
+    init_one (st + 1, text, 1, "--input2", "V32_INPUT2");
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
 // padscript_frame(): at the end of every frame, set up the next one
 //
-void  padscript_frame (void)
+static void  frame_one (pstate_t *s)
 {
-    if (active == FALSE)
+    if (s -> active == FALSE)
     {
         return;
     }
-    if (next_cf < 0)
+    if (s -> next_cf < 0)
     {
         if ((((uint32_t) REG(IP)) >> 28) != V32_PAGE_CART)
         {
             return;                              // still in the BIOS: frame 0 has not run
         }
-        next_cf  = 0;                            // the frame that ended was the cartridge's frame 0
+        s -> next_cf  = 0;                       // the frame that ended was the cartridge's frame 0
     }
-    next_cf  = next_cf + 1;
-    apply (next_cf);
+    s -> next_cf  = s -> next_cf + 1;
+    apply (s, s -> next_cf);
+}
+
+void  padscript_frame (void)
+{
+    frame_one (st);
+    frame_one (st + 1);
 }

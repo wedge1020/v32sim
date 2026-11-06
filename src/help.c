@@ -54,6 +54,7 @@ void  usage (int8_t *program)
     fprintf (stdout, "                           --profile-out add up the addresses of each function (the closest label)\n");
     fprintf (stdout, "     --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... or @FILE (V32_INPUT\n");
     fprintf (stdout, "                           syntax, frame 0 = the cart's first; V32TRACE input=); --input-port=N (default 0)\n");
+    fprintf (stdout, "     --input2=SCRIPT       the same for gamepad 2 (port 1; V32TRACE input2=, @FILE reads its V32_INPUT2= line)\n");
     fprintf (stdout, "     --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma separated)\n");
     fprintf (stdout, "     --screenshot-file=PAT   file name for those; %%d = the frame (default v32sim-shot-%%05d.png)\n");
     fprintf (stdout, "     --screengrid[=SPEC]     grid over screenshots: DX[xDY],color=C,alpha=N,labels|nolabels (default 40x40)\n");
@@ -61,6 +62,9 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --noextra             no grid and no outlines in screenshots\n");
     fprintf (stdout, "     --frame-stats=FILE    write one CSV row per frame (cycles, CPU %%, GPU pixels, GPU %%) and print a summary\n");
     fprintf (stdout, "                           (mean, p95, max, frames at 100%%) to stderr when the run ends\n");
+    fprintf (stdout, "     --stats-format=json   --frame-stats FILE as JSON Lines (stable dotted names, a summary line at the end); --stats=FILE,\n");
+    fprintf (stdout, "                           --stats-skip=N and --stats-top=N are the same options as --frame-stats...\n");
+    fprintf (stdout, "     --frame-stats-top=N   list the N regions charged the most GPU pixels in that summary (default 8, 0 = none)\n");
     fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
     fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2.1): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
     fprintf (stdout, "                           routines and events, write PREFIX.traps.txt, .blocks.txt and the .trace.txt report; after a trap the\n");
@@ -123,6 +127,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "  screenshot [FILE]       write the GPU screen to a PNG file\n");
             fprintf (stdout, "  highlight [ARGS]        outline regions (TEXTURE:REGION) in screenshots\n");
             fprintf (stdout, "  screengrid [ARGS]       lay a grid over screenshots\n");
+            fprintf (stdout, "  stats [regions|reset|on|off|save|expect]  GPU / SPU / bus counters per frame and per region\n");
             fprintf (stdout, "  noextra [on|off]        screenshots without grid and outlines\n");
             fprintf (stdout, "  save [FILE]             write the machine state to a file\n");
             fprintf (stdout, "  restore FILE            restore a saved machine state\n");
@@ -455,6 +460,24 @@ void  help  (uint8_t  item)
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    Restore a state written by 'save'. The BIOS, cartridge and memory\n");
             fprintf (stdout, "    card loaded now must be the ones in use when it was saved.\n\n");
+            break;
+
+        case INPUT_STATS:
+            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    stats [show]                   the counters of the last frame, with the run's mean, p95 and maximum\n");
+            fprintf (stdout, "    stats regions [N]              the N (16) regions charged the most GPU pixels\n");
+            fprintf (stdout, "    stats reset | on | off         start counting again | keep every frame's counters (default) | stop keeping them\n");
+            fprintf (stdout, "    stats save FILE [json]         every frame's counters as CSV (or JSON Lines), for v32sim-statdiff.py\n");
+            fprintf (stdout, "    expect stats NAME[.AGG] OP VALUE   fail (like 'expect') unless it holds; OP is = == != < > <= >=\n");
+            fprintf (stdout, "                                   ('stats expect ...' is the same)\n\n");
+            fprintf (stdout, "DESCRIPTION:\n");
+            fprintf (stdout, "    NAME is a stable dotted name (gpu.draws gpu.dropped gpu.clears gpu.tex_switches gpu.region_switches\n");
+            fprintf (stdout, "    gpu.regions gpu.scaled_draws gpu.rotated_draws gpu.region_defs gpu.color_changes gpu.blend_changes\n");
+            fprintf (stdout, "    gpu.pixels spu.cmds spu.plays spu.assignments spu.param_writes bus.movs_words bus.sets_words\n");
+            fprintf (stdout, "    bus.gamepad_reads cpu.instructions cpu.cycles) or its CSV column name (draws, spu_plays, ...).\n");
+            fprintf (stdout, "    AGG is last (default) mean min max p50 p95 p99 total over the frames counted; the old total_NAME\n");
+            fprintf (stdout, "    and max_NAME, frames and total_pixels still work. A dropped draw is one the GPU did not render\n");
+            fprintf (stdout, "    because the frame's pixel budget was spent. --frame-stats=FILE writes the counters per frame.\n\n");
             break;
 
         case INPUT_SCREENGRID:

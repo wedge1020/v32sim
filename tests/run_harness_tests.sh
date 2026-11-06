@@ -159,6 +159,17 @@ if [ -n "${GBTOV32_TREE:-}" ] && [ -x "$GBTOV32_TREE/bin/GBtoV32" ] && [ $HAVE_O
     else bad "GBtoV32 did not build the gap cartridge: $(tail -3 "$W/gate/build.log" | tr "\n" "|")"; fi
 else skipt "V32TRACE report vs recorder" "set GBTOV32_TREE to a built GBtoV32 tree and build v32trace-ref (ONLY=v32trace-ref tools/oracle/build.sh PATCHED_CHECKOUT)"; fi
 
+echo "== V32TRACE input2= (VS-18): gamepad 2 in the report, replayed by --input2"
+mkdir -p "$W/t2" && sh "$T/v32mkcart.sh" -o "$W/t2b" "$EX/pad_bits.c" >/dev/null 2>&1 && cp "$W/t2b/pad_bits.v32" "$W/t2/" \
+  && printf '0x20000000 _start\n' > "$W/t2/pad_bits.labels.txt" && printf 'format 2\narch test\ntrap _start\n' > "$W/t2/pad_bits.v32trace.meta"
+"$SIM" --batch -r --fast -x --max-frames=420 -B "$V32BIOS" --input="A@5-7" --input2="B@6-9,UP+LEFT@12-12" --v32trace="$W/t2/o" "$W/t2/pad_bits.v32" >/dev/null 2>&1
+grep -q '^V32_INPUT=A@5-7$' "$W/t2/o.trace.txt" && grep -q '^V32_INPUT2=B@6-9,LEFT+UP@12-12$' "$W/t2/o.trace.txt" && ok "--input2 records gamepad 2 (V32_INPUT2= in the report)" || bad "V32_INPUT2: $(grep INPUT "$W/t2/o.trace.txt")"
+"$SIM" --batch -r --fast -x --max-frames=420 -B "$V32BIOS" --input="@$W/t2/o.trace.txt" --input2="@$W/t2/o.trace.txt" --v32trace="$W/t2/o2" "$W/t2/pad_bits.v32" >/dev/null 2>&1
+cmp -s <(grep '^V32_INPUT' "$W/t2/o.trace.txt") <(grep '^V32_INPUT' "$W/t2/o2.trace.txt") && ok "--input=@FILE --input2=@FILE replays both pads (round trip)" || bad "input2 round trip"
+grep -q 'segstart=0 input=[^ ]* input2=' "$W/t2/o.traps.txt" && ok "traps.txt lines get input2= when gamepad 2 was used" || bad "traps.txt input2"
+"$SIM" --batch -r --fast -x --max-frames=420 -B "$V32BIOS" --input="A@5-7" --v32trace="$W/t2/o3" "$W/t2/pad_bits.v32" >/dev/null 2>&1
+grep -q 'input2' "$W/t2/o3.trace.txt" "$W/t2/o3.traps.txt" && bad "input2 appears without a second pad" || ok "no input2 anywhere when gamepad 2 was never used (reports stay equal to the recorder's)"
+
 echo "== symbol sources: var_NAME (v32lua) and NAME.vbin.sym (read after NAME.asm.sym; sizes survive)"
 addr=$(grep '^V,counter,' "$W/ex/hello_text.asm.sym" | cut -d, -f3)
 if [ -n "$addr" ]; then
@@ -204,6 +215,8 @@ if [ $HAVE_ORACLE = 1 ] && [ -x "$ORACLE/v32orun" ]; then
     r=$("$ORACLE/refrun" "$V32BIOS" "$W/ex/hello_text.v32" 400 --dump 1@0 | head -1); [ -n "$r" ] && ok "refrun wrapper: RAM words" || bad "refrun"
     [ -x "$ORACLE/v32peek" ] && [ -x "$ORACLE/v32prof" ] && ok "v32prof and v32peek are wrappers over v32orun" || bad "v32prof/v32peek wrappers missing"
     printf '0 connect 1 1\n5 segment run\n20 end\n' > "$W/pp.script"
+    [ -x "$ORACLE/v32shot" ] && ok "v32shot is a wrapper over v32orun" || bad "v32shot wrapper missing"
+    r=$("$ORACLE/v32shot" "$V32BIOS" "$W/ex/hello_text.v32" "$W/pp.script" "$W/vs" 20 2>&1); [ -s "$W/vs20.ppm" ] && [ "$(head -c 2 "$W/vs20.ppm")" = P6 ] && ok "v32shot wrapper writes a 640x360 PPM" || bad "v32shot: $r"
     r=$("$ORACLE/v32peek" "$V32BIOS" "$W/ex/hello_text.v32" "$W/pp.script" 20 0 2 2>&1 | head -1); case "$r" in "frames=21 "*) ok "v32peek wrapper: CPU state after 21 frames";; *) bad "v32peek: $r";; esac
     if [ $HAVE_STOCK = 1 ]; then
         sh "$T/v32mkcart.sh" --stock -o "$W/pst" "$EX/load_pattern.c" >/dev/null 2>&1 || exit 2
@@ -220,6 +233,33 @@ r=$("$SIM" --batch --fast -x --max-frames=700 -B "$V32BIOS" --v32mouse=2 "$W/pbi
 case "$r" in *"v32mouse: on gamepad 2"*) ok "--v32mouse=PORT attaches the mouse";; *) bad "--v32mouse: $r";; esac
 r=$(printf 'mouse attach 1\nkbd attach 1\nquit\n' | "$SIM" --batch -x --max-frames=2 -B "$V32BIOS" "$W/pbits/pad_bits.v32" 2>&1)
 case "$r" in *"has the mouse on it"*|*"has the keyboard on it"*) ok "mouse and keyboard refuse the same port";; *) bad "same port: $r";; esac
+
+echo "== GPU / SPU counters (VS-13)"
+sh "$T/v32mkcart.sh" -o "$W/pod" "$EX/overdraw.c" >/dev/null || exit 2
+r=$("$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --frame-stats="$W/pod.csv" --frame-stats-skip=250 --frame-stats-top=3 "$W/pod/overdraw.v32" 2>&1)
+[ "$(sed -n 1p "$W/pod.csv")" = "frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end,draws,dropped,clears,tex_switches,region_switches,regions,spu_cmds,spu_plays,scaled_draws,rotated_draws,region_defs,color_changes,blend_changes,spu_assigns,spu_params,movs_words,sets_words,gamepad_reads,instructions" ] && ok "--frame-stats CSV: the six original columns, then the counters" || bad "CSV header"
+[ "$(sed -n 280p "$W/pod.csv" | cut -d, -f7,8)" = "12,3" ] && ok "overdraw.c: 12 draws, 3 dropped per frame (9 screens of budget)" || bad "per-frame counters: $(sed -n 280p "$W/pod.csv")"
+case "$r" in *"gpu.draws "*"12.00"*"12      12      12      12"*"gpu.dropped"*"3.00"*"-1:0 "*) ok "the summary has the counters (skip applied) and the top regions";; *) bad "summary: $r";; esac
+printf 'run 300\nstats expect dropped = 3\nstats expect total_draws >= 600\nquit\n' | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1 && ok "stats expect passes" || bad "stats expect"
+printf 'run 300\nstats expect dropped = 4\nquit\n' | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1; [ $? = 1 ] && ok "a failing stats expect gives exit status 1" || bad "stats expect failure status"
+
+printf 'run 300\nexpect stats gpu.draws.max <= 12\nexpect stats gpu.draws.p50 >= 0\nexpect stats gpu.dropped.last == 3\nstats expect gpu.draws.p99 > 11\nquit\n' | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1 && ok "expect stats NAME.AGG (last max p50 p99) with dotted names" || bad "expect stats aggregates"
+printf 'run 300\nexpect stats gpu.draws.p99 < 12\nquit\n' | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1; [ $? = 1 ] && ok "a failing expect stats aggregate gives exit status 1" || bad "expect stats aggregate failure"
+printf 'run 300\nstats save %s/ss.csv\nstats save %s/ss.jsonl json\nquit\n' "$W" "$W" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1
+[ "$(wc -l < "$W/ss.csv")" -gt 250 ] && head -1 "$W/ss.csv" | grep -q "^frame,cycles,gpu_pixels,draws," && ok "stats save FILE writes every frame's counters as CSV" || bad "stats save csv"
+tail -1 "$W/ss.jsonl" | grep -q '"type":"summary"' && sed -n 280p "$W/ss.jsonl" | grep -q '"gpu.draws":12,' && ok "stats save FILE json writes JSON Lines with a summary line" || bad "stats save json"
+"$SIM" --batch -r --fast -x --max-frames=300 -B "$V32BIOS" --stats="$W/pj.jsonl" --stats-format=json --stats-skip=250 "$W/pod/overdraw.v32" >/dev/null 2>&1
+sed -n 280p "$W/pj.jsonl" | grep -q '"gpu.draws":12,"gpu.dropped":3,' && tail -1 "$W/pj.jsonl" | grep -q '"gpu.draws":{"mean":12.0000,"min":12,"p50":12,"p95":12,"p99":12,"max":12,' && ok "--stats-format=json: JSON Lines rows and a summary with mean/min/p50/p95/p99/max" || bad "--stats json: $(tail -c 300 "$W/pj.jsonl")"
+python3 -I "$T/v32sim-statdiff.py" "$W/pod.csv" "$W/pj.jsonl" --skip 250 --fail-over 1 --fail-columns gpu.draws >/dev/null 2>&1 && ok "statdiff reads CSV and JSON Lines, stable names" || bad "statdiff json"
+printf 'stats off\nrun 300\nscreenshot %s/soff.png\nquit\n' "$W" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1
+printf 'run 300\nscreenshot %s/son.png\nquit\n' "$W" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/pod/overdraw.v32" >/dev/null 2>&1
+cmp -s "$W/soff.png" "$W/son.png" && ok "stats on / off: the machine's output is identical" || bad "stats changes the machine"
+sh "$T/v32mkcart.sh" -o "$W/pbits" "$EX/pad_bits.c" >/dev/null 2>&1
+printf 'run 400\nstats expect bus.gamepad_reads.total > 0\nstats expect cpu.instructions.max > 0\nquit\n' | "$SIM" --batch --fast -x --max-frames=500 -B "$V32BIOS" "$W/pbits/pad_bits.v32" >/dev/null 2>&1 && ok "bus.gamepad_reads and cpu.instructions count" || bad "gamepad_reads"
+python3 -I "$T/v32sim-statdiff.py" "$W/pod.csv" "$W/pod.csv" --fail-over 1 >/dev/null 2>&1 && ok "statdiff: a run against itself passes the gate" || bad "statdiff self"
+sed 's/,12,3,/,24,3,/' "$W/pod.csv" > "$W/pod2.csv"
+python3 -I "$T/v32sim-statdiff.py" "$W/pod.csv" "$W/pod2.csv" --skip 250 --fail-over 10 >/dev/null 2>&1; [ $? = 1 ] && ok "statdiff: doubled draws fail --fail-over 10" || bad "statdiff gate"
+python3 -I "$T/v32sim-statdiff.py" "$W/pod.csv" "$W/pod2.csv" --skip 250 --json | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if any(c["column"]=="draws" and c["mean_change_pct"]>90 for c in d["columns"]) else 1)' && ok "statdiff --json" || bad "statdiff json"
 
 echo "== screenshot highlight"
 sh "$T/v32mkcart.sh" -o "$W/hlk" --cc-opt -DKEEP_RUNNING "$EX/hello_text.c" >/dev/null || exit 2

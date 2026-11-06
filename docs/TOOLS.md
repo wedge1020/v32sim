@@ -29,9 +29,10 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 | type at a shell/DOS/monitor and check the screen | `tools/v32sim-session.py` + `tools/v32sim-golden.sh`, or a hand-written `.cmd` ([TESTING.md](TESTING.md)) |
 | replay gamepad / keyboard / mouse input from a script | `--input=A@40-44,...` (cart frames, V32_INPUT syntax), `tools/vprof2cmd.py` (v32prof scripts), `tools/v32io-script.py` (actions -> script), `kbd` and `mouse` commands |
 | see CPU and GPU load per frame, p95, frames over budget | `--frame-stats=FILE` ([PROFILING.md](PROFILING.md)); `v32prof` on the oracle |
+| how many draws / region switches per frame, which regions cost the pixels; did a change make it slower | `--frame-stats=FILE` columns and summary, `stats`, `stats expect`; `tools/v32sim-statdiff.py BEFORE.csv AFTER.csv` |
 | find the hot functions | `--profile-by=function --profile-top=N`; `tools/v32sim-addrprof.py` across kernel / BIOS / loaded modules |
 | profile an OS: kernel plus programs swapped into a window | `tools/oracle` `sysprof` |
-| screenshot at chosen frames | `screenshot FILE` (PNG) in a session; `v32shot` (PPM) on the oracle |
+| screenshot at chosen frames | `screenshot FILE` (PNG) in a session; `--screenshot-at=FRAMES` (PNG, with `screengrid` / `highlight` extras) from a run; `v32shot` (PPM, the stock core's quads) on the oracle |
 | trace the traps of a translated cartridge | `--v32trace=PREFIX` (`docs/V32TRACE-SPEC.md`, 2.1); replay a hit with `--input` and its `input=`, a session with `--input=@PREFIX.trace.txt` |
 | test v32dev / a host disk against the real `v32dev.py serve` | `tests/run_tests.sh`, `tests/v32sim_runner.sh` (a `dev_rom_runner` look-alike) |
 | build v32sim without flex/bison | `tools/build-nogen.sh` |
@@ -59,7 +60,7 @@ the header of `tools/oracle/orun.cpp` (`v32prof` and `v32peek` are `v32orun --co
 
 The other projects keep no runner of their own: v32cc's `make vrun` and v32lua's `runlua`, `trap`, `unittest.py` and the Windows
 `scripts/testing_harness` call `v32orun` (v32lua's `v32bench` is its `-b`). They find it through `$V32SIM_HOME/tools/oracle/bin`.
-`v32prof`, `v32shot` and `v32peek` (frame-stamped input scripts) are still separate programs.
+`v32prof`, `v32shot` and `v32peek` are `v32orun --compat=prof|shot|peek` (wrappers of those names are built).
 Short cards for every tool of the ecosystem, for agents: `docs/agents/`.
 
 ## Debug information (who writes what)

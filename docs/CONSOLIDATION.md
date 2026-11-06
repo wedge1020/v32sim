@@ -71,14 +71,14 @@ there too and `gpu_dropped` comes from the real GPU's counter), or a `.vbin` as 
 GPU draws, CFI choice, SPU state, fixed time, no-memcard) and `v32bench` (`-b`). `refrun`, `v32run` and `vrun` stay as one-line
 wrappers (`v32orun --compat=NAME`), so `run_gaps.sh` (46/46), `run_romcheck.sh` (28/28), `run_harness_tests.sh` and v32cc's `make test`
 (222 checks, `make card`) run unchanged. v32lua's `tools/headless/v32run.cpp`, `build.sh`, `sdlshim/` and v32cc's `tools/vrun.cpp`,
-`build-vrun.sh` were deleted. `v32prof` and `v32peek` (frame-stamped input scripts) became `v32orun --compat=prof|peek` on 2026-11-06 (output byte-identical). Still separate: `v32shot`, `sysprof`, `v32trace-ref`.
+`build-vrun.sh` were deleted. `v32prof`, `v32peek` and `v32shot` (frame-stamped input scripts; v32shot keeps its software rasterizer) became `v32orun --compat=prof|peek|shot` on 2026-11-06 (output byte-identical, PPMs included). Still separate: `sysprof`, `v32trace-ref`.
 
 ## Open items
 
 1. **V32DBG, owners outside v32sim**: v32opt must rewrite `;@var loc=` when it promotes (repro in `docs/repro/`); v32cc should end
    functions for v32as (or v32as should end a C function at the next top-level `__function_` label); v32cc globals and struct
    members in `type=`; v32lua chunk locals and upvalues; v32c++ `-g`. Details: `V32DBG-STATUS.md`.
-2. **One oracle runner**: done for the runners (above); `v32prof`/`v32peek` are folded in; `v32shot`, `sysprof` and `v32trace-ref` remain.
+2. **One oracle runner**: done for the runners (above); `v32prof`/`v32peek`/`v32shot` are folded in; `sysprof` and `v32trace-ref` remain.
 3. **VS-9 beyond frame stats**: GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`.
 4. **v32mouse in v32sim** (v32nix P-I2; today only gamepad toggles through `v32io-script.py`), and optional emulator extensions to
    prototype (v32nix P-E1 timer interrupt, P-E2 v32dev doorbell).

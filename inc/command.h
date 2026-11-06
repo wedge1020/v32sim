@@ -50,6 +50,7 @@ enum cmd_id
     CMD_SCREENSHOT,
     CMD_HIGHLIGHT,
     CMD_SCREENGRID,
+    CMD_STATS,
     CMD_NOEXTRA,
     CMD_SET,
     CMD_STEP,

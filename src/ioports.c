@@ -741,6 +741,10 @@ word_t  ioports_get  (uint16_t  portaddr, uint8_t  sys_force)
     check                                 = ioports_chk (portaddr, FLAG_READ, sys_force);
     if (check                            == TRUE)
     {
+        if (sys_force                    == FALSE)
+        {
+            perf_port_read (portaddr);
+        }
         type                              = (portaddr & 0x0700) >> 8;
         attr                              = (portaddr & 0x00FF);
         pptr                              = *(ioports+type);
@@ -799,6 +803,10 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
     check                              = ioports_chk (portaddr, FLAG_WRITE, sys_force);
     if (check                         == TRUE)
     {
+        if (sys_force                 == FALSE)
+        {
+            perf_port_write (portaddr);
+        }
         iptr                           = &((pptr+attr) -> value.i32);
         fptr                           = &((pptr+attr) -> value.f32);
         gpu_old                        = *iptr;    // for the host-cost model (gpustat_change)

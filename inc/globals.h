@@ -195,7 +195,11 @@ extern uint8_t    quit_status;
 extern int8_t    *pad_input;                  // --input=SCRIPT (V32_INPUT syntax)
 extern uint8_t    pad_input_port;             // --input-port=N
 extern int8_t    *frame_stats_out;            // --frame-stats=FILE
+extern uint32_t   frame_stats_top;
 extern uint32_t   frame_stats_skip;           // --frame-stats-skip=N
+extern uint32_t   frame_stats_top;            // --frame-stats-top=N
+extern int8_t    *pad_input2;                 // --input2=SCRIPT (padscript.c)
+extern int8_t     frame_stats_json;           // --stats-format=json
 extern uint8_t    profile_by_function;         // --profile-by=function
 extern int8_t    *symbolfile;                  // --symbol-file=FILE
 extern uint8_t    exitstatus;
@@ -340,6 +344,27 @@ void      v32trace_frame_end (void);                           // V32TRACE: reco
 void      v32trace_cpu_error (int32_t, uint32_t);
 void      v32trace_mark  (const char *);
 void      framestats_frame (void);                             // per-frame CPU / GPU load (framestats.c)
+void      perf_gpu_draw (int32_t, int32_t, int32_t, int32_t);  // perfstats.c: GPU / SPU counters
+void      perf_gpu_clear (void);
+void      perf_spu_command (int32_t);
+void      perf_new_frame (void);
+void      perf_reset (void);
+void      perf_skip_frames (uint32_t);
+const char *perf_csv_header (void);
+void      perf_csv_row (FILE *);
+void      perf_regions (FILE *, const char *, int);
+void      perf_summary (FILE *, const char *);
+void      perf_show (FILE *);
+int       perf_stat (const char *, double *);
+void      perf_gpu_command (int32_t);
+void      perf_port_write (uint16_t);
+void      perf_port_read (uint16_t);
+void      perf_instruction (void);
+void      perf_bus_words (int);
+void      perf_history (int);
+void      perf_json_row (FILE *);
+void      perf_json_summary (FILE *);
+int       perf_save (const char *, int);
 void      framestats_write (void);
 void      v32trace_init  (void);                               // V32TRACE (v32trace.c)
 void      v32trace_ready (void);
@@ -377,6 +402,7 @@ void      runctl_run     (uint32_t);
 void      runctl_until   (const char *, uint32_t,   uint32_t);
 void      runctl_frame   (void);
 void      runctl_expect_value   (wloc_t, uint8_t, wloc_t, uint8_t);
+void      runctl_expect_stat    (const char *, const char *, const char *);
 void      runctl_expect_console (const char *, uint32_t);
 void      status_printf  (const char *, ...);
 uint8_t   prompt         (uint32_t);

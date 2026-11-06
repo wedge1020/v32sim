@@ -107,6 +107,7 @@ static void  gpu_clear (void)
     int       x     = 0;
     int       y     = 0;
 
+    perf_gpu_clear ();
     hl_nbox  = 0;                                        // what was drawn is gone
     hl_head  = 0;
 
@@ -759,7 +760,7 @@ void  gpu_console_attrs (FILE *out, int what)
 //
 // gpu_draw(): DrawRegion with optional scaling and rotation
 //
-static void  gpu_draw (uint8_t scaling, uint8_t rotation)
+static void  gpu_draw_impl (uint8_t scaling, uint8_t rotation)
 {
     int32_t   remaining  = IPORTGET(GPU_RemainingPixels);
     int32_t   seltex     = IPORTGET(GPU_SelectedTexture);
@@ -999,6 +1000,19 @@ static void  gpu_draw (uint8_t scaling, uint8_t rotation)
     }
 }
 
+//
+// the draw command, watched by the counters of perfstats.c
+//
+static void  gpu_draw (uint8_t scaling, uint8_t rotation)
+{
+    int32_t  before  = IPORTGET(GPU_RemainingPixels);
+    int32_t  tex     = IPORTGET(GPU_SelectedTexture);
+    int32_t  region  = IPORTGET(GPU_SelectedRegion);
+
+    gpu_draw_impl (scaling, rotation);
+    perf_gpu_draw (tex, region, before, IPORTGET(GPU_RemainingPixels));
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 //
 // gpu_command(): execute a value written to GPU_Command (unknown commands are
@@ -1006,6 +1020,7 @@ static void  gpu_draw (uint8_t scaling, uint8_t rotation)
 //
 void  gpu_command (int32_t command)
 {
+    perf_gpu_command (command);
     int32_t  remaining  = 0;
     int32_t  needed     = 0;
 

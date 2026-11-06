@@ -183,6 +183,44 @@ void  runctl_expect_value (wloc_t target, uint8_t op, wloc_t rhs, uint8_t is_sig
     check_failed ();
 }
 
+void  runctl_expect_stat (const char *name, const char *op, const char *value)
+{
+    double   v    = 0;
+    double   rhs  = strtod (value, NULL);
+    int      ok   = 0;
+    int      rc   = perf_stat (name, &v);
+
+    if (rc != 0)
+    {
+        if (rc == -2)  fprintf (stderr, "[ERROR] stats expect: '%s' needs the history ('stats on')\n", name);
+        else           fprintf (stderr, "[ERROR] stats expect: unknown counter '%s' (try 'help stats')\n", name);
+        check_failed ();
+        return;
+    }
+    if      ((0 == strcmp (op, "=")) || (0 == strcmp (op, "==")))  ok = (v == rhs);
+    else if (0 == strcmp (op, "!="))                               ok = (v != rhs);
+    else if (0 == strcmp (op, "<"))                                ok = (v < rhs);
+    else if (0 == strcmp (op, ">"))                                ok = (v > rhs);
+    else if (0 == strcmp (op, "<="))                               ok = (v <= rhs);
+    else if (0 == strcmp (op, ">="))                               ok = (v >= rhs);
+    else
+    {
+        fprintf (stderr, "[ERROR] stats expect: unknown operator '%s'\n", op);
+        check_failed ();
+        return;
+    }
+    if (ok != 0)
+    {
+        if (batchflag == FALSE)
+        {
+            status_printf ("[expect] ok: stats %s %s %s (is %g)\n", name, op, value, v);
+        }
+        return;
+    }
+    fprintf (stderr, "[expect] FAILED: stats %s %s %s (is %g)\n", name, op, value, v);
+    check_failed ();
+}
+
 void  runctl_expect_console (const char *text, uint32_t rows)
 {
     if (gpu_console_match (text, rows) == TRUE)

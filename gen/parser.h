@@ -81,43 +81,44 @@ extern int yydebug;
     T_PROFILE = 282,               /* T_PROFILE  */
     T_QUIT = 283,                  /* T_QUIT  */
     T_REPLACE = 284,               /* T_REPLACE  */
-    T_SCREENGRID = 285,            /* T_SCREENGRID  */
-    T_NOEXTRA = 286,               /* T_NOEXTRA  */
-    T_HIGHLIGHT = 287,             /* T_HIGHLIGHT  */
-    T_ASM = 288,                   /* T_ASM  */
-    T_RESTORE = 289,               /* T_RESTORE  */
-    T_SAVE = 290,                  /* T_SAVE  */
-    T_SCREENSHOT = 291,            /* T_SCREENSHOT  */
-    T_SET = 292,                   /* T_SET  */
-    T_STEP = 293,                  /* T_STEP  */
-    T_UNBREAK = 294,               /* T_UNBREAK  */
-    T_UNDISPLAY = 295,             /* T_UNDISPLAY  */
-    T_UNLABEL = 296,               /* T_UNLABEL  */
-    T_UNLOAD = 297,                /* T_UNLOAD  */
-    T_UNWATCH = 298,               /* T_UNWATCH  */
-    T_VERSION = 299,               /* T_VERSION  */
-    T_WATCH = 300,                 /* T_WATCH  */
-    T_WATCHLIST = 301,             /* T_WATCHLIST  */
-    T_KBD = 302,                   /* T_KBD  */
-    T_MOUSE = 303,                 /* T_MOUSE  */
-    T_MAILBOX = 304,               /* T_MAILBOX  */
-    T_CONSOLE = 305,               /* T_CONSOLE  */
-    T_RUN = 306,                   /* T_RUN  */
-    T_UNTIL = 307,                 /* T_UNTIL  */
-    T_EXPECT = 308,                /* T_EXPECT  */
-    T_EXAMINE = 309,               /* T_EXAMINE  */
-    T_SSTEP = 310,                 /* T_SSTEP  */
-    T_SNEXT = 311,                 /* T_SNEXT  */
-    T_FINISH = 312,                /* T_FINISH  */
-    T_TBREAK = 313,                /* T_TBREAK  */
-    T_LIST = 314,                  /* T_LIST  */
-    T_FRAME = 315,                 /* T_FRAME  */
-    T_UP = 316,                    /* T_UP  */
-    T_DOWN = 317,                  /* T_DOWN  */
-    T_LOCALS = 318,                /* T_LOCALS  */
-    T_MARK = 319,                  /* T_MARK  */
-    T_BADCMD = 320,                /* T_BADCMD  */
-    T_BAD = 321                    /* T_BAD  */
+    T_STATS = 285,                 /* T_STATS  */
+    T_SCREENGRID = 286,            /* T_SCREENGRID  */
+    T_NOEXTRA = 287,               /* T_NOEXTRA  */
+    T_HIGHLIGHT = 288,             /* T_HIGHLIGHT  */
+    T_ASM = 289,                   /* T_ASM  */
+    T_RESTORE = 290,               /* T_RESTORE  */
+    T_SAVE = 291,                  /* T_SAVE  */
+    T_SCREENSHOT = 292,            /* T_SCREENSHOT  */
+    T_SET = 293,                   /* T_SET  */
+    T_STEP = 294,                  /* T_STEP  */
+    T_UNBREAK = 295,               /* T_UNBREAK  */
+    T_UNDISPLAY = 296,             /* T_UNDISPLAY  */
+    T_UNLABEL = 297,               /* T_UNLABEL  */
+    T_UNLOAD = 298,                /* T_UNLOAD  */
+    T_UNWATCH = 299,               /* T_UNWATCH  */
+    T_VERSION = 300,               /* T_VERSION  */
+    T_WATCH = 301,                 /* T_WATCH  */
+    T_WATCHLIST = 302,             /* T_WATCHLIST  */
+    T_KBD = 303,                   /* T_KBD  */
+    T_MOUSE = 304,                 /* T_MOUSE  */
+    T_MAILBOX = 305,               /* T_MAILBOX  */
+    T_CONSOLE = 306,               /* T_CONSOLE  */
+    T_RUN = 307,                   /* T_RUN  */
+    T_UNTIL = 308,                 /* T_UNTIL  */
+    T_EXPECT = 309,                /* T_EXPECT  */
+    T_EXAMINE = 310,               /* T_EXAMINE  */
+    T_SSTEP = 311,                 /* T_SSTEP  */
+    T_SNEXT = 312,                 /* T_SNEXT  */
+    T_FINISH = 313,                /* T_FINISH  */
+    T_TBREAK = 314,                /* T_TBREAK  */
+    T_LIST = 315,                  /* T_LIST  */
+    T_FRAME = 316,                 /* T_FRAME  */
+    T_UP = 317,                    /* T_UP  */
+    T_DOWN = 318,                  /* T_DOWN  */
+    T_LOCALS = 319,                /* T_LOCALS  */
+    T_MARK = 320,                  /* T_MARK  */
+    T_BADCMD = 321,                /* T_BADCMD  */
+    T_BAD = 322                    /* T_BAD  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -133,7 +134,7 @@ union YYSTYPE
     int     op;
     symv_t  s;
 
-#line 137 "obj/parser.h"
+#line 138 "obj/parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

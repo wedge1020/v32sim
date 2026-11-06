@@ -232,6 +232,7 @@ static int  lex_command (void)
         case CMD_SCREENSHOT:  BEGIN (PATH); return (T_SCREENSHOT);
         case CMD_HIGHLIGHT:   BEGIN (PATH); return (T_HIGHLIGHT);
         case CMD_SCREENGRID:  BEGIN (PATH); return (T_SCREENGRID);
+        case CMD_STATS:       BEGIN (PATH); return (T_STATS);
         case CMD_NOEXTRA:     BEGIN (PATH); return (T_NOEXTRA);
         case CMD_SET:         return (T_SET);
         case CMD_STEP:        return (T_STEP);

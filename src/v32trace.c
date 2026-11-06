@@ -98,6 +98,8 @@ static char      last_key[1024];
 static int32_t   cartframe = -1;        // -1: the cartridge has not run yet
 static int32_t   segstart  = 0;         // spec 2.1: cart frame of the last restart (0: never restarted)
 static uint16_t *pads      = NULL;      // spec 2.1: gamepad 1 buttons held in each cart frame (bit per control)
+static uint16_t *pads2     = NULL;      // spec 2.2: the same for gamepad 2
+static int      pads2_used = 0;         // gamepad 2 held a button at some point
 static int32_t   npads     = 0, roompads = 0, padframe = -1;
 static vframe_t *vfr       = NULL;      // report: per cart frame (same room as pads)
 static int32_t   nvfr      = 0;         // frames recorded in vfr
@@ -463,10 +465,15 @@ static int  ensure_frames (int32_t cf)
     while (r <= cf)  r = r * 2;
     {
         uint16_t *np = realloc (pads, (size_t) r * sizeof (uint16_t));
+        uint16_t *n2 = NULL;
         vframe_t *nv;
 
         if (np == NULL)  return (0);
         pads = np;
+        n2 = realloc (pads2, (size_t) r * sizeof (uint16_t));
+        if (n2 == NULL)  return (0);
+        pads2 = n2;
+        memset (pads2 + roompads, 0, (size_t) (r - roompads) * sizeof (uint16_t));
         nv = realloc (vfr, (size_t) r * sizeof (vframe_t));
         if (nv == NULL)  return (0);
         vfr = nv;
@@ -639,13 +646,21 @@ void  v32trace_instr (uint32_t ip)
         if (padframe != cartframe)                   // the first instruction of a cart frame: what gamepad 1 holds
         {
             uint16_t  mask = 0;
+            uint16_t  mask2 = 0;
             int       c;
 
             for (c = 0; c < 11; c = c + 1)
             {
                 if ((gamepad != NULL) && (gamepad[0].connected) && (gamepad[0].button[c] > 0))  mask = mask | (uint16_t) (1 << c);
+                if ((gamepad != NULL) && (V32_NUM_GAMEPADS > 1) && (gamepad[1].connected) && (gamepad[1].button[c] > 0))  mask2 = mask2 | (uint16_t) (1 << c);
             }
-            if (ensure_frames (cartframe))  { pads[cartframe] = mask; if (cartframe + 1 > npads)  npads = cartframe + 1; }
+            if (ensure_frames (cartframe))
+            {
+                pads[cartframe]   = mask;
+                pads2[cartframe]  = mask2;
+                if (mask2 & 0x06FF)  pads2_used = 1;
+                if (cartframe + 1 > npads)  npads = cartframe + 1;
+            }
             padframe = cartframe;
         }
         if (!trapped)  counts[off] = counts[off] + 1;
@@ -702,7 +717,7 @@ void  v32trace_frame (void)
 
 // spec 2.1: the gamepad 1 history of cart frames [from, to) as a V32_INPUT script, frames numbered from 'from':
 // BUTTON[+BUTTON]@FIRST-LAST,... (runs of each button, grouped when they share both ends), '-' for none
-static void  show_input (FILE *f, int32_t from, int32_t to)
+static void  show_input (FILE *f, const uint16_t *pads, int32_t from, int32_t to)
 {
     typedef struct { int32_t a, b; uint16_t mask; } run_t;
     run_t   *runs = NULL;
@@ -806,7 +821,12 @@ static void  write_files (void)
                     show_key (f, h -> trail[k] - 1);
                 }
                 fprintf (f, " segstart=%d input=", (int) h -> segstart);        // spec 2.1
-                show_input (f, h -> segstart, h -> frame + 1);
+                show_input (f, pads, h -> segstart, h -> frame + 1);
+                if (pads2_used)                                                  // spec 2.2: only when the second gamepad was used
+                {
+                    fprintf (f, " input2=");
+                    show_input (f, pads2, h -> segstart, h -> frame + 1);
+                }
                 fprintf (f, "\n");
             }
             fclose (f);
@@ -1246,9 +1266,16 @@ static void  write_report (void)
         uint16_t  any = 0;                       // the recorder writes nothing after '=' when no button was held
 
         for (i = 0; i < cf && i < npads; i = i + 1)  any = any | pads[i];
-        if (any & 0x06FF)  show_input (f, 0, cf);    // the named buttons (Y has no name)
+        if (any & 0x06FF)  show_input (f, pads, 0, cf);    // the named buttons (Y has no name)
     }
     fprintf (f, "\n");
+    if (pads2_used)                                          // spec 2.2: gamepad 2, replayed with --input-port=1
+    {
+        fprintf (f, "# gamepad 2 (replay with --input2=@this_file: it reads the V32_INPUT2= line)\n");
+        fprintf (f, "V32_INPUT2=");
+        show_input (f, pads2, 0, cf);
+        fprintf (f, "\n");
+    }
 
     fprintf (f, "\n[perf]\n");
     {

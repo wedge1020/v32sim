@@ -10,10 +10,13 @@
 //     gpu_pixels  pixels the frame drew, of the GPU_RemainingPixels capacity (9 screens)
 //     gpu_pct     gpu_pixels as a percentage of that capacity
 //     end         w the program waited for the next frame, b the cycle budget ran out
+//     then the GPU / SPU counters of perfstats.c: draws,dropped,clears,tex_switches,region_switches,regions,spu_cmds,spu_plays
 //
 //   when the run ends a summary goes to stderr (mean, 95th percentile, maximum and the
 //   frames at 100% of each budget). --frame-stats-skip=N leaves the first N frames out of
-//   the summary (the BIOS logo takes about 250), the CSV keeps every frame.
+//   the summary (the BIOS logo takes about 250), the CSV keeps every frame. The summary also has
+//   the counters (mean, maximum, total) and the --frame-stats-top=N regions that were charged the
+//   most pixels (default 8, 0 = none); the skip applies to them too.
 //
 // It is what v32prof (v32cxx tools/vircon32) prints, measured inside the simulator, so any
 // run can be measured with the scripted input and commands of a v32sim session. The
@@ -25,6 +28,8 @@
 
 int8_t    *frame_stats_out   = NULL;     // --frame-stats=FILE
 uint32_t   frame_stats_skip  = 0;        // --frame-stats-skip=N
+uint32_t   frame_stats_top   = 8;        // --frame-stats-top=N
+int8_t     frame_stats_json  = FALSE;    // --stats-format=json: JSON Lines instead of CSV
 
 static FILE      *fs_file    = NULL;
 static uint32_t  *fs_cpu     = NULL;     // cycles of every frame, for the summary
@@ -55,17 +60,34 @@ void  framestats_frame (void)
             frame_stats_out = NULL;
             return;
         }
-        fprintf (fs_file, "frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end\n");
+        perf_skip_frames (frame_stats_skip);
+        if (frame_stats_json == FALSE)
+        {
+            fprintf (fs_file, "frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end%s\n", perf_csv_header ());
+        }
     }
 
     cycles  = IPORTGET(TIM_CycleCounter);
     remain  = (int32_t) IPORTGET(GPU_RemainingPixels);
     pixels  = (remain < 0) ? FS_GPU_CAPACITY : (uint32_t) (FS_GPU_CAPACITY - remain);
 
-    fprintf (fs_file, "%u,%u,%.2f,%u,%.2f,%c\n", (unsigned) (frames_run + 1), (unsigned) cycles,
-             100.0 * (double) cycles / (double) V32_CYCLES_PER_FRAME,
-             (unsigned) pixels, 100.0 * (double) pixels / (double) FS_GPU_CAPACITY,
-             (waitflag == TRUE) ? 'w' : 'b');
+    if (frame_stats_json == TRUE)
+    {
+        fprintf (fs_file, "{\"frame\":%u,", (unsigned) (frames_run + 1));
+        perf_json_row (fs_file);
+        fprintf (fs_file, ",\"cpu.pct\":%.2f,\"gpu.pct\":%.2f,\"end\":\"%c\"}\n",
+                 100.0 * (double) cycles / (double) V32_CYCLES_PER_FRAME, 100.0 * (double) pixels / (double) FS_GPU_CAPACITY,
+                 (waitflag == TRUE) ? 'w' : 'b');
+    }
+    else
+    {
+        fprintf (fs_file, "%u,%u,%.2f,%u,%.2f,%c", (unsigned) (frames_run + 1), (unsigned) cycles,
+                 100.0 * (double) cycles / (double) V32_CYCLES_PER_FRAME,
+                 (unsigned) pixels, 100.0 * (double) pixels / (double) FS_GPU_CAPACITY,
+                 (waitflag == TRUE) ? 'w' : 'b');
+        perf_csv_row (fs_file);
+        fprintf (fs_file, "\n");
+    }
 
     if (fs_count == fs_room)
     {
@@ -126,6 +148,7 @@ void  framestats_write (void)
 
     if (fs_file != NULL)
     {
+        if (frame_stats_json == TRUE)  perf_json_summary (fs_file);
         fclose (fs_file);
         fs_file = NULL;
     }
@@ -142,4 +165,6 @@ void  framestats_write (void)
              (unsigned) (fs_count - skip), (unsigned) skip, frame_stats_out);
     summary_line ("cpu", fs_cpu + skip, fs_count - skip, (double) V32_CYCLES_PER_FRAME);
     summary_line ("gpu", fs_gpu + skip, fs_count - skip, (double) FS_GPU_CAPACITY);
+    perf_summary (stderr, "[frame-stats] ");
+    perf_regions (stderr, "[frame-stats] ", (int) frame_stats_top);
 }

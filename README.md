@@ -128,7 +128,7 @@ software — and to automate cart testing.
 ├── bios/                 BIOS data files
 ├── gen/                  flex/bison output, checked in (`make gen`), for builds without flex/bison
 ├── tools/                scripts and oracle tools for testing other projects (docs/TOOLS.md)
-│   └── oracle/           C++ tools on the stock ConsoleLogic: v32orun (refrun v32run vrun v32prof v32peek wrap it) v32shot sysprof
+│   └── oracle/           C++ tools on the stock ConsoleLogic: v32orun (refrun v32run vrun v32prof v32peek v32shot wrap it) sysprof
 ├── AGENTS.md CLAUDE.md   notes for agents (CLAUDE.md imports AGENTS.md)
 ├── cart/                 cartridge data files
 └── screenshots/          reference screenshots
@@ -218,8 +218,11 @@ Mandatory arguments to long options are mandatory for short options too.
      --profile-by=KIND     address (default) or function: what --profile-top/--profile-out aggregate
      --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... (V32_INPUT syntax)
      --input-port=N        the gamepad --input drives (default 0)
+     --input2=SCRIPT       the same for gamepad 2 (port 1); @FILE reads its V32_INPUT2= line
      --frame-stats=FILE    one CSV row per frame (cycles, CPU %, GPU pixels, GPU %); summary on stderr at exit
      --frame-stats-skip=N  leave the first N frames out of that summary
+     --frame-stats-top=N   regions charged the most GPU pixels, listed in it (default 8, 0 = none)
+     --stats-format=json   JSON Lines instead of CSV (--stats / --stats-skip / --stats-top are synonyms of the --frame-stats ones)
      --symbol-file=FILE    load data symbols (v32cc NAME.asm.sym) from FILE
  -h, --help                display this information
 FILE   is any path plus the filename desired
@@ -319,6 +322,7 @@ prefix (`s` = step, `n` = next, `c` = continue, `b` = break, `p` = print,
 | `replace [IP:0xADDR] [IR:0x...] [IV:0x...]` | patch the instruction (and immediate) at IP/ADDR in memory |
 | `asm [@0xADDR\|-x] INSTRUCTION` | assemble an instruction: patch it in (at IP or ADDR), or run it once with `-x` |
 | `screenshot [FILE]` | write the GPU screen to a PNG file |
+| `stats [show\|regions [N]\|reset\|on\|off\|save FILE [json]\|expect NAME[.AGG] OP VALUE]` | GPU / SPU / bus counters (draws, dropped, region switches, MOVS words...) per frame and per region; `expect stats NAME.AGG OP VALUE` |
 | `highlight [TEX:REGION [COLOR]]` | outline a region in screenshots (`clear`, `on`, `off`; also `boundbox`) |
 | `screengrid [on\|off] [DX [DY]] [color C] [alpha N]` | lay a grid over screenshots |
 | `noextra [on\|off]` | screenshots without grid and outlines (`screenshot --plain` for one) |
@@ -680,7 +684,13 @@ v32term's default key source will not see your keys.
 `--frame-stats=FILE` writes one CSV row per frame, `frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end` (cycles against the 250,000
 budget, GPU pixels against the 9-screen capacity; `end` is `w` for a frame ended by `WAIT`, `b` when the budget ran out), and
 prints a summary (mean, 95th percentile, maximum, frames at 100%) to stderr when the run ends. `--frame-stats-skip=N`
-leaves the first N frames (the BIOS logo takes about 250) out of the summary. It only reads state; the numbers equal
+leaves the first N frames (the BIOS logo takes about 250) out of the summary. After those columns come the GPU / SPU counters
+(`draws,dropped,clears,tex_switches,region_switches,regions,spu_cmds,spu_plays`, then `scaled_draws,rotated_draws,region_defs,color_changes,
+blend_changes,spu_assigns,spu_params,movs_words,sets_words,gamepad_reads,instructions`), and the summary lists them (mean, p50, p95, p99,
+max, total) and the regions charged the most pixels. `--stats-format=json` writes JSON Lines instead (one object per frame with the stable
+names `gpu.draws`, `cpu.cycles`, ..., and a `{"type":"summary"...}` line last); `--stats`, `--stats-skip`, `--stats-top` are the same
+options as the `--frame-stats` ones. In a session `stats` shows the counters, `expect stats gpu.draws.p95 <= 600` (or
+`stats expect ...`) checks one (`.last .mean .min .max .p50 .p95 .p99 .total`), `stats save FILE [json]` writes every frame. It only reads state; the numbers equal
 `v32prof`'s, frame for frame. See [docs/PROFILING.md](docs/PROFILING.md).
 
 ### Address profile
@@ -739,7 +749,8 @@ with the meta file's plain captures in its note; the report then splits its numb
 `trace2input.py --session` reads it, and `--input=@PREFIX.trace.txt` replays its `V32_INPUT=` line. Checked line for line against
 the real recorder (`tools/oracle/v32trace-ref`, below) on GBtoV32's gap ROM in three scenarios (input with two markers, a repeated
 trap up to give-up, `--v32trace-norestart`): `traps.txt`, `blocks.txt` and `trace.txt` are equal, apart from the replay comment and
-the order of hot spots with equal counts (`run_harness_tests.sh`). Not implemented: `input2=` (a second gamepad).
+the order of hot spots with equal counts (`run_harness_tests.sh`). `input2=` (gamepad 2) is written after `input=` on every line, and `V32_INPUT2=` in the report, only when the second gamepad held a button
+(so a one-player trace stays equal to the recorder's); `--input2=SCRIPT` / `--input2=@PREFIX.trace.txt` replays it.
 
 To get back to a hit, give its `input=` to `--input` (below): the gamepad is replayed by cartridge frame and the same trap comes
 back at the same `cartframe`. Checked against the stock console logic on GBtoV32's gap ROM: with A held from cart frame 40, the

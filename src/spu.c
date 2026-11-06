@@ -219,6 +219,7 @@ void  spu_write (uint16_t port, int32_t i32, float f32)
     switch (port)
     {
         case SPU_Command:
+            perf_spu_command (i32);
             switch (i32)
             {
                 case SPUCommand_PlaySelectedChannel:  play_channel (c);  break;

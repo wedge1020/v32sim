@@ -47,6 +47,7 @@ static const struct
     { "highlight",   3, CMD_HIGHLIGHT },
     { "boundbox",    3, CMD_HIGHLIGHT },        // the older name
     { "screengrid",  7, CMD_SCREENGRID},
+    { "stats",       4, CMD_STATS     },
     { "noextra",     3, CMD_NOEXTRA   },
     { "?",           1, CMD_HELP      },
     { "ignore",      1, CMD_IGNORE    },
@@ -246,6 +247,27 @@ int  cmd_parse (const char *line, cmd_t *cmd)
     memset (cmd, 0, sizeof (cmd_t));
     cmd -> id   = CMD_NONE;
     cmd -> fmt  = FORMAT_DEFAULT;
+
+    //
+    // 'expect stats NAME.AGG OP VALUE' is 'stats expect ...': the counters are not memory locations
+    //
+    {
+        const char  *w  = line;
+        static char  rewritten[256];
+
+        while ((*w == ' ') || (*w == '\t'))  w++;
+        if ((0 == strncasecmp (w, "expect", 6)) && ((w[6] == ' ') || (w[6] == '\t')))
+        {
+            const char  *r  = w + 6;
+
+            while ((*r == ' ') || (*r == '\t'))  r++;
+            if ((0 == strncasecmp (r, "stats", 5)) && ((r[5] == ' ') || (r[5] == '\t')))
+            {
+                snprintf (rewritten, sizeof (rewritten), "stats expect %s", r + 6);
+                line  = rewritten;
+            }
+        }
+    }
 
     g_cmd       = cmd;
     lex_begin (line);
@@ -1824,6 +1846,64 @@ int  cli_screengrid (const char *spec)
 }
 
 //
+// stats [show | regions [N] | reset | on | off | save FILE [json] | expect NAME[.AGG] OP VALUE]: the GPU / SPU counters of perfstats.c
+//
+static void  exec_stats (cmd_t *c)
+{
+    char     line[128];
+    char    *tok[6];
+    int      n   = 0;
+    char    *p   = NULL;
+
+    if (c -> path == NULL)
+    {
+        perf_show (stdout);
+        return;
+    }
+    snprintf (line, sizeof (line), "%s", c -> path);
+    for (p = strtok (line, " \t"); (p != NULL) && (n < 6); p = strtok (NULL, " \t"))  tok[n++] = p;
+    if (n == 0)
+    {
+        perf_show (stdout);
+    }
+    else if (0 == strcasecmp (tok[0], "regions"))
+    {
+        perf_regions (stdout, "", (n > 1) ? atoi (tok[1]) : 16);
+    }
+    else if (0 == strcasecmp (tok[0], "reset"))
+    {
+        perf_reset ();
+    }
+    else if (0 == strcasecmp (tok[0], "show"))
+    {
+        perf_show (stdout);
+    }
+    else if (0 == strcasecmp (tok[0], "on"))
+    {
+        perf_history (TRUE);
+    }
+    else if (0 == strcasecmp (tok[0], "off"))
+    {
+        perf_history (FALSE);
+    }
+    else if ((0 == strcasecmp (tok[0], "save")) && (n >= 2))
+    {
+        int  rows  = perf_save (tok[1], ((n > 2) && (0 == strcasecmp (tok[2], "json"))) ? TRUE : FALSE);
+
+        if (rows < 0)  fprintf (stderr, "[ERROR] stats save: could not write '%s'\n", tok[1]);
+        else           status_printf ("[stats] %d frames saved to %s\n", rows, tok[1]);
+    }
+    else if ((0 == strcasecmp (tok[0], "expect")) && (n == 4))
+    {
+        runctl_expect_stat (tok[1], tok[2], tok[3]);
+    }
+    else
+    {
+        fprintf (stderr, "[ERROR] stats: show, regions [N], reset, on, off, save FILE [json], expect NAME[.AGG] OP VALUE, or nothing (try 'help stats')\n");
+    }
+}
+
+//
 // noextra [on|off]: screenshots without the grid and the outlines
 //
 static void  exec_noextra (cmd_t *c)
@@ -2077,6 +2157,7 @@ static void  exec_help (cmd_t *c)
         case CMD_SCREENSHOT:  help (INPUT_SCREENSHOT); break;
         case CMD_HIGHLIGHT:   help (INPUT_HIGHLIGHT);  break;
         case CMD_SCREENGRID:  help (INPUT_SCREENGRID); break;
+        case CMD_STATS:       help (INPUT_STATS);      break;
         case CMD_NOEXTRA:     help (INPUT_NOEXTRA);    break;
         case CMD_SAVE:        help (INPUT_SAVE);       break;
         case CMD_RESTORE:     help (INPUT_RESTORE);    break;
@@ -2160,6 +2241,7 @@ uint8_t  cmd_execute (cmd_t *c)
         case CMD_SCREENSHOT:  exec_screenshot (c);                  break;
         case CMD_HIGHLIGHT:   exec_highlight (c);                   break;
         case CMD_SCREENGRID:  exec_screengrid (c);                  break;
+        case CMD_STATS:       exec_stats (c);                       break;
         case CMD_NOEXTRA:     exec_noextra (c);                     break;
         case CMD_SAVE:        exec_save (c);                        break;
         case CMD_RESTORE:     exec_restore (c);                     break;

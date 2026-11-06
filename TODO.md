@@ -4,6 +4,22 @@ Status as of version `20261106-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261106 (central maintenance), VS-13 part 2 + VS-18**: `perfstats.c` is table-driven with stable dotted names (`gpu.draws`, `spu.plays`,
+    `bus.movs_words`, `cpu.instructions`, `cpu.cycles`, `gpu.pixels`...) and the per-frame history (`stats on|off`): aggregates `.last .mean .min
+    .max .p50 .p95 .p99 .total` for every counter, `expect stats gpu.draws.p95 <= 600` (rewritten to `stats expect`; fails like `expect`, exit 1
+    in batch), `stats save FILE [json]`, `--stats-format=json` (JSON Lines + summary line), `--stats`/`--stats-skip`/`--stats-top` synonyms.
+    New counters: scaled / rotated draws, region definition writes, multiply-colour and blending changes, SPU assignments and parameter writes,
+    MOVS / SETS words, gamepad reads, instructions. Summary: mean p50 p95 p99 max total. `v32sim-statdiff.py`: `--sort ratio`, reads CSV and
+    JSON Lines, stable names. VS-18: V32TRACE `input2=` / `V32_INPUT2=` (only when pad 2 was used), `--input2=SCRIPT|@FILE`. Left of VS-13:
+    `--profile-event`, GPU/SPU traces + replay, `--time-breakdown`, `--frame-log`, channels-playing gauge, memory-card access counter.
+
+  * **20261106 (central maintenance), VS-13 part 1, perf counters**: `src/perfstats.c`: GPU (draws, dropped, clears, texture / region switches,
+    distinct regions) and SPU (commands, plays) counters per frame and the draws / pixels / drops per texture:region over the run;
+    `--frame-stats` CSV gets the counters as columns after the original six, its summary the counters and `--frame-stats-top=N` regions
+    (the skip applies); `stats` / `stats regions` / `stats reset` / `stats expect NAME OP VALUE` in a session; `tools/v32sim-statdiff.py`
+    (compare two CSVs, `--fail-over`, `--json`). Checked on overdraw.c (12 draws, 3 dropped, agrees with v32orun) and on NEStoV32's translated
+    SMB1 (1,110 draws, 790 region switches, 20 % GPU, 55 % CPU per frame). The rest of VS-13 is listed in the entry above.
+
   * **20261106 (central maintenance), screenshot highlight**: `highlight TEX:REGION [COLOR]` (`bios:N`, `clear`, `on|off`, list) outlines the
     quads drawn from a region in `screenshot` PNGs only (`src/gpu.c`: outline list, painted onto a copy). Test: harness "screenshot highlight".
     Also spelled `boundbox` (the name in the old `screenshot` help). `screengrid` (grid over screenshots: on/off, spacing, color, alpha; 40x40
@@ -12,7 +28,7 @@ Status as of version `20261106-dev`.
 
   * **20261106 (central maintenance), VS-12 leftover, part 1**: `v32prof` and `v32peek` are `v32orun --compat=prof|peek` (scripted input,
     segments, per-function cycles, RAM dump; output byte-identical to the old programs on the stock-chain example: report, CSV and RAM dump);
-    `v32prof.cpp`/`v32peek.cpp` deleted, `build.sh` writes the two wrappers. `make clean` removes any `../v32sim-project-YYYYMMDD.zip`.
+    `v32prof.cpp`/`v32peek.cpp` deleted, `build.sh` writes the two wrappers. Part 2: `v32shot` too (`--compat=shot`, software rasterizer ported as is; PPMs identical to the old program's on hello_text frames 3 10 40 300). `make clean` removes any `../v32sim-project-YYYYMMDD.zip`.
 
   * **20261106 (central maintenance), VS-11 v32mouse**: `src/v32mouse.c`, `--v32mouse[=PORT]`, the `mouse` command (`attach detach move
     click|down|up wait clear`, status); counters and Gray/trit encoding as the v32io protocol, <=5 steps per axis per frame, a 4096-action
@@ -34,7 +50,7 @@ Status as of version `20261106-dev`.
 
   * **V32TRACE (spec 2)** - `--v32trace=PREFIX`, `--v32trace-meta`, `--v32trace-labels`, `--v32trace-norestart`: traps, events, restart after a trap,
     `traps.txt` and `blocks.txt` (`src/v32trace.c`); since 2026-11-04 also the human report `PREFIX.trace.txt`, `series`, markers (`mark`), host cost,
-    compared with the patched DesktopEmulator in `run_harness_tests.sh` (needs `GBTOV32_TREE` and `tools/oracle/v32trace-ref`). Missing: `input2=`.
+    compared with the patched DesktopEmulator in `run_harness_tests.sh` (needs `GBTOV32_TREE` and `tools/oracle/v32trace-ref`). `input2=` done (20261106).
 
   * **Command parsing** - regex front end replaced by `lexer.l`, `parser.y`
     and `command.c`.
@@ -97,7 +113,7 @@ Status as of version `20261106-dev`.
 
 
   * **VS-9 beyond `--frame-stats`** - GPU/SPU counters, texture/region switches, `--profile-event`, `expect stats`, traces + replay.
-  * **Fold `v32shot`, `sysprof` and `v32trace-ref` into `v32orun`** (`--shot` needs the software rasterizer; `sysprof` is v32nix-specific; `v32trace-ref` needs the patched checkout). `v32prof`/`v32peek` are done.
+  * **Fold `sysprof` and `v32trace-ref` into `v32orun`** (`sysprof` is v32nix-specific; `v32trace-ref` needs the patched checkout). `v32prof`/`v32peek`/`v32shot` are done.
 
   * **Locals, what is left (V32DBG section 4)** - Lua table walking (`locals` shows `table: 0xADDR`), struct members (needs
     member names in `type=`), globals' `type=` (`loc=@ADDR` from v32cc), upvalues in closures (v32lua), `display NAME` that

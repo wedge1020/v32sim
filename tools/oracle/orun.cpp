@@ -30,11 +30,12 @@
 //    --date Y,D --time S   set the clock    --cfi=x86|arm --cfi-log --spu-state --no-memcard --fixed-time --trail=N
 //                                           (the environment variables V32_CFI, V32_CFI_LOG, V32_SPU_STATE,
 //                                           V32_NO_MEMCARD, V32_FIXED_TIME and V32_TRAIL do the same)
-//    --compat=refrun|v32run|vrun|peek|prof   the command line and output of the old tool of that name (the wrappers
-//                                  tools/oracle/bin/{refrun,v32run,vrun,v32peek,v32prof} are this)
+//    --compat=refrun|v32run|vrun|peek|prof|shot   the command line and output of the old tool of that name (the wrappers
+//                                  tools/oracle/bin/{refrun,v32run,vrun,v32peek,v32prof,v32shot} are this)
 //
 //  v32prof and v32peek (v32c++'s tools) are --compat=prof / --compat=peek, with their command lines and output:
 //    v32prof BIOS CART CART.vbin.debug SCRIPT [heavy%=85] [csv]    v32peek BIOS CART SCRIPT FRAME ADDRESS COUNT [...]
+//    v32shot BIOS CART SCRIPT OUT_PREFIX FRAME [FRAME...]   (PPM screenshots with a software rasterizer of the console's quads)
 //  SCRIPT, one command per line (# comments): "<frame> connect <port> <0|1>", "<frame> press|release|tap <port> <control>"
 //  (left right up down start a b x y l r), "<frame> segment <name>" and "<frame> end" (v32prof). tools/vprof2cmd.py turns
 //  the same script into v32sim commands.
@@ -583,13 +584,126 @@ static int compat_prof(int argc, char** argv)
 }
 
 // ===================================================================================================================
+//  v32shot (v32c++'s tool) as --compat=shot: the console's GPU hands every draw to the host as a textured quad; a
+//  small software rasterizer draws them into a 640x360 buffer (nearest-neighbour sampling, multiply colour, the three
+//  blending modes), written as PPM at the chosen frames. Not pixel-exact against the real renderer's filtering.
+//    v32shot BIOS CART SCRIPT OUT_PREFIX FRAME [FRAME...]     (V32SHOT_CARD=file puts a memory card in the slot)
+// ===================================================================================================================
+static const int SHOT_W = 640, SHOT_H = 360, SHOT_TEX = Constants::GPUTextureSize;
+static vector<uint8_t> shot_screen(SHOT_W * SHOT_H * 3, 0);
+static map<int, vector<GPUColor>> shot_textures;
+static int shot_texture = -1;
+static GPUColor shot_multiply = {255, 255, 255, 255};
+static int shot_blend = (int)IOPortValues::GPUBlendingMode_Alpha;
+
+static void shot_clear(GPUColor c)
+{
+    for (int i = 0; i < SHOT_W * SHOT_H; i++) { shot_screen[i * 3] = c.R; shot_screen[i * 3 + 1] = c.G; shot_screen[i * 3 + 2] = c.B; }
+}
+
+static void shot_load(int id, void* pixels)
+{
+    const GPUColor* p = (const GPUColor*)pixels;
+    shot_textures[id].assign(p, p + (size_t)SHOT_TEX * SHOT_TEX);
+}
+
+static void shot_draw(GPUQuad& q)
+{
+    auto tex = shot_textures.find(shot_texture);
+    if (tex == shot_textures.end()) return;
+    const GPUPoint& o = q.Vertices[0];
+    // the quad is a parallelogram: P = V0 + u (V1 - V0) + v (V2 - V0)
+    float ax = q.Vertices[1].x - o.x, ay = q.Vertices[1].y - o.y;
+    float bx = q.Vertices[2].x - o.x, by = q.Vertices[2].y - o.y;
+    float det = ax * by - ay * bx;
+    if (fabs(det) < 1e-6f) return;
+    float minx = 1e9f, miny = 1e9f, maxx = -1e9f, maxy = -1e9f;
+    for (int i = 0; i < 4; i++) {
+        minx = min(minx, q.Vertices[i].x); maxx = max(maxx, q.Vertices[i].x);
+        miny = min(miny, q.Vertices[i].y); maxy = max(maxy, q.Vertices[i].y);
+    }
+    int x0 = max(0, (int)floor(minx)), x1 = min(SHOT_W - 1, (int)ceil(maxx));
+    int y0 = max(0, (int)floor(miny)), y1 = min(SHOT_H - 1, (int)ceil(maxy));
+    float tu0 = o.texture_x, tv0 = o.texture_y;
+    float tu1 = q.Vertices[1].texture_x, tv2 = q.Vertices[2].texture_y;
+    for (int y = y0; y <= y1; y++)
+        for (int x = x0; x <= x1; x++) {
+            float px = x + 0.5f - o.x, py = y + 0.5f - o.y;
+            float u = (px * by - py * bx) / det, v = (ax * py - ay * px) / det;
+            if (u < 0 || u >= 1 || v < 0 || v >= 1) continue;
+            int tx = (int)((tu0 + u * (tu1 - tu0)) * SHOT_TEX), ty = (int)((tv0 + v * (tv2 - tv0)) * SHOT_TEX);
+            if (tx < 0 || ty < 0 || tx >= SHOT_TEX || ty >= SHOT_TEX) continue;
+            GPUColor c = tex->second[(size_t)ty * SHOT_TEX + tx];
+            float a = (c.A / 255.0f) * (shot_multiply.A / 255.0f);
+            float src[3] = {c.R * shot_multiply.R / 255.0f, c.G * shot_multiply.G / 255.0f, c.B * shot_multiply.B / 255.0f};
+            uint8_t* dst = &shot_screen[((size_t)y * SHOT_W + x) * 3];
+            for (int k = 0; k < 3; k++) {
+                float out;
+                if (shot_blend == (int)IOPortValues::GPUBlendingMode_Add) out = dst[k] + src[k] * a;
+                else if (shot_blend == (int)IOPortValues::GPUBlendingMode_Subtract) out = dst[k] - src[k] * a;
+                else out = dst[k] * (1 - a) + src[k] * a;
+                dst[k] = (uint8_t)max(0.0f, min(255.0f, out));
+            }
+        }
+}
+
+static int compat_shot(int argc, char** argv)
+{
+    if (argc < 6) { fprintf(stderr, "usage: v32shot bios.v32 cart.v32 script out_prefix frame [frame...]\n"); return 2; }
+    Callbacks::ClearScreen = shot_clear;
+    Callbacks::DrawQuad = shot_draw;
+    Callbacks::SetMultiplyColor = [](GPUColor c) { shot_multiply = c; };
+    Callbacks::SetBlendingMode = [](int m) { shot_blend = m; };
+    Callbacks::SelectTexture = [](int t) { shot_texture = t; };
+    Callbacks::LoadTexture = shot_load;
+    vector<ScriptCmd> script = read_script(argv[3], false);
+    set<int> shots;
+    for (int i = 5; i < argc; i++) shots.insert(atoi(argv[i]));
+    int last_frame = *shots.rbegin();
+    vector<pair<int, GamepadControls>> pending_release;
+    try {
+        con.LoadBios(argv[1]);
+        con.LoadCartridge(argv[2]);
+        if (getenv("V32SHOT_CARD")) {
+            const char* card = getenv("V32SHOT_CARD");
+            FILE* existing = fopen(card, "rb");
+            if (existing) fclose(existing); else con.CreateMemoryCard(card);
+            con.LoadMemoryCard(card);
+        }
+        con.SetPower(true);
+        size_t next = 0;
+        for (int frame = 0; frame <= last_frame && !con.IsCPUHalted(); frame++) {
+            for (auto& r : pending_release) con.SetGamepadControl(r.first, r.second, false);
+            pending_release.clear();
+            for (; next < script.size() && script[next].frame == frame; next++) {
+                if (script[next].op == "segment") continue;
+                apply_script_cmd(script[next], pending_release);
+            }
+            con.RunNextFrame();
+            if (shots.count(frame)) {
+                string path = string(argv[4]) + to_string(frame) + ".ppm";
+                FILE* f = fopen(path.c_str(), "wb");
+                if (f == NULL) { perror(path.c_str()); return 1; }
+                fprintf(f, "P6\n%d %d\n255\n", SHOT_W, SHOT_H);
+                fwrite(shot_screen.data(), 1, shot_screen.size(), f);
+                fclose(f);
+                printf("frame %d -> %s\n", frame, path.c_str());
+            }
+        }
+        if (con.IsCPUHalted()) printf("CPU halted\n");
+        if (con.HasMemoryCard()) con.SaveMemoryCard();
+    } catch (const exception& e) { fprintf(stderr, "v32shot: %s\n", e.what()); return 1; }
+    return 0;
+}
+
+// ===================================================================================================================
 //  the old runners' command lines, on the same engine
 // ===================================================================================================================
 static int compat_run(const string& which, int argc, char** argv)
 {
-    if (which == "peek" || which == "prof") {
+    if (which == "peek" || which == "prof" || which == "shot") {
         install_callbacks(NoLog);
-        return which == "peek" ? compat_peek(argc, argv) : compat_prof(argc, argv);
+        return which == "peek" ? compat_peek(argc, argv) : which == "prof" ? compat_prof(argc, argv) : compat_shot(argc, argv);
     }
     install_callbacks(which == "v32run" ? [](const std::string& s) { fprintf(stderr, "[console] %s\n", s.c_str()); } : NoLog);
     if (which == "refrun") {
@@ -681,7 +795,7 @@ int main(int argc, char** argv)
     // the old names, as command-line compatibility: v32orun --compat=NAME ARGS...
     if (argc >= 2 && !strncmp(argv[1], "--compat=", 9)) {
         string which = argv[1] + 9;
-        if (which != "refrun" && which != "v32run" && which != "vrun" && which != "peek" && which != "prof") { fprintf(stderr, "v32orun: unknown --compat=%s\n", which.c_str()); return 2; }
+        if (which != "refrun" && which != "v32run" && which != "vrun" && which != "peek" && which != "prof" && which != "shot") { fprintf(stderr, "v32orun: unknown --compat=%s\n", which.c_str()); return 2; }
         try { return compat_run(which, argc - 1, argv + 1); }
         catch (std::exception& e) { fprintf(stderr, "%s: %s\n", which.c_str(), e.what()); return which == "vrun" ? 2 : 3; }
     }

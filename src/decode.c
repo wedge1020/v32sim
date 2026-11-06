@@ -884,6 +884,7 @@ void  decode_process (uint32_t  instruction,
     linked_l *dtmp          = NULL;
     linked_l *ptmp          = NULL;
 
+    perf_instruction ();
     if (profileflag        == TRUE)
     {
         profcountopcode[opcode]  = profcountopcode[opcode] + 1;
@@ -1268,6 +1269,7 @@ void  decode_process (uint32_t  instruction,
             {
                 break;
             }
+            perf_bus_words (FALSE);
             REG(DR)         = REG(DR) + 1;
             REG(SR)         = REG(SR) + 1;
             if (REG(CR)    >  0)
@@ -1286,6 +1288,7 @@ void  decode_process (uint32_t  instruction,
             {
                 break;
             }
+            perf_bus_words (TRUE);
             REG(DR)         = REG(DR) + 1;        // DR: Destination Register (R13)
             if (REG(CR)    >  0)
             {
