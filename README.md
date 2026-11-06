@@ -385,7 +385,7 @@ code word for word.
 (nearest-neighbor sampling, the same pixel budget and blending), so a screenshot
 shows what the cart has drawn so far this frame.
 
-`highlight TEXTURE:REGION [COLOR]` marks a region (`bios:REGION` for the BIOS texture; COLOR is a name or RRGGBB, red by default): every
+`highlight TEXTURE:REGION [COLOR]` (also spelled `boundbox`) marks a region (`bios:REGION` for the BIOS texture; COLOR is a name or RRGGBB, red by default): every
 quad the program draws from it, scaled or rotated included, gets a one-pixel outline just outside it in the screenshots. The outlines
 are painted onto the PNG only, never onto the screen the program sees; they cover the quads drawn this frame or the last (a clear_screen
 forgets earlier ones), and a draw the GPU dropped for lack of pixels has none. `highlight` lists, `highlight clear [TEX:REGION]`

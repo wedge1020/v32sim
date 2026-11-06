@@ -451,7 +451,7 @@ void  help  (uint8_t  item)
             break;
 
         case INPUT_HIGHLIGHT:
-            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "SYNOPSIS:  (the command is also called boundbox)\n");
             fprintf (stdout, "    highlight                      list the highlighted regions\n");
             fprintf (stdout, "    highlight TEX:REGION [COLOR]   outline this region in screenshots (red by default)\n");
             fprintf (stdout, "    highlight bios:REGION [COLOR]  a region of the BIOS texture\n");
@@ -475,8 +475,8 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    The default filename will be 'v32sim.DATESTAMP.png', unless an\n");
             fprintf (stdout, "    alternate FILENAME is specified.\n\n");
             fprintf (stdout, "NOTE:\n");
-            fprintf (stdout, "    Various simulator settings can enhance the appearance of this\n");
-            fprintf (stdout, "    screenshot, such as 'screengrid', 'boundbox', and 'noextra'\n\n");
+            fprintf (stdout, "    'highlight' (also called 'boundbox') outlines chosen texture regions in\n");
+            fprintf (stdout, "    the screenshot.\n\n");
             break;
 
         case INPUT_INVENTORY:

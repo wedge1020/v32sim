@@ -45,6 +45,7 @@ static const struct
     { "gamepad",     1, CMD_GAMEPAD   },
     { "help",        1, CMD_HELP      },
     { "highlight",   3, CMD_HIGHLIGHT },
+    { "boundbox",    3, CMD_HIGHLIGHT },        // the older name
     { "?",           1, CMD_HELP      },
     { "ignore",      1, CMD_IGNORE    },
     { "inventory",   2, CMD_INVENTORY },
