@@ -247,5 +247,12 @@ for y in range(360):
 sys.exit(0 if diff > 20 else 1)
 PY
 
+shot "screengrid on\n" grid; shot "screengrid 32 30\n" grid2; shot "screengrid on\nnoextra\n" gridoff
+cmp -s "$W/plain.png" "$W/grid.png" && bad "screengrid: no change" || ok "screengrid lays a grid over the screenshot"
+cmp -s "$W/grid.png" "$W/grid2.png" && bad "screengrid spacing ignored" || ok "screengrid DX DY changes the spacing"
+cmp -s "$W/plain.png" "$W/gridoff.png" && ok "noextra gives the plain screenshot" || bad "noextra"
+printf "screengrid on\nrun 300\nscreenshot --plain $W/plain2.png\nquit\n" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/hlk/hello_text.v32" >/dev/null 2>&1
+cmp -s "$W/plain.png" "$W/plain2.png" && ok "screenshot --plain leaves the grid out" || bad "screenshot --plain"
+
 echo "== $pass passed, $fail failed, $skip skipped"
 [ $fail -eq 0 ]

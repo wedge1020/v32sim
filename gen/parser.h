@@ -81,41 +81,43 @@ extern int yydebug;
     T_PROFILE = 282,               /* T_PROFILE  */
     T_QUIT = 283,                  /* T_QUIT  */
     T_REPLACE = 284,               /* T_REPLACE  */
-    T_HIGHLIGHT = 285,             /* T_HIGHLIGHT  */
-    T_ASM = 286,                   /* T_ASM  */
-    T_RESTORE = 287,               /* T_RESTORE  */
-    T_SAVE = 288,                  /* T_SAVE  */
-    T_SCREENSHOT = 289,            /* T_SCREENSHOT  */
-    T_SET = 290,                   /* T_SET  */
-    T_STEP = 291,                  /* T_STEP  */
-    T_UNBREAK = 292,               /* T_UNBREAK  */
-    T_UNDISPLAY = 293,             /* T_UNDISPLAY  */
-    T_UNLABEL = 294,               /* T_UNLABEL  */
-    T_UNLOAD = 295,                /* T_UNLOAD  */
-    T_UNWATCH = 296,               /* T_UNWATCH  */
-    T_VERSION = 297,               /* T_VERSION  */
-    T_WATCH = 298,                 /* T_WATCH  */
-    T_WATCHLIST = 299,             /* T_WATCHLIST  */
-    T_KBD = 300,                   /* T_KBD  */
-    T_MOUSE = 301,                 /* T_MOUSE  */
-    T_MAILBOX = 302,               /* T_MAILBOX  */
-    T_CONSOLE = 303,               /* T_CONSOLE  */
-    T_RUN = 304,                   /* T_RUN  */
-    T_UNTIL = 305,                 /* T_UNTIL  */
-    T_EXPECT = 306,                /* T_EXPECT  */
-    T_EXAMINE = 307,               /* T_EXAMINE  */
-    T_SSTEP = 308,                 /* T_SSTEP  */
-    T_SNEXT = 309,                 /* T_SNEXT  */
-    T_FINISH = 310,                /* T_FINISH  */
-    T_TBREAK = 311,                /* T_TBREAK  */
-    T_LIST = 312,                  /* T_LIST  */
-    T_FRAME = 313,                 /* T_FRAME  */
-    T_UP = 314,                    /* T_UP  */
-    T_DOWN = 315,                  /* T_DOWN  */
-    T_LOCALS = 316,                /* T_LOCALS  */
-    T_MARK = 317,                  /* T_MARK  */
-    T_BADCMD = 318,                /* T_BADCMD  */
-    T_BAD = 319                    /* T_BAD  */
+    T_SCREENGRID = 285,            /* T_SCREENGRID  */
+    T_NOEXTRA = 286,               /* T_NOEXTRA  */
+    T_HIGHLIGHT = 287,             /* T_HIGHLIGHT  */
+    T_ASM = 288,                   /* T_ASM  */
+    T_RESTORE = 289,               /* T_RESTORE  */
+    T_SAVE = 290,                  /* T_SAVE  */
+    T_SCREENSHOT = 291,            /* T_SCREENSHOT  */
+    T_SET = 292,                   /* T_SET  */
+    T_STEP = 293,                  /* T_STEP  */
+    T_UNBREAK = 294,               /* T_UNBREAK  */
+    T_UNDISPLAY = 295,             /* T_UNDISPLAY  */
+    T_UNLABEL = 296,               /* T_UNLABEL  */
+    T_UNLOAD = 297,                /* T_UNLOAD  */
+    T_UNWATCH = 298,               /* T_UNWATCH  */
+    T_VERSION = 299,               /* T_VERSION  */
+    T_WATCH = 300,                 /* T_WATCH  */
+    T_WATCHLIST = 301,             /* T_WATCHLIST  */
+    T_KBD = 302,                   /* T_KBD  */
+    T_MOUSE = 303,                 /* T_MOUSE  */
+    T_MAILBOX = 304,               /* T_MAILBOX  */
+    T_CONSOLE = 305,               /* T_CONSOLE  */
+    T_RUN = 306,                   /* T_RUN  */
+    T_UNTIL = 307,                 /* T_UNTIL  */
+    T_EXPECT = 308,                /* T_EXPECT  */
+    T_EXAMINE = 309,               /* T_EXAMINE  */
+    T_SSTEP = 310,                 /* T_SSTEP  */
+    T_SNEXT = 311,                 /* T_SNEXT  */
+    T_FINISH = 312,                /* T_FINISH  */
+    T_TBREAK = 313,                /* T_TBREAK  */
+    T_LIST = 314,                  /* T_LIST  */
+    T_FRAME = 315,                 /* T_FRAME  */
+    T_UP = 316,                    /* T_UP  */
+    T_DOWN = 317,                  /* T_DOWN  */
+    T_LOCALS = 318,                /* T_LOCALS  */
+    T_MARK = 319,                  /* T_MARK  */
+    T_BADCMD = 320,                /* T_BADCMD  */
+    T_BAD = 321                    /* T_BAD  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -131,7 +133,7 @@ union YYSTYPE
     int     op;
     symv_t  s;
 
-#line 135 "obj/parser.h"
+#line 137 "obj/parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

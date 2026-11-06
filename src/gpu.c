@@ -52,6 +52,17 @@ static int       hl_head      = 0;                       // ring when full
 static uint32_t  hl_frame     = 0;
 static int       hl_enabled   = TRUE;
 
+//
+// screengrid: a light grid over the screenshot, to judge where things were drawn.
+// noextra: screenshots are plain (grid and outlines stay set but are not painted)
+//
+static int       grid_on      = FALSE;
+static int       grid_dx      = 40;                      // 640/40 = 16 columns, 360/40 = 9 rows: square cells
+static int       grid_dy      = 40;
+static uint32_t  grid_rgb     = 0x00FF00;
+static int       grid_alpha   = 40;                      // percent
+static int       noextra      = FALSE;
+
 ////////////////////////////////////////////////////////////////////////////////////////
 //
 // blend(): combine one source pixel (color 0-255 floats, alpha 0-1) into the
@@ -1198,6 +1209,68 @@ void  gpu_highlight_show (FILE *out)
     }
 }
 
+int  gpu_grid_set (int on, int dx, int dy, int32_t rgb, int alpha)
+{
+    if ((dx < 0) || (dy < 0) || (dx > GPU_SCREEN_W) || (dy > GPU_SCREEN_H) || (alpha > 100))
+    {
+        return (-1);
+    }
+    if (on >= 0)   grid_on     = (on != 0) ? TRUE : FALSE;
+    if (dx > 0)    grid_dx     = dx;
+    if (dy > 0)    grid_dy     = dy;
+    if (rgb >= 0)  grid_rgb    = (uint32_t) rgb;
+    if (alpha >= 0) grid_alpha = alpha;
+    return (0);
+}
+
+void  gpu_noextra (int on)
+{
+    noextra  = (on != 0) ? TRUE : FALSE;
+}
+
+void  gpu_grid_show (FILE *out)
+{
+    fprintf (out, "screengrid: %s, every %d x %d pixels (%d columns, %d rows), #%06X at %d%%\n", (grid_on == TRUE) ? "on" : "off",
+             grid_dx, grid_dy, GPU_SCREEN_W / grid_dx, GPU_SCREEN_H / grid_dy, grid_rgb, grid_alpha);
+    fprintf (out, "noextra: %s\n", (noextra == TRUE) ? "on (screenshots are plain)" : "off");
+}
+
+static void  grid_mix (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3], int x, int y)
+{
+    int  c[3]  = { (int) ((grid_rgb >> 16) & 0xFF), (int) ((grid_rgb >> 8) & 0xFF), (int) (grid_rgb & 0xFF) };
+    int  k     = 0;
+
+    for (k = 0; k < 3; k = k + 1)
+    {
+        shot[y][x][k]  = (uint8_t) ((shot[y][x][k] * (100 - grid_alpha) + c[k] * grid_alpha + 50) / 100);
+    }
+}
+
+//
+// lines at every multiple of the spacing (the screen edges need none)
+//
+static void  grid_paint (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3])
+{
+    int  x  = 0;
+    int  y  = 0;
+
+    if (grid_on != TRUE)
+    {
+        return;
+    }
+    for (x = grid_dx; x < GPU_SCREEN_W; x = x + grid_dx)
+    {
+        for (y = 0; y < GPU_SCREEN_H; y = y + 1)  grid_mix (shot, x, y);
+    }
+    for (y = grid_dy; y < GPU_SCREEN_H; y = y + grid_dy)
+    {
+        for (x = 0; x < GPU_SCREEN_W; x = x + 1)
+        {
+            if ((x % grid_dx) != 0)  grid_mix (shot, x, y);      // a crossing is mixed once
+        }
+    }
+}
+
 static void  hl_plot (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3], int x, int y, uint32_t rgb)
 {
     if ((x >= 0) && (x < GPU_SCREEN_W) && (y >= 0) && (y < GPU_SCREEN_H))
@@ -1267,7 +1340,7 @@ static void  hl_paint (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3])
     }
 }
 
-uint8_t  gpu_screenshot (const char *filename)
+static uint8_t  shot_write (const char *filename, int plain)
 {
     FILE     *f         = fopen (filename, "wb");
     uint8_t   sig[8]    = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
@@ -1295,7 +1368,11 @@ uint8_t  gpu_screenshot (const char *filename)
     if ((raw != NULL) && (z != NULL))
     {
         memcpy (shot, framebuffer, sizeof (shot));       // a copy: the outlines are not on the screen
-        hl_paint (shot);
+        if ((plain == FALSE) && (noextra == FALSE))
+        {
+            grid_paint (shot);
+            hl_paint (shot);                             // outlines over the grid
+        }
         for (y = 0; y < GPU_SCREEN_H; y = y + 1)
         {
             raw[pos]  = 0; // filter: none
@@ -1354,4 +1431,14 @@ uint8_t  gpu_screenshot (const char *filename)
         ok  = FALSE;
     }
     return (ok);
+}
+
+uint8_t  gpu_screenshot (const char *filename)
+{
+    return (shot_write (filename, FALSE));
+}
+
+uint8_t  gpu_screenshot_plain (const char *filename)
+{
+    return (shot_write (filename, TRUE));
 }

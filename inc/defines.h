@@ -132,6 +132,8 @@
 #define  INPUT_KBD               34
 #define  INPUT_MOUSE             71
 #define  INPUT_HIGHLIGHT         72
+#define  INPUT_SCREENGRID        73
+#define  INPUT_NOEXTRA           74
 #define  INPUT_MAILBOX           35
 #define  INPUT_CONSOLE           36
 #define  INPUT_RUN               37

@@ -292,6 +292,10 @@ char     *gpu_console_snapshot (void);                       // the screen as pl
 int       gpu_console_match (const char *, uint32_t);        // is the text on the screen (until, expect console)
 void      gpu_console_attrs (FILE *, int);                   // color grids (console --attrs)
 uint8_t   gpu_screenshot (const char *);
+uint8_t   gpu_screenshot_plain (const char *);                 // without grid or outlines
+int       gpu_grid_set   (int, int, int, int32_t, int);      // on (-1 keep), dx, dy (0 keep), rgb (-1 keep), alpha % (-1 keep)
+void      gpu_grid_show  (FILE *);
+void      gpu_noextra    (int);
 int       gpu_highlight_add    (int32_t, int32_t, uint32_t);   // texture, region, 0xRRGGBB
 int       gpu_highlight_remove (int32_t, int32_t);
 void      gpu_highlight_clear  (void);

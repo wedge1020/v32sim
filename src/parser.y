@@ -64,7 +64,7 @@ static int   check_signed   (void);
 %token       T_EQEQ T_NE T_LE T_GE
 %token       T_BACKTRACE T_BREAK T_CONTINUE T_DISPLAY T_GAMEPAD T_HELP T_IGNORE
 %token       T_INVENTORY T_LABEL T_LOAD T_NEXT T_PRINT T_PROFILE T_QUIT T_REPLACE
-%token       T_HIGHLIGHT T_ASM T_RESTORE T_SAVE T_SCREENSHOT T_SET T_STEP T_UNBREAK T_UNDISPLAY T_UNLABEL T_UNLOAD
+%token       T_SCREENGRID T_NOEXTRA T_HIGHLIGHT T_ASM T_RESTORE T_SAVE T_SCREENSHOT T_SET T_STEP T_UNBREAK T_UNDISPLAY T_UNLABEL T_UNLOAD
 %token       T_UNWATCH T_VERSION T_WATCH T_WATCHLIST
 %token       T_KBD T_MOUSE T_MAILBOX T_CONSOLE
 %token       T_RUN T_UNTIL T_EXPECT T_EXAMINE
@@ -116,6 +116,10 @@ command
             cmd_seterr ("restore: a file name is required");
             YYERROR;
         }
+    | T_SCREENGRID                      { CMD -> id = CMD_SCREENGRID; }
+    | T_SCREENGRID T_PATH               { CMD -> id = CMD_SCREENGRID; CMD -> path = $2.text; }
+    | T_NOEXTRA                         { CMD -> id = CMD_NOEXTRA; }
+    | T_NOEXTRA T_PATH                  { CMD -> id = CMD_NOEXTRA; CMD -> path = $2.text; }
     | T_HIGHLIGHT                       { CMD -> id = CMD_HIGHLIGHT; }
     | T_HIGHLIGHT T_PATH                { CMD -> id = CMD_HIGHLIGHT; CMD -> path = $2.text; }
     | T_SCREENSHOT                      { CMD -> id = CMD_SCREENSHOT; }

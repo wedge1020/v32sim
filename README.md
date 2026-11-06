@@ -313,7 +313,9 @@ prefix (`s` = step, `n` = next, `c` = continue, `b` = break, `p` = print,
 | `replace [IP:0xADDR] [IR:0x...] [IV:0x...]` | patch the instruction (and immediate) at IP/ADDR in memory |
 | `asm [@0xADDR\|-x] INSTRUCTION` | assemble an instruction: patch it in (at IP or ADDR), or run it once with `-x` |
 | `screenshot [FILE]` | write the GPU screen to a PNG file |
-| `highlight [TEX:REGION [COLOR]]` | outline a region in screenshots (`clear`, `on`, `off`) |
+| `highlight [TEX:REGION [COLOR]]` | outline a region in screenshots (`clear`, `on`, `off`; also `boundbox`) |
+| `screengrid [on\|off] [DX [DY]] [color C] [alpha N]` | lay a grid over screenshots |
+| `noextra [on\|off]` | screenshots without grid and outlines (`screenshot --plain` for one) |
 | `save [FILE]` / `restore FILE` | write / restore the whole machine state |
 | `set NAME=VALUE` | set settings, registers, memory, or IOPorts |
 | `ignore` | skip the current instruction (it is not executed and the counters do not advance) |
@@ -389,7 +391,12 @@ shows what the cart has drawn so far this frame.
 quad the program draws from it, scaled or rotated included, gets a one-pixel outline just outside it in the screenshots. The outlines
 are painted onto the PNG only, never onto the screen the program sees; they cover the quads drawn this frame or the last (a clear_screen
 forgets earlier ones), and a draw the GPU dropped for lack of pixels has none. `highlight` lists, `highlight clear [TEX:REGION]`
-forgets, `highlight off|on` hides and shows them.
+forgets, `highlight off|on` hides and shows them. Only draws made after the command are outlined: let a frame run before the screenshot.
+
+`screengrid [on|off] [DX [DY]] [color C] [alpha PERCENT]` mixes a light grid into the screenshots, to judge where things were drawn: green at
+40 % every 40 x 40 pixels by default (16 x 9 square cells; 8, 10, 20 and 40 divide both 640 and 360 evenly; `screengrid 32 30` gives 20 x 12
+cells). Outlines from `highlight` are drawn over it. `noextra [on|off]` leaves the grid and the outlines out of every screenshot while
+keeping their settings, and `screenshot --plain [FILE]` does that for one. None of this touches the screen the program sees.
 
 ### Save and Restore
 

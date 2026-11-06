@@ -117,6 +117,8 @@ void  help  (uint8_t  item)
             fprintf (stdout, "  replace IP:X IR:Y IV:Z  patch instruction memory\n");
             fprintf (stdout, "  screenshot [FILE]       write the GPU screen to a PNG file\n");
             fprintf (stdout, "  highlight [ARGS]        outline regions (TEXTURE:REGION) in screenshots\n");
+            fprintf (stdout, "  screengrid [ARGS]       lay a grid over screenshots\n");
+            fprintf (stdout, "  noextra [on|off]        screenshots without grid and outlines\n");
             fprintf (stdout, "  save [FILE]             write the machine state to a file\n");
             fprintf (stdout, "  restore FILE            restore a saved machine state\n");
             fprintf (stdout, "  gamepad [#] [COMMAND]   view/simulate gamepad state\n");
@@ -450,6 +452,29 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    card loaded now must be the ones in use when it was saved.\n\n");
             break;
 
+        case INPUT_SCREENGRID:
+            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    screengrid                     show the grid settings\n");
+            fprintf (stdout, "    screengrid on | off\n");
+            fprintf (stdout, "    screengrid DX [DY]             spacing in pixels (one number = both); turns it on\n");
+            fprintf (stdout, "    screengrid color COLOR         a name (see 'help highlight') or RRGGBB; green by default\n");
+            fprintf (stdout, "    screengrid alpha PERCENT       0-100, 40 by default\n\n");
+            fprintf (stdout, "DESCRIPTION:\n");
+            fprintf (stdout, "    'screenshot' mixes a light grid into the PNG, to judge where things were drawn.\n");
+            fprintf (stdout, "    The default is 40 x 40 pixels: 16 columns and 9 rows of square cells, the\n");
+            fprintf (stdout, "    shape of the screen. Sizes that divide both 640 and 360 evenly: 8 10 20 40.\n");
+            fprintf (stdout, "    The grid is painted onto the PNG only. Outlines from 'highlight' are drawn over it.\n\n");
+            break;
+
+        case INPUT_NOEXTRA:
+            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    noextra [on|off]               (on if no argument)\n");
+            fprintf (stdout, "    screenshot --plain [FILE]      one plain screenshot\n\n");
+            fprintf (stdout, "DESCRIPTION:\n");
+            fprintf (stdout, "    With noextra on, screenshots have neither the 'screengrid' grid nor the\n");
+            fprintf (stdout, "    'highlight' outlines. Their settings are kept, so 'noextra off' brings them back.\n\n");
+            break;
+
         case INPUT_HIGHLIGHT:
             fprintf (stdout, "SYNOPSIS:  (the command is also called boundbox)\n");
             fprintf (stdout, "    highlight                      list the highlighted regions\n");
@@ -464,19 +489,21 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    paints the outlines of the quads drawn this frame or the last onto the PNG it\n");
             fprintf (stdout, "    writes; the screen itself, and so the program, never sees them. A quad the GPU\n");
             fprintf (stdout, "    dropped for lack of pixels is not drawn and gets no outline. A clear_screen\n");
-            fprintf (stdout, "    forgets the outlines drawn before it.\n\n");
+            fprintf (stdout, "    forgets the outlines drawn before it. Only draws made after the command are\n");
+            fprintf (stdout, "    outlined, so let a frame run before the screenshot.\n\n");
             break;
 
         case INPUT_SCREENSHOT:
             fprintf (stdout, "SYNOPSIS:\n");
-            fprintf (stdout, "    screenshot [FILENAME]\n\n");
+            fprintf (stdout, "    screenshot [--plain] [FILENAME]\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    Output the current state of the Vircon32 screen to a PNG file.\n");
             fprintf (stdout, "    The default filename will be 'v32sim.DATESTAMP.png', unless an\n");
             fprintf (stdout, "    alternate FILENAME is specified.\n\n");
             fprintf (stdout, "NOTE:\n");
-            fprintf (stdout, "    'highlight' (also called 'boundbox') outlines chosen texture regions in\n");
-            fprintf (stdout, "    the screenshot.\n\n");
+            fprintf (stdout, "    'highlight' (also called 'boundbox') outlines chosen texture regions and\n");
+            fprintf (stdout, "    'screengrid' lays a grid over the screenshot; 'noextra' or the option\n");
+            fprintf (stdout, "    --plain (screenshot --plain [FILE]) leaves both out.\n\n");
             break;
 
         case INPUT_INVENTORY:

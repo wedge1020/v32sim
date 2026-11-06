@@ -6,6 +6,8 @@ Status as of version `20261106-dev`.
 
   * **20261106 (central maintenance), screenshot highlight**: `highlight TEX:REGION [COLOR]` (`bios:N`, `clear`, `on|off`, list) outlines the
     quads drawn from a region in `screenshot` PNGs only (`src/gpu.c`: outline list, painted onto a copy). Test: harness "screenshot highlight".
+    Also spelled `boundbox` (the name in the old `screenshot` help). `screengrid` (grid over screenshots: on/off, spacing, color, alpha; 40x40
+    default) and `noextra` / `screenshot --plain` (no grid, no outlines). Still open: `--highlight=`/`--screengrid=` options, coordinate labels on the grid.
 
   * **20261106 (central maintenance), VS-12 leftover, part 1**: `v32prof` and `v32peek` are `v32orun --compat=prof|peek` (scripted input,
     segments, per-function cycles, RAM dump; output byte-identical to the old programs on the stock-chain example: report, CSV and RAM dump);

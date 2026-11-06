@@ -46,6 +46,8 @@ static const struct
     { "help",        1, CMD_HELP      },
     { "highlight",   3, CMD_HIGHLIGHT },
     { "boundbox",    3, CMD_HIGHLIGHT },        // the older name
+    { "screengrid",  7, CMD_SCREENGRID},
+    { "noextra",     3, CMD_NOEXTRA   },
     { "?",           1, CMD_HELP      },
     { "ignore",      1, CMD_IGNORE    },
     { "inventory",   2, CMD_INVENTORY },
@@ -1701,6 +1703,82 @@ static void  exec_highlight (cmd_t *c)
     }
 }
 
+//
+// screengrid [on|off] [DX [DY]] [color C] [alpha PERCENT]
+//
+static void  exec_screengrid (cmd_t *c)
+{
+    char      line[128];
+    char     *tok[8];
+    int       n     = 0;
+    int       i     = 0;
+    int       on    = -1;
+    int       dx    = 0;
+    int       dy    = 0;
+    int       alpha = -1;
+    int       nums  = 0;
+    int32_t   rgb   = -1;
+    uint32_t  v     = 0;
+    char     *p     = NULL;
+
+    if (c -> path == NULL)
+    {
+        gpu_grid_show (stdout);
+        return;
+    }
+    snprintf (line, sizeof (line), "%s", c -> path);
+    for (p = strtok (line, " \t"); (p != NULL) && (n < 8); p = strtok (NULL, " \t"))  tok[n++] = p;
+    for (i = 0; i < n; i = i + 1)
+    {
+        if      (0 == strcasecmp (tok[i], "on"))   on = 1;
+        else if (0 == strcasecmp (tok[i], "off"))  on = 0;
+        else if ((0 == strcasecmp (tok[i], "color")) && (i + 1 < n))
+        {
+            if (parse_rgb (tok[++i], &v) != 0)  { fprintf (stderr, "[ERROR] screengrid: bad color '%s'\n", tok[i]);  return; }
+            rgb  = (int32_t) v;
+        }
+        else if ((0 == strcasecmp (tok[i], "alpha")) && (i + 1 < n))
+        {
+            alpha  = atoi (tok[++i]);
+        }
+        else if ((atoi (tok[i]) > 0) && (nums < 2))     // spacing: DX, or DX DY (one number = both)
+        {
+            if (nums == 0)  { dx = atoi (tok[i]);  dy = dx; }
+            else            { dy = atoi (tok[i]); }
+            nums  = nums + 1;
+            if (on < 0)  on = 1;
+        }
+        else
+        {
+            fprintf (stderr, "[ERROR] screengrid: unknown argument '%s' (try 'help screengrid')\n", tok[i]);
+            return;
+        }
+    }
+    if (gpu_grid_set (on, dx, dy, rgb, alpha) != 0)
+    {
+        fprintf (stderr, "[ERROR] screengrid: spacing must be 1-640 x 1-360 and alpha 0-100\n");
+    }
+}
+
+//
+// noextra [on|off]: screenshots without the grid and the outlines
+//
+static void  exec_noextra (cmd_t *c)
+{
+    if ((c -> path != NULL) && (0 == strcasecmp (c -> path, "off")))
+    {
+        gpu_noextra (0);
+    }
+    else if ((c -> path == NULL) || (0 == strcasecmp (c -> path, "on")))
+    {
+        gpu_noextra (1);
+    }
+    else
+    {
+        fprintf (stderr, "[ERROR] noextra: on or off\n");
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 //
 // screenshot: write the GPU framebuffer to a PNG file
@@ -1710,13 +1788,22 @@ static void  exec_screenshot (cmd_t *c)
     char       def[64];
     char      *name  = c -> path;
     time_t     now   = time (NULL);
+    int        plain = FALSE;
+
+    if ((name != NULL) && (0 == strncmp (name, "--plain", 7)) && ((name[7] == '\0') || (name[7] == ' ')))
+    {
+        plain  = TRUE;                                   // this one without the grid and the outlines
+        name   = name + 7;
+        while (*name == ' ')  name = name + 1;
+        if (*name == '\0')  name = NULL;
+    }
 
     if (name == NULL)
     {
         strftime (def, sizeof (def), "v32sim.%Y%m%d-%H%M%S.png", localtime (&now));
         name  = def;
     }
-    if (gpu_screenshot (name) == TRUE)
+    if (((plain == TRUE) ? gpu_screenshot_plain (name) : gpu_screenshot (name)) == TRUE)
     {
         status_printf ("[screenshot] wrote %s\n", name);
     }
@@ -1926,6 +2013,8 @@ static void  exec_help (cmd_t *c)
         case CMD_REPLACE:     help (INPUT_REPLACE);    break;
         case CMD_SCREENSHOT:  help (INPUT_SCREENSHOT); break;
         case CMD_HIGHLIGHT:   help (INPUT_HIGHLIGHT);  break;
+        case CMD_SCREENGRID:  help (INPUT_SCREENGRID); break;
+        case CMD_NOEXTRA:     help (INPUT_NOEXTRA);    break;
         case CMD_SAVE:        help (INPUT_SAVE);       break;
         case CMD_RESTORE:     help (INPUT_RESTORE);    break;
         case CMD_SET:         help (INPUT_SET);        break;
@@ -2007,6 +2096,8 @@ uint8_t  cmd_execute (cmd_t *c)
         case CMD_REPLACE:     exec_replace (c);                     break;
         case CMD_SCREENSHOT:  exec_screenshot (c);                  break;
         case CMD_HIGHLIGHT:   exec_highlight (c);                   break;
+        case CMD_SCREENGRID:  exec_screengrid (c);                  break;
+        case CMD_NOEXTRA:     exec_noextra (c);                     break;
         case CMD_SAVE:        exec_save (c);                        break;
         case CMD_RESTORE:     exec_restore (c);                     break;
         case CMD_SET:         exec_set (c);                         break;
