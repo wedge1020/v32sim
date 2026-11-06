@@ -292,6 +292,11 @@ char     *gpu_console_snapshot (void);                       // the screen as pl
 int       gpu_console_match (const char *, uint32_t);        // is the text on the screen (until, expect console)
 void      gpu_console_attrs (FILE *, int);                   // color grids (console --attrs)
 uint8_t   gpu_screenshot (const char *);
+int       gpu_highlight_add    (int32_t, int32_t, uint32_t);   // texture, region, 0xRRGGBB
+int       gpu_highlight_remove (int32_t, int32_t);
+void      gpu_highlight_clear  (void);
+void      gpu_highlight_enable (int);
+void      gpu_highlight_show   (FILE *);
 word_t   *reg_get        (uint8_t,     uint8_t);
 int8_t   *reg_get_name   (uint8_t);
 void      reg_set        (uint8_t,     uint32_t,    uint8_t);

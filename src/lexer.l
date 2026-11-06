@@ -230,6 +230,7 @@ static int  lex_command (void)
         case CMD_RESTORE:     BEGIN (PATH); return (T_RESTORE);
         case CMD_SAVE:        BEGIN (PATH); return (T_SAVE);
         case CMD_SCREENSHOT:  BEGIN (PATH); return (T_SCREENSHOT);
+        case CMD_HIGHLIGHT:   BEGIN (PATH); return (T_HIGHLIGHT);
         case CMD_SET:         return (T_SET);
         case CMD_STEP:        return (T_STEP);
         case CMD_UNBREAK:     return (T_UNBREAK);

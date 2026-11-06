@@ -116,6 +116,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "  set [NAME = VALUE]      set system feature, register, memory, IOPort\n");
             fprintf (stdout, "  replace IP:X IR:Y IV:Z  patch instruction memory\n");
             fprintf (stdout, "  screenshot [FILE]       write the GPU screen to a PNG file\n");
+            fprintf (stdout, "  highlight [ARGS]        outline regions (TEXTURE:REGION) in screenshots\n");
             fprintf (stdout, "  save [FILE]             write the machine state to a file\n");
             fprintf (stdout, "  restore FILE            restore a saved machine state\n");
             fprintf (stdout, "  gamepad [#] [COMMAND]   view/simulate gamepad state\n");
@@ -447,6 +448,23 @@ void  help  (uint8_t  item)
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    Restore a state written by 'save'. The BIOS, cartridge and memory\n");
             fprintf (stdout, "    card loaded now must be the ones in use when it was saved.\n\n");
+            break;
+
+        case INPUT_HIGHLIGHT:
+            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    highlight                      list the highlighted regions\n");
+            fprintf (stdout, "    highlight TEX:REGION [COLOR]   outline this region in screenshots (red by default)\n");
+            fprintf (stdout, "    highlight bios:REGION [COLOR]  a region of the BIOS texture\n");
+            fprintf (stdout, "    highlight clear [TEX:REGION]   forget one region, or all\n");
+            fprintf (stdout, "    highlight on | off             show or hide the outlines without forgetting the regions\n\n");
+            fprintf (stdout, "DESCRIPTION:\n");
+            fprintf (stdout, "    COLOR is red green blue yellow cyan magenta white black orange or RRGGBB.\n");
+            fprintf (stdout, "    Every quad the program draws from a highlighted region leaves a one-pixel\n");
+            fprintf (stdout, "    outline just outside the quad (rotated and scaled draws included). 'screenshot'\n");
+            fprintf (stdout, "    paints the outlines of the quads drawn this frame or the last onto the PNG it\n");
+            fprintf (stdout, "    writes; the screen itself, and so the program, never sees them. A quad the GPU\n");
+            fprintf (stdout, "    dropped for lack of pixels is not drawn and gets no outline. A clear_screen\n");
+            fprintf (stdout, "    forgets the outlines drawn before it.\n\n");
             break;
 
         case INPUT_SCREENSHOT:

@@ -81,40 +81,41 @@ extern int yydebug;
     T_PROFILE = 282,               /* T_PROFILE  */
     T_QUIT = 283,                  /* T_QUIT  */
     T_REPLACE = 284,               /* T_REPLACE  */
-    T_ASM = 285,                   /* T_ASM  */
-    T_RESTORE = 286,               /* T_RESTORE  */
-    T_SAVE = 287,                  /* T_SAVE  */
-    T_SCREENSHOT = 288,            /* T_SCREENSHOT  */
-    T_SET = 289,                   /* T_SET  */
-    T_STEP = 290,                  /* T_STEP  */
-    T_UNBREAK = 291,               /* T_UNBREAK  */
-    T_UNDISPLAY = 292,             /* T_UNDISPLAY  */
-    T_UNLABEL = 293,               /* T_UNLABEL  */
-    T_UNLOAD = 294,                /* T_UNLOAD  */
-    T_UNWATCH = 295,               /* T_UNWATCH  */
-    T_VERSION = 296,               /* T_VERSION  */
-    T_WATCH = 297,                 /* T_WATCH  */
-    T_WATCHLIST = 298,             /* T_WATCHLIST  */
-    T_KBD = 299,                   /* T_KBD  */
-    T_MOUSE = 300,                 /* T_MOUSE  */
-    T_MAILBOX = 301,               /* T_MAILBOX  */
-    T_CONSOLE = 302,               /* T_CONSOLE  */
-    T_RUN = 303,                   /* T_RUN  */
-    T_UNTIL = 304,                 /* T_UNTIL  */
-    T_EXPECT = 305,                /* T_EXPECT  */
-    T_EXAMINE = 306,               /* T_EXAMINE  */
-    T_SSTEP = 307,                 /* T_SSTEP  */
-    T_SNEXT = 308,                 /* T_SNEXT  */
-    T_FINISH = 309,                /* T_FINISH  */
-    T_TBREAK = 310,                /* T_TBREAK  */
-    T_LIST = 311,                  /* T_LIST  */
-    T_FRAME = 312,                 /* T_FRAME  */
-    T_UP = 313,                    /* T_UP  */
-    T_DOWN = 314,                  /* T_DOWN  */
-    T_LOCALS = 315,                /* T_LOCALS  */
-    T_MARK = 316,                  /* T_MARK  */
-    T_BADCMD = 317,                /* T_BADCMD  */
-    T_BAD = 318                    /* T_BAD  */
+    T_HIGHLIGHT = 285,             /* T_HIGHLIGHT  */
+    T_ASM = 286,                   /* T_ASM  */
+    T_RESTORE = 287,               /* T_RESTORE  */
+    T_SAVE = 288,                  /* T_SAVE  */
+    T_SCREENSHOT = 289,            /* T_SCREENSHOT  */
+    T_SET = 290,                   /* T_SET  */
+    T_STEP = 291,                  /* T_STEP  */
+    T_UNBREAK = 292,               /* T_UNBREAK  */
+    T_UNDISPLAY = 293,             /* T_UNDISPLAY  */
+    T_UNLABEL = 294,               /* T_UNLABEL  */
+    T_UNLOAD = 295,                /* T_UNLOAD  */
+    T_UNWATCH = 296,               /* T_UNWATCH  */
+    T_VERSION = 297,               /* T_VERSION  */
+    T_WATCH = 298,                 /* T_WATCH  */
+    T_WATCHLIST = 299,             /* T_WATCHLIST  */
+    T_KBD = 300,                   /* T_KBD  */
+    T_MOUSE = 301,                 /* T_MOUSE  */
+    T_MAILBOX = 302,               /* T_MAILBOX  */
+    T_CONSOLE = 303,               /* T_CONSOLE  */
+    T_RUN = 304,                   /* T_RUN  */
+    T_UNTIL = 305,                 /* T_UNTIL  */
+    T_EXPECT = 306,                /* T_EXPECT  */
+    T_EXAMINE = 307,               /* T_EXAMINE  */
+    T_SSTEP = 308,                 /* T_SSTEP  */
+    T_SNEXT = 309,                 /* T_SNEXT  */
+    T_FINISH = 310,                /* T_FINISH  */
+    T_TBREAK = 311,                /* T_TBREAK  */
+    T_LIST = 312,                  /* T_LIST  */
+    T_FRAME = 313,                 /* T_FRAME  */
+    T_UP = 314,                    /* T_UP  */
+    T_DOWN = 315,                  /* T_DOWN  */
+    T_LOCALS = 316,                /* T_LOCALS  */
+    T_MARK = 317,                  /* T_MARK  */
+    T_BADCMD = 318,                /* T_BADCMD  */
+    T_BAD = 319                    /* T_BAD  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -130,7 +131,7 @@ union YYSTYPE
     int     op;
     symv_t  s;
 
-#line 134 "obj/parser.h"
+#line 135 "obj/parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

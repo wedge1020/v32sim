@@ -313,6 +313,7 @@ prefix (`s` = step, `n` = next, `c` = continue, `b` = break, `p` = print,
 | `replace [IP:0xADDR] [IR:0x...] [IV:0x...]` | patch the instruction (and immediate) at IP/ADDR in memory |
 | `asm [@0xADDR\|-x] INSTRUCTION` | assemble an instruction: patch it in (at IP or ADDR), or run it once with `-x` |
 | `screenshot [FILE]` | write the GPU screen to a PNG file |
+| `highlight [TEX:REGION [COLOR]]` | outline a region in screenshots (`clear`, `on`, `off`) |
 | `save [FILE]` / `restore FILE` | write / restore the whole machine state |
 | `set NAME=VALUE` | set settings, registers, memory, or IOPorts |
 | `ignore` | skip the current instruction (it is not executed and the counters do not advance) |
@@ -383,6 +384,12 @@ code word for word.
 `v32sim.DATESTAMP.png`). The renderer is a software model of the console's GPU
 (nearest-neighbor sampling, the same pixel budget and blending), so a screenshot
 shows what the cart has drawn so far this frame.
+
+`highlight TEXTURE:REGION [COLOR]` marks a region (`bios:REGION` for the BIOS texture; COLOR is a name or RRGGBB, red by default): every
+quad the program draws from it, scaled or rotated included, gets a one-pixel outline just outside it in the screenshots. The outlines
+are painted onto the PNG only, never onto the screen the program sees; they cover the quads drawn this frame or the last (a clear_screen
+forgets earlier ones), and a draw the GPU dropped for lack of pixels has none. `highlight` lists, `highlight clear [TEX:REGION]`
+forgets, `highlight off|on` hides and shows them.
 
 ### Save and Restore
 

@@ -48,6 +48,7 @@ enum cmd_id
     CMD_RESTORE,
     CMD_SAVE,
     CMD_SCREENSHOT,
+    CMD_HIGHLIGHT,
     CMD_SET,
     CMD_STEP,
     CMD_UNBREAK,

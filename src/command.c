@@ -44,6 +44,7 @@ static const struct
     { "display",     1, CMD_DISPLAY   },
     { "gamepad",     1, CMD_GAMEPAD   },
     { "help",        1, CMD_HELP      },
+    { "highlight",   3, CMD_HIGHLIGHT },
     { "?",           1, CMD_HELP      },
     { "ignore",      1, CMD_IGNORE    },
     { "inventory",   2, CMD_INVENTORY },
@@ -1596,6 +1597,111 @@ static void  exec_unload (cmd_t *c)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
+// highlight: outline regions in screenshots
+//
+static int  parse_region (const char *s, int32_t *tex, int32_t *region)
+{
+    char  *end  = NULL;
+
+    if (0 == strncasecmp (s, "bios:", 5))
+    {
+        *tex  = -1;
+        s     = s + 5;
+    }
+    else
+    {
+        *tex  = (int32_t) strtol (s, &end, 10);
+        if ((end == s) || (*end != ':'))
+        {
+            return (-1);
+        }
+        s     = end + 1;
+    }
+    *region  = (int32_t) strtol (s, &end, 10);
+    return ((end == s) || ((*end != '\0') && (*end != ' '))) ? -1 : 0;
+}
+
+static int  parse_rgb (const char *s, uint32_t *rgb)
+{
+    static const struct { const char *name; uint32_t rgb; }  names[] =
+    {
+        { "red", 0xFF0000 }, { "green", 0x00FF00 }, { "blue", 0x0000FF }, { "yellow", 0xFFFF00 },
+        { "cyan", 0x00FFFF }, { "magenta", 0xFF00FF }, { "white", 0xFFFFFF }, { "black", 0x000000 },
+        { "orange", 0xFF8000 }
+    };
+    char  *end  = NULL;
+    int    i    = 0;
+
+    for (i = 0; i < (int) (sizeof (names) / sizeof (names[0])); i = i + 1)
+    {
+        if (0 == strcasecmp (s, names[i].name))
+        {
+            *rgb  = names[i].rgb;
+            return (0);
+        }
+    }
+    if (*s == '#')  s = s + 1;
+    *rgb  = (uint32_t) strtoul (s, &end, 16);
+    return ((end == s) || (*end != '\0') || (strlen (s) != 6)) ? -1 : 0;
+}
+
+static void  exec_highlight (cmd_t *c)
+{
+    char      line[128];
+    char     *verb  = NULL;
+    char     *arg   = NULL;
+    char     *p     = NULL;
+    int32_t   tex   = 0;
+    int32_t   reg   = 0;
+    uint32_t  rgb   = 0xFF0000;                          // red unless told otherwise
+
+    if (c -> path == NULL)
+    {
+        gpu_highlight_show (stdout);
+        return;
+    }
+    snprintf (line, sizeof (line), "%s", c -> path);
+    verb  = line;
+    for (p = line; (*p != '\0') && (*p != ' ') && (*p != '\t'); p = p + 1)  { }
+    if (*p != '\0')  { *p = '\0';  p = p + 1;  while ((*p == ' ') || (*p == '\t'))  p = p + 1; }
+    arg   = p;
+
+    if (0 == strcasecmp (verb, "on") || 0 == strcasecmp (verb, "off"))
+    {
+        gpu_highlight_enable (0 == strcasecmp (verb, "on"));
+    }
+    else if (0 == strcasecmp (verb, "clear"))
+    {
+        if (*arg == '\0')                                     gpu_highlight_clear ();
+        else if (parse_region (arg, &tex, &reg) != 0)         fprintf (stderr, "[ERROR] highlight clear: TEXTURE:REGION expected\n");
+        else if (gpu_highlight_remove (tex, reg) != 0)        fprintf (stderr, "[ERROR] highlight: %d:%d is not highlighted\n", tex, reg);
+    }
+    else if (0 == strcasecmp (verb, "list") || 0 == strcasecmp (verb, "status"))
+    {
+        gpu_highlight_show (stdout);
+    }
+    else if (parse_region (verb, &tex, &reg) == 0)
+    {
+        p  = arg;
+        while ((*p != '\0') && (*p != ' '))  p = p + 1;
+        *p  = '\0';
+        if ((*arg != '\0') && (parse_rgb (arg, &rgb) != 0))
+        {
+            fprintf (stderr, "[ERROR] highlight: color '%s' is not a name (red green blue yellow cyan magenta white black orange) or RRGGBB\n", arg);
+        }
+        else if (gpu_highlight_add (tex, reg, rgb) != 0)
+        {
+            fprintf (stderr, "[ERROR] highlight: too many regions\n");
+        }
+    }
+    else
+    {
+        fprintf (stderr, "[ERROR] highlight: unknown subcommand '%s' (try 'help highlight')\n", verb);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
 // screenshot: write the GPU framebuffer to a PNG file
 //
 static void  exec_screenshot (cmd_t *c)
@@ -1818,6 +1924,7 @@ static void  exec_help (cmd_t *c)
         case CMD_QUIT:        help (INPUT_QUIT);       break;
         case CMD_REPLACE:     help (INPUT_REPLACE);    break;
         case CMD_SCREENSHOT:  help (INPUT_SCREENSHOT); break;
+        case CMD_HIGHLIGHT:   help (INPUT_HIGHLIGHT);  break;
         case CMD_SAVE:        help (INPUT_SAVE);       break;
         case CMD_RESTORE:     help (INPUT_RESTORE);    break;
         case CMD_SET:         help (INPUT_SET);        break;
@@ -1898,6 +2005,7 @@ uint8_t  cmd_execute (cmd_t *c)
         case CMD_EXAMINE:     exec_examine (c);                     break;
         case CMD_REPLACE:     exec_replace (c);                     break;
         case CMD_SCREENSHOT:  exec_screenshot (c);                  break;
+        case CMD_HIGHLIGHT:   exec_highlight (c);                   break;
         case CMD_SAVE:        exec_save (c);                        break;
         case CMD_RESTORE:     exec_restore (c);                     break;
         case CMD_SET:         exec_set (c);                         break;

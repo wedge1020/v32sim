@@ -221,5 +221,31 @@ case "$r" in *"v32mouse: on gamepad 2"*) ok "--v32mouse=PORT attaches the mouse"
 r=$(printf 'mouse attach 1\nkbd attach 1\nquit\n' | "$SIM" --batch -x --max-frames=2 -B "$V32BIOS" "$W/pbits/pad_bits.v32" 2>&1)
 case "$r" in *"has the mouse on it"*|*"has the keyboard on it"*) ok "mouse and keyboard refuse the same port";; *) bad "same port: $r";; esac
 
+echo "== screenshot highlight"
+sh "$T/v32mkcart.sh" -o "$W/hlk" --cc-opt -DKEEP_RUNNING "$EX/hello_text.c" >/dev/null || exit 2
+shot() { printf "$1run 300\nscreenshot $W/$2.png\nquit\n" | "$SIM" --batch --fast -x --max-frames=400 -B "$V32BIOS" "$W/hlk/hello_text.v32" >/dev/null 2>&1; }
+shot "" plain; shot "highlight bios:104\n" red; shot "highlight bios:104 00ff00\n" green; shot "highlight bios:104\nhighlight off\n" off; shot "highlight bios:104\nhighlight clear\n" cleared
+cmp -s "$W/plain.png" "$W/red.png" && bad "highlight: the screenshot did not change" || ok "highlight bios:104 outlines the 'h' glyphs in the screenshot"
+cmp -s "$W/red.png" "$W/green.png" && bad "highlight: color ignored" || ok "highlight COLOR changes the outline color"
+cmp -s "$W/plain.png" "$W/off.png" && cmp -s "$W/plain.png" "$W/cleared.png" && ok "highlight off / clear give the plain screenshot" || bad "highlight off/clear"
+python3 -I - "$W/plain.png" "$W/red.png" <<'PY' && ok "only outline pixels differ, all red, outside the glyph quads" || bad "highlight pixels"
+import sys, zlib, struct
+def load(p):
+    d = open(p, 'rb').read(); i = 8; idat = b''
+    while i < len(d):
+        n, t = struct.unpack('>I4s', d[i:i+8]); 
+        if t == b'IDAT': idat += d[i+8:i+8+n]
+        i += 12 + n
+    raw = zlib.decompress(idat); w = 640
+    return [raw[y*(1+w*3)+1:(y+1)*(1+w*3)] for y in range(360)]
+a, b = load(sys.argv[1]), load(sys.argv[2]); diff = 0
+for y in range(360):
+    for x in range(640):
+        if a[y][x*3:x*3+3] != b[y][x*3:x*3+3]:
+            diff += 1
+            if b[y][x*3:x*3+3] != b'\xff\x00\x00': sys.exit(1)
+sys.exit(0 if diff > 20 else 1)
+PY
+
 echo "== $pass passed, $fail failed, $skip skipped"
 [ $fail -eq 0 ]

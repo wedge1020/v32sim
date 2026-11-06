@@ -33,6 +33,27 @@ static uint8_t  framebuffer[GPU_SCREEN_H][GPU_SCREEN_W][3];
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
+// highlight: screenshot overlay. Regions named by the user (texture:region) leave the
+// outline of every quad drawn from them in a list; gpu_screenshot() paints the outlines
+// onto the copy it writes. The framebuffer, and so the machine, never sees them.
+// An outline lives until the screen is cleared or two frames have passed.
+//
+#define  HL_MAX_REGIONS   512
+#define  HL_MAX_BOXES     512
+
+typedef struct { int32_t tex; int32_t region; uint32_t rgb; } hlreg_t;
+typedef struct { float x[4]; float y[4]; uint32_t rgb; uint32_t frame; } hlbox_t;
+
+static hlreg_t   hl_reg[HL_MAX_REGIONS];
+static int       hl_nreg      = 0;
+static hlbox_t   hl_box[HL_MAX_BOXES];
+static int       hl_nbox      = 0;
+static int       hl_head      = 0;                       // ring when full
+static uint32_t  hl_frame     = 0;
+static int       hl_enabled   = TRUE;
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
 // blend(): combine one source pixel (color 0-255 floats, alpha 0-1) into the
 // framebuffer using the active blending mode
 //
@@ -73,6 +94,9 @@ static void  gpu_clear (void)
     int32_t   mode  = IPORTGET(GPU_ActiveBlending);
     int       x     = 0;
     int       y     = 0;
+
+    hl_nbox  = 0;                                        // what was drawn is gone
+    hl_head  = 0;
 
     for (y = 0; y < GPU_SCREEN_H; y = y + 1)
     {
@@ -132,6 +156,7 @@ static void  gpustat_quad (void)
 void  gpu_new_frame (void)
 {
     SYSPORTSET(GPU_RemainingPixels, GPU_CAPACITY);
+    hl_frame         = hl_frame + 1;
     gpustat_quads    = 0;                        // the video queue is emptied at the end of a frame
     gpustat_flushes  = 0;
     gpustat_pending  = 0;
@@ -912,6 +937,21 @@ static void  gpu_draw (uint8_t scaling, uint8_t rotation)
             if (vy[i] < loy) loy = vy[i];
             if (vy[i] > hiy) hiy = vy[i];
         }
+        for (i = 0; i < hl_nreg; i = i + 1)
+        {
+            if ((hl_enabled == TRUE) && (hl_reg[i].tex == seltex) && (hl_reg[i].region == IPORTGET(GPU_SelectedRegion)))
+            {
+                hlbox_t  *b  = hl_box + ((hl_nbox < HL_MAX_BOXES) ? hl_nbox : hl_head);
+
+                if (hl_nbox < HL_MAX_BOXES)  hl_nbox = hl_nbox + 1;
+                else                         hl_head = (hl_head + 1) % HL_MAX_BOXES;
+                memcpy (b -> x, vx, sizeof (vx));
+                memcpy (b -> y, vy, sizeof (vy));
+                b -> rgb    = hl_reg[i].rgb;
+                b -> frame  = hl_frame;
+                break;
+            }
+        }
         x0 = (int) floorf (lox);  if (x0 < 0) x0 = 0;
         y0 = (int) floorf (loy);  if (y0 < 0) y0 = 0;
         x1 = (int) ceilf  (hix);  if (x1 > GPU_SCREEN_W) x1 = GPU_SCREEN_W;
@@ -1095,11 +1135,144 @@ static int  png_chunk (FILE *f, const char *type, const uint8_t *data, uint32_t 
     return (0);
 }
 
+int  gpu_highlight_add (int32_t tex, int32_t region, uint32_t rgb)
+{
+    int  i  = 0;
+
+    for (i = 0; i < hl_nreg; i = i + 1)
+    {
+        if ((hl_reg[i].tex == tex) && (hl_reg[i].region == region))
+        {
+            hl_reg[i].rgb  = rgb;
+            return (0);
+        }
+    }
+    if (hl_nreg >= HL_MAX_REGIONS)
+    {
+        return (-1);
+    }
+    hl_reg[hl_nreg].tex     = tex;
+    hl_reg[hl_nreg].region  = region;
+    hl_reg[hl_nreg].rgb     = rgb;
+    hl_nreg                 = hl_nreg + 1;
+    return (0);
+}
+
+int  gpu_highlight_remove (int32_t tex, int32_t region)
+{
+    int  i  = 0;
+
+    for (i = 0; i < hl_nreg; i = i + 1)
+    {
+        if ((hl_reg[i].tex == tex) && (hl_reg[i].region == region))
+        {
+            hl_reg[i]  = hl_reg[hl_nreg - 1];
+            hl_nreg    = hl_nreg - 1;
+            return (0);
+        }
+    }
+    return (-1);
+}
+
+void  gpu_highlight_clear (void)
+{
+    hl_nreg  = 0;
+    hl_nbox  = 0;
+    hl_head  = 0;
+}
+
+void  gpu_highlight_enable (int on)
+{
+    hl_enabled  = (on != 0) ? TRUE : FALSE;
+}
+
+void  gpu_highlight_show (FILE *out)
+{
+    int  i  = 0;
+
+    fprintf (out, "highlight: %s, %d region%s, %d outline%s on the screen\n", (hl_enabled == TRUE) ? "on" : "off",
+             hl_nreg, (hl_nreg == 1) ? "" : "s", hl_nbox, (hl_nbox == 1) ? "" : "s");
+    for (i = 0; i < hl_nreg; i = i + 1)
+    {
+        fprintf (out, "  texture %d region %d  #%06X\n", hl_reg[i].tex, hl_reg[i].region, hl_reg[i].rgb);
+    }
+}
+
+static void  hl_plot (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3], int x, int y, uint32_t rgb)
+{
+    if ((x >= 0) && (x < GPU_SCREEN_W) && (y >= 0) && (y < GPU_SCREEN_H))
+    {
+        shot[y][x][0]  = (uint8_t) (rgb >> 16);
+        shot[y][x][1]  = (uint8_t) (rgb >> 8);
+        shot[y][x][2]  = (uint8_t) rgb;
+    }
+}
+
+static void  hl_line (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3], int x0, int y0, int x1, int y1, uint32_t rgb)
+{
+    int  dx  = abs (x1 - x0);
+    int  dy  = -abs (y1 - y0);
+    int  sx  = (x0 < x1) ? 1 : -1;
+    int  sy  = (y0 < y1) ? 1 : -1;
+    int  err = dx + dy;
+    int  e2  = 0;
+
+    for ( ; ; )
+    {
+        hl_plot (shot, x0, y0, rgb);
+        if ((x0 == x1) && (y0 == y1))
+        {
+            break;
+        }
+        e2  = 2 * err;
+        if (e2 >= dy)  { err = err + dy;  x0 = x0 + sx; }
+        if (e2 <= dx)  { err = err + dx;  y0 = y0 + sy; }
+    }
+}
+
+//
+// the outlines of the live quads, one pixel wide and just outside the quad
+//
+static void  hl_paint (uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3])
+{
+    static const int  order[5]  = { 0, 1, 3, 2, 0 };           // vertices 0 1 2 3 = TL TR BL BR
+    int  n  = 0;
+    int  k  = 0;
+
+    if (hl_enabled != TRUE)
+    {
+        return;
+    }
+    for (n = 0; n < hl_nbox; n = n + 1)
+    {
+        const hlbox_t  *b   = hl_box + n;
+        float           cx  = (b -> x[0] + b -> x[1] + b -> x[2] + b -> x[3]) / 4.0f;
+        float           cy  = (b -> y[0] + b -> y[1] + b -> y[2] + b -> y[3]) / 4.0f;
+        int             px[4];
+        int             py[4];
+
+        if (hl_frame - b -> frame > 1)
+        {
+            continue;                                            // not drawn this frame or the last
+        }
+        for (k = 0; k < 4; k = k + 1)
+        {
+            px[k]  = (int) floorf (b -> x[k]) - ((b -> x[k] < cx) ? 1 : 0);
+            py[k]  = (int) floorf (b -> y[k]) - ((b -> y[k] < cy) ? 1 : 0);
+        }
+        for (k = 0; k < 4; k = k + 1)
+        {
+            hl_line (shot, px[order[k]], py[order[k]], px[order[k + 1]], py[order[k + 1]], b -> rgb);
+        }
+    }
+}
+
 uint8_t  gpu_screenshot (const char *filename)
 {
     FILE     *f         = fopen (filename, "wb");
     uint8_t   sig[8]    = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
     uint8_t   ihdr[13];
+    static uint8_t shot[GPU_SCREEN_H][GPU_SCREEN_W][3];
     size_t    rawlen    = (size_t) GPU_SCREEN_H * (1 + GPU_SCREEN_W * 3);
     size_t    zlen      = 2 + rawlen + 5 * (rawlen / 65535 + 1) + 4;
     uint8_t  *raw       = NULL;
@@ -1121,11 +1294,13 @@ uint8_t  gpu_screenshot (const char *filename)
     z    = (uint8_t *) malloc (zlen);
     if ((raw != NULL) && (z != NULL))
     {
+        memcpy (shot, framebuffer, sizeof (shot));       // a copy: the outlines are not on the screen
+        hl_paint (shot);
         for (y = 0; y < GPU_SCREEN_H; y = y + 1)
         {
             raw[pos]  = 0; // filter: none
             pos       = pos + 1;
-            memcpy (raw + pos, framebuffer[y], GPU_SCREEN_W * 3);
+            memcpy (raw + pos, shot[y], GPU_SCREEN_W * 3);
             pos       = pos + GPU_SCREEN_W * 3;
         }
 

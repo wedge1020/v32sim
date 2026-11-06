@@ -4,6 +4,9 @@ Status as of version `20261106-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261106 (central maintenance), screenshot highlight**: `highlight TEX:REGION [COLOR]` (`bios:N`, `clear`, `on|off`, list) outlines the
+    quads drawn from a region in `screenshot` PNGs only (`src/gpu.c`: outline list, painted onto a copy). Test: harness "screenshot highlight".
+
   * **20261106 (central maintenance), VS-12 leftover, part 1**: `v32prof` and `v32peek` are `v32orun --compat=prof|peek` (scripted input,
     segments, per-function cycles, RAM dump; output byte-identical to the old programs on the stock-chain example: report, CSV and RAM dump);
     `v32prof.cpp`/`v32peek.cpp` deleted, `build.sh` writes the two wrappers. `make clean` removes any `../v32sim-project-YYYYMMDD.zip`.
