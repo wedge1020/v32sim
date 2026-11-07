@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "defines.h"
 
 void  init_memory (void)
@@ -358,8 +359,10 @@ void  dump_words (int8_t *spec)
         // write 0x... to mean the address
         if (((at[0] == '0') && ((at[1] == 'x') || (at[1] == 'X'))) || (sym_lookup (at, &address, NULL) == FALSE))
         {
-            address                 = (uint32_t) strtoul (at, &end, 16);
-            if ((end == at) || (*end != '\0'))
+            errno                   = 0;
+            unsigned long wide      = strtoul (at, &end, 16);
+            address                 = (uint32_t) wide;
+            if ((end == at) || (*end != '\0') || (errno == ERANGE) || (wide > 0xFFFFFFFFul))
             {
                 fprintf (stderr, "[ERROR] --dump: unknown address or symbol '%s'\n", at);
                 return;
@@ -371,6 +374,8 @@ void  dump_words (int8_t *spec)
         wptr                        = memory_get (address + idx, TRUE);
         if (wptr == NULL)
         {
+            fprintf (stderr, "[ERROR] --dump: address 0x%X is not readable memory (printed %u of %u words)\n",
+                     (unsigned) (address + idx), (unsigned) idx, (unsigned) count);
             break;
         }
         fprintf (stdout, "%d\n", (int) wptr -> i32);
