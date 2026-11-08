@@ -1,8 +1,15 @@
 # TODO
 
-Status as of version `20261106-dev`.
+Status as of version `20261108-dev`.
 
 ## DONE (removed from this list)
+
+  * **20261108 (central maintenance)**: `docs/V32DBG-SPEC.md` is hosted here (the one copy; `V32DBG-STATUS.md` has a new "Against the spec" table);
+    `--dump` failures (bad spec, unknown symbol, unreadable memory) now exit with status 5 (nothing else set one; `quit N` still wins), tests in
+    `run_batch_tests.sh` (31 checks); `type=char` shown (`65 'A'`); `tools/v32sim-check.sh` / `make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]` runs
+    every suite from one toolchain dir (7 suites, one summary line); `tests/run_gaps.sh` is executable again; PROPOSALS-STATUS rows that contradicted
+    each other (4.2-4.6, P-I2) fixed. Open from the spec: `;@lang` is not read (the file extension decides), `;@fn lines=A..B` unused, `lua-table`
+    prints a raw word; v32cc writes `type=int` for `char` locals.
 
   * **20261106 (central maintenance), VS-19**: native v32dev host (`--v32dev-host=N=SPEC`, `src/devhost.c`): storage and serial, a port of `v32dev.py`
     (Channel / StorageDevice / SerialDevice) working on card memory; opt-in, T = 0 doorbell answers, repeatable. `tests/native_host_test.py` (71 checks, in

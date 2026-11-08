@@ -1,10 +1,10 @@
-# V32DBG: where each tool stands (2026-11-03)
+# V32DBG: where each tool stands (2026-11-08)
 
 V32DBG is the source-level debug convention of the Vircon32 tools: comment lines in the assembly that every tool can
-pass along, and side files the assembler computes. The spec itself, `V32DBG-SPEC.md`, is said to be kept with v32opt (v32lua
-`doc/HINTS.md`) or in v32lua's `proposals/` (v32opt `doc/README-v32srcmark.md`); **it is in neither archive I was given**, so
-this status is reconstructed from what each tool documents and from running them. Section numbers follow v32sim's TODO
-(1-3 and 5: lines, stepping, frames, `;@src -`; 4: locals and values).
+pass along, and side files the assembler computes. The spec is [`V32DBG-SPEC.md`](V32DBG-SPEC.md), **hosted in v32sim since
+2026-11-08** (supplied by the owner as the 2026-10-30 proposal; v32lua's `doc/HINTS.md` and v32opt's `doc/README-v32srcmark.md` pointed
+elsewhere, so their pointers are stale). The table below was reconstructed before the spec was at hand; the section "Against the spec"
+checks it. Section numbers follow v32sim's TODO (1-3 and 5: lines, stepping, frames, `;@src -`; 4: locals and values).
 
 ## The pieces
 
@@ -35,3 +35,19 @@ this status is reconstructed from what each tool documents and from running them
 checks: block shadowing, `expect` on a local, float and int parameters, `up` showing the caller's variables and not the
 callee's, arrays, structs, pointers, Lua strings / booleans / nil / tables, and a boxed Lua local. The stock chain with
 `v32srcmark.py` is checked for a source-level `bt`.
+
+## Against the spec (2026-11-08)
+
+The spec's own summary table is the contract; v32sim's side of it:
+
+| spec item | v32sim |
+|---|---|
+| `;@src FILE:LINE[:COL]`, `;@src -`; the last `:` separates the line, a drive letter may precede | read through `.vbin.debug` (v32as `-g`); a `-` entry ends the source (`run_src_tests.sh`) |
+| `loc=` forms `BP-n`, `BP+n`, `Rn`, `@0xADDR`, `NAME` | all five (`src/locals.c` `locate`); `Rn` only in frame 0 (registers of outer frames are not saved) |
+| `optimized-out` | shown as `<optimized out>` |
+| `type=` `int uint float ptr bool lua` | shown; `char` **added 2026-11-08** (`65 'A'`); `lua-table` and unknown types print the raw word. **No producer writes `char`**: v32cc writes `type=int` for a `char` local (checked), so the spec's `char` is unused until v32cc writes it |
+| `;@lang` selects how values are shown | **not read**: the source file's extension decides (`source.c`); equivalent while every producer names its file honestly |
+| `;@fn NAME lines=A..B` (source range) | not used by v32sim; v32as only uses the `;@fn` placement |
+| `loc=` rewritten by v32opt when promoting ("Locations after optimization") | **not done by v32opt** (see the table above); this is the one place where the debugger shows a wrong value. The spec says the honest alternative is `;@var NAME optimized-out`, which v32sim already shows |
+| command-line convention (`-g`, `-g0`, `v32opt` keeps `;@src`, `v32as -g` reads markers) | v32sim only consumes; v32as, v32cc, v32lua and v32opt are checked by the harness (`run_harness_tests.sh`) |
+| Tier B (stock `compile` + `v32srcmark`) | checked (source-level `bt` on the stock chain); tier C (labels only) works as function-level `break` / `bt` |

@@ -319,8 +319,9 @@ void    fmemory_set (uint32_t  address, float  dataword, uint8_t  sys_force)
 // dump_words(): --dump=N[@ADDR|@LABEL]; print N words of memory, one signed
 // integer per line, after the run (what tools/vrun -d does). A label that is not
 // found as given is also tried as global_LABEL (v32cc's name for a C variable).
+// Returns 0, or 1 when the spec was bad or the range was not readable memory (main sets exit status 5).
 //
-void  dump_words (int8_t *spec)
+int  dump_words (int8_t *spec)
 {
     char      buf[256];
     char      alt[300];
@@ -351,7 +352,7 @@ void  dump_words (int8_t *spec)
     if ((end == buf) || (*end != '\0'))
     {
         fprintf (stderr, "[ERROR] --dump: expected N[@ADDR|@LABEL]\n");
-        return;
+        return (1);
     }
     if (at                         != NULL)
     {
@@ -365,7 +366,7 @@ void  dump_words (int8_t *spec)
             if ((end == at) || (*end != '\0') || (errno == ERANGE) || (wide > 0xFFFFFFFFul))
             {
                 fprintf (stderr, "[ERROR] --dump: unknown address or symbol '%s'\n", at);
-                return;
+                return (1);
             }
         }
     }
@@ -376,8 +377,9 @@ void  dump_words (int8_t *spec)
         {
             fprintf (stderr, "[ERROR] --dump: address 0x%X is not readable memory (printed %u of %u words)\n",
                      (unsigned) (address + idx), (unsigned) idx, (unsigned) count);
-            break;
+            return (1);
         }
         fprintf (stdout, "%d\n", (int) wptr -> i32);
     }
+    return (0);
 }

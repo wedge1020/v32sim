@@ -1173,7 +1173,10 @@ int32_t   main (int32_t  argc, char **argv)
 
     if (dumpspec                      != NULL)
     {
-        dump_words (dumpspec);
+        if ((dump_words (dumpspec) != 0) && (exitstatus == 0) && (quit_status_set == FALSE))
+        {
+            exitstatus              = 5;     // --dump could not print what was asked
+        }
     }
     if (batchflag                    == FALSE)
     {

@@ -100,7 +100,7 @@ a short `.asm`, the `;@ frames=N dump=...` header, and it fails until v32sim is 
 ## 7. What exit statuses mean
 
 `0` success · `1` an `expect` failed or an `until` timed out · `2` frame limit reached (`-x`) · `3` a system error (`-x`) ·
-`4` a command could not be parsed (`--batch`) · `quit N` overrides all. Without `-x` a frame limit or a system error exits 0.
+`4` a command could not be parsed (`--batch`) · `5` `--dump` could not print what was asked (bad spec, unknown symbol, unreadable memory) · `quit N` overrides all. Without `-x` a frame limit or a system error exits 0.
 Always use `-x` in tests.
 
 ## Gotchas

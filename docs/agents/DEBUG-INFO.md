@@ -2,7 +2,7 @@
 
 The compilers describe their output with **comment lines** in the assembly, so every tool on the way can carry them and the
 assembler, which alone knows the addresses, turns them into side files that v32sim reads. Status per tool: v32sim
-`docs/V32DBG-STATUS.md`. The spec, `V32DBG-SPEC.md`, is kept with v32opt / v32lua (not in v32sim).
+`docs/V32DBG-STATUS.md`. The spec, [`V32DBG-SPEC.md`](../V32DBG-SPEC.md), is hosted here, in v32sim (it is the one copy; v32opt and v32lua point to it).
 
 ## In the assembly
 

@@ -378,6 +378,11 @@ static void  show_scalar (const char *type, uint32_t w)
     {
         fprintf (stdout, "%d", (int32_t) w);
     }
+    else if (strcmp (type, "char") == 0)         // V32DBG type=char: the code, and the character when it is printable
+    {
+        if ((w >= 32) && (w < 127))  fprintf (stdout, "%d '%c'", (int32_t) w, (int) w);
+        else                         fprintf (stdout, "%d", (int32_t) w);
+    }
     else
     {
         fprintf (stdout, "0x%.8X", w);           // a type this debugger does not know: the raw word

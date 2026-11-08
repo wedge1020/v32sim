@@ -820,7 +820,8 @@ is the standard input of the simulator (or `-C FILE`).
 
 Exit status (always, `-x` adds the frame-limit and system-error codes): 0 success;
 1 an `expect` failed or an `until` timed out; 2 the frame limit was reached (`-x`);
-3 a system error (`-x`); 4 a command line could not be parsed (batch mode); `quit N`
+3 a system error (`-x`); 4 a command line could not be parsed (batch mode); 5 `--dump` could not print what
+was asked (bad spec, unknown symbol, unreadable memory; only when nothing else set a status); `quit N`
 overrides all of them. Without `--batch` nothing about the interactive output changes
 (scripts that filter the prompt and instruction lines keep working).
 

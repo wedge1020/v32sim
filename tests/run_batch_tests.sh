@@ -46,6 +46,15 @@ a=$(sed -n 1p $W/out | grep -o ': *[0-9]*' | tr -dc 0-9); b=$(sed -n 2p $W/out |
 [ -n "$a" ] && [ "$b" -gt "$a" ] && ok || bad "second run advances the counter ($a, $b)"
 printf 'run 3\nexpect console "nothing"\nquit\n' | sim -q; check "expect console fails" "$?" "1"
 
+echo "== --dump exit status"
+dumpsim() { timeout 60 "$SIM" -B "$BIOS" --fast --batch -r -x --max-frames=60 "$@" "$CART" > "$W/out" 2> "$W/err" < /dev/null; }
+dumpsim --dump=2@0;               check "dump ok: status unchanged (frame limit)" "$?" "2"; check "dump ok: two lines" "$(grep -c '^' $W/out)" "2"
+dumpsim --dump=2@0x0FFFFFFF;      check "dump unreadable: status" "$?" "2";                  has "dump unreadable message" "$(cat $W/err)" "not readable memory"
+timeout 60 "$SIM" -B "$BIOS" --fast --batch -r --max-frames=60 --dump=zz "$CART" >/dev/null 2>&1 </dev/null
+check "dump bad spec without -x: status 5" "$?" "5"
+timeout 60 "$SIM" -B "$BIOS" --fast --batch -r --max-frames=60 --dump=1@nosuchsym "$CART" >/dev/null 2>&1 </dev/null
+check "dump unknown symbol: status 5" "$?" "5"
+
 echo "== until"
 printf 'until "never" timeout 20\nquit\n' | sim -q; check "until timeout" "$?" "1"
 has "until message" "$(cat $W/err)" "did not appear within 20 frames"
