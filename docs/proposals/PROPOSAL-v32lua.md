@@ -1,4 +1,6 @@
 # Proposal to v32lua: variables v32sim cannot see yet, and the headless runner
+**Done 20261105 (central maintenance).** v32lua's runner is v32sim's `v32orun` now; v32lua's `v32run.cpp`, `build.sh` and `sdlshim/` are gone, and `runlua`, `trap`, `unittest.py` (1811/1826), `circles.py`, `difftest.py`, `tests/audit` and the Windows `scripts/testing_harness` use it. The original text follows.
+
 
 From v32sim 20261103-dev, against v32lua 20261030-dev, v32as 20261101-dev and the current ComputerSoftware. Written 2026-11-04.
 What works and is relied on: `-g` writes `;@lang`, `;@src`, `;@var NAME loc=BP+-n type=lua [boxed]`, `;@scope`, and `;@fn` after

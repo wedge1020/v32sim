@@ -66,7 +66,7 @@ static int   check_signed   (void);
 %token       T_INVENTORY T_LABEL T_LOAD T_NEXT T_PRINT T_PROFILE T_QUIT T_REPLACE
 %token       T_STATS T_SCREENGRID T_NOEXTRA T_HIGHLIGHT T_ASM T_RESTORE T_SAVE T_SCREENSHOT T_SET T_STEP T_UNBREAK T_UNDISPLAY T_UNLABEL T_UNLOAD
 %token       T_UNWATCH T_VERSION T_WATCH T_WATCHLIST
-%token       T_KBD T_MOUSE T_MAILBOX T_CONSOLE
+%token       T_KBD T_MOUSE T_DEV T_MAILBOX T_CONSOLE
 %token       T_RUN T_UNTIL T_EXPECT T_EXAMINE
 %token       T_SSTEP T_SNEXT T_FINISH T_TBREAK T_LIST T_FRAME T_UP T_DOWN T_LOCALS T_MARK
 %token       T_BADCMD T_BAD
@@ -142,6 +142,8 @@ command
     | T_KBD T_PATH                      { CMD -> id = CMD_KBD; CMD -> path = $2.text; }
     | T_MOUSE                           { CMD -> id = CMD_MOUSE; }
     | T_MOUSE T_PATH                    { CMD -> id = CMD_MOUSE; CMD -> path = $2.text; }
+    | T_DEV                             { CMD -> id = CMD_DEV; }
+    | T_DEV T_PATH                      { CMD -> id = CMD_DEV; CMD -> path = $2.text; }
     | T_CONSOLE                         { CMD -> id = CMD_CONSOLE; }
     | T_CONSOLE T_PATH                  { CMD -> id = CMD_CONSOLE; CMD -> path = $2.text; }
     | T_MAILBOX                         { CMD -> id = CMD_MAILBOX; }

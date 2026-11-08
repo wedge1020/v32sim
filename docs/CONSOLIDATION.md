@@ -75,10 +75,10 @@ wrappers (`v32orun --compat=NAME`), so `run_gaps.sh` (46/46), `run_romcheck.sh` 
 
 ## Open items
 
-1. **V32DBG, owners outside v32sim**: v32opt must rewrite `;@var loc=` when it promotes (repro in `docs/repro/`); v32cc should end
-   functions for v32as (or v32as should end a C function at the next top-level `__function_` label); v32cc globals and struct
-   members in `type=`; v32lua chunk locals and upvalues; v32c++ `-g`. Details: `V32DBG-STATUS.md`.
-2. **One oracle runner**: done for the runners (above); `v32prof`/`v32peek`/`v32shot` are folded in; `sysprof` and `v32trace-ref` remain.
+1. **V32DBG, owners outside v32sim** (2026-11-08): v32opt's `loc=` rewriting, v32cc's function end, globals, struct members and `type=char` are done
+   (v32opt / v32as / v32cc 20261105-dev, v32cc `type=char` 20261108). Open: v32lua chunk locals and upvalues; v32c++ `-g`; macro origins (v32cc
+   SC-5); `;@lang` and `;@fn lines=` are not read by v32sim. Details: `V32DBG-STATUS.md`.
+2. **One oracle runner**: done for the runners (above); `v32prof`/`v32peek`/`v32shot` are folded in; `sysprof` and `v32trace-ref` remain; the old `refrun.cpp`, `v32run.cpp`, `v32peek.cpp`, `v32prof.cpp`, `v32shot.cpp` sources were deleted on 2026-11-08 (nothing built them).
 3. **VS-9 beyond frame stats**: GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`.
 4. **v32mouse in v32sim** (v32nix P-I2; today only gamepad toggles through `v32io-script.py`), and optional emulator extensions to
    prototype (v32nix P-E1 timer interrupt, P-E2 v32dev doorbell).

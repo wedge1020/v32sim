@@ -11,7 +11,7 @@ and the text was read, not exercised. Request IDs collide between documents (thr
 | proposal | item | status |
 |---|---|---|
 | V32DOS `docs/V32SIM-PROPOSAL.md` | VS-1 symbols, VS-2 `run N`, VS-3 `until`, VS-4 `--batch`, VS-5 `expect` + exit codes, VS-6 `console FILE`/`--attrs`, VS-7 `--profile-by=function`, VS-8 signed `watch/d` | **all done** (v32sim 20261025+; checked by `tests/run_batch_tests.sh`, 25/25). V32DOS's `docs/PROPOSAL-STATUS.md` and the proposal's header still say "outstanding": stale there |
-| `v32sim-proposal-perf-metrics-20261030.md` (VS-9) | 4.1 per-frame counters: **CPU cycles and GPU pixels per frame, CSV + summary done** (`--frame-stats`, equal to v32prof on 400/400 frames, checked). GPU command/texture/region counts, SPU counters, bus counters, p50/p95/p99, stable names, JSON Lines, `expect stats NAME.AGG`, `stats save`, statdiff ratio sort: **done** (20261106). 4.2 `--profile-event`, 4.3 `--gpu-trace` / `--spu-trace` + `--trace-dump` + `v32gpureplay`, 4.4 `--time-breakdown` / `--frame-log`: **done** (20261106). Open: SPU channels-playing and memory-card counters |
+| `docs/proposals/v32sim-proposal-perf-metrics-20261030.md` (VS-9) | 4.1 per-frame counters: **CPU cycles and GPU pixels per frame, CSV + summary done** (`--frame-stats`, equal to v32prof on 400/400 frames, checked). GPU command/texture/region counts, SPU counters, bus counters, p50/p95/p99, stable names, JSON Lines, `expect stats NAME.AGG`, `stats save`, statdiff ratio sort: **done** (20261106). 4.2 `--profile-event`, 4.3 `--gpu-trace` / `--spu-trace` + `--trace-dump` + `v32gpureplay`, 4.4 `--time-breakdown` / `--frame-log`: **done** (20261106). Open: SPU channels-playing and memory-card counters |
 | | 4.2 `--profile-event`, 4.3 GPU/SPU traces + `gpureplay`, 4.4 `--time-breakdown`/`--frame-log`, 4.5 `expect stats`, 4.6 `statdiff` | open. Note: v32lua's `tools/headless/v32run` already logs GPU (`-g`) and SPU (`-s`) writes and rebuilds frames (`render.py`) and audio (`spu_render.py`) from them; that is most of 4.3's format, on an oracle |
 | V32TRACE spec 2.1 (`docs/V32TRACE-SPEC.md`, shared with GBtoV32 and NEStoV32) | recorder: build files, traps, events, restarts, `traps.txt`, `blocks.txt` | **done** (GBtoV32's `make test-trace`, 18 checks, all pass against this v32sim, checked) |
 | | 2.1 `segstart=` / `input=` per hit; replay with `V32_INPUT` | **done today** (`--input`, `V32_INPUT`; round trip checked on GBtoV32's gap ROM, and the trap frame agrees with the stock console logic) |
@@ -22,7 +22,7 @@ and the text was read, not exercised. Request IDs collide between documents (thr
 | v32nix `docs/PROPOSALS.md` | P-E6 headless runner with scripted v32io + v32dev serial | **met by v32sim** (`--batch`, `kbd`, `--kbd-input`, v32dev mailbox with a real `v32dev.py serve`; v32nix's own `tools/simtest.sh` and `docs/STORAGE.md` use it) |
 | | P-I2 a `v32mouse` event queue | **done in v32sim (20261106, VS-11)**: `--v32mouse[=PORT]`, the `mouse` command, counters and Gray/trit encoding as the v32io protocol (`src/v32mouse.c`) |
 | | P-E1 optional timer interrupt ("v32irq") | **declined by v32nix 2026-11-06** (D30/D37 preemption works on stock hardware, the kernel is not preemptible by design, safe points work on real hardware, sub-frame timers are not wanted); deferred indefinitely, reopen only for code with no safe points |
-| | (VS-19) native v32dev host | **done in v32sim (20261106)**: `--v32dev-host=N=SPEC`, storage + serial, behaviour of `v32dev.py`; with `--v32dev-doorbell` a ring is answered at T = 0 |
+| | (VS-19) native v32dev host | **done in v32sim (20261106, leftovers 20261108)**: `--v32dev-host=N=SPEC`, storage + serial, behaviour of `v32dev.py`; with `--v32dev-doorbell` a ring is answered at T = 0; the `dev` command (format / info / attach / detach / swap) and savestates that keep the host (20261108) |
 | | P-E2 v32dev completion doorbell | **done in v32sim (20261106)**: `--v32dev-doorbell[=MS]`, interface by v32nix (header word 8 bit 1, counters at header words 10..13, c2h_head store = the bell); the kernel side (wait loop checking the counter) is v32nix's |
 | | P-E5 the clock ports on both emulators | v32sim: leap years and `--fixed-clock` (checked by the differential suites) |
 | v32nix `docs/HANDOFF.md` | "`until` patterns are not full regex", "a user program that executes `HLT` ends the emulator silently" | still true (documented in TESTING.md "Gotchas") |
@@ -45,7 +45,7 @@ and the text was read, not exercised. Request IDs collide between documents (thr
 
 | source | item | status |
 |---|---|---|
-| v32opt `doc/hints.md` "Reserved for later" | `;@var` / `;@scope` after promotion | **open, and it matters now**: promote-regs leaves stale `loc=` (repro `docs/repro/v32opt-promote-var.c`, checked). `noreturn` / `pure` hints: open |
+| v32opt `doc/hints.md` "Reserved for later" | `;@var` / `;@scope` after promotion | **done in 20261105-dev** (`;@var loc=` rewritten, `;@home`, `--check-vars`); checked 2026-11-08 with `docs/repro/v32opt-promote-var.c` and the harness at `-O0/-O2/-O3`. Open: all-dead-store variables are not marked `optimized-out`. `noreturn` / `pure` hints: open |
 | v32opt `ISSUES` | [limit]/[gap] items of the passes (Lua loop shapes, liveness R0..R10, ...) | open by design; none is a correctness bug in what I ran |
 
 ## Upstream (ComputerSoftware)

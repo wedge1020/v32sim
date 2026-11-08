@@ -34,6 +34,12 @@ void      devhost_resync      (void);                      // card memory was re
 void      devhost_frame       (void);                      // frame boundary: heartbeat and work for every channel
 void      devhost_poll        (int);                       // work for one channel (a doorbell ring)
 void      devhost_describe    (int, char *, size_t);       // one line for the 'mailbox' command
+int       devhost_attach      (int, const char *);         // 'dev attach N SPEC' (while running); 0 = served
+int       devhost_detach      (int);                       // 'dev detach N'
+int       devhost_swap        (int, const char *);         // 'dev swap N SPEC'
+void      devhost_info        (void);                      // 'dev info': one line per channel, as v32dev.py info
+int       devhost_save        (FILE *);                    // the host's state, at the end of a state file
+int       devhost_load        (FILE *, const uint32_t *);  // 0 applied, 1 none / other devices, -1 damaged
 extern uint8_t   devhost_force;                                   // --v32dev-host-force: format a card with other data in its mailbox region
 
 #endif

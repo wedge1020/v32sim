@@ -12,9 +12,13 @@ Status as of version `20261108-dev`.
     prints a raw word; v32cc writes `type=int` for `char` locals.
 
   * **20261106 (central maintenance), VS-19**: native v32dev host (`--v32dev-host=N=SPEC`, `src/devhost.c`): storage and serial, a port of `v32dev.py`
-    (Channel / StorageDevice / SerialDevice) working on card memory; opt-in, T = 0 doorbell answers, repeatable. `tests/native_host_test.py` (71 checks, in
-    `tests/run_tests.sh`): the v32io real cartridges give the same report and image as against `v32dev.py serve`. Open: pipe/socket classes, a
-    `dev` command to attach/swap devices at run time, a built-in `format`/`info`, savestates do not keep device state (disk files are outside them).
+    (Channel / StorageDevice / SerialDevice) working on card memory; opt-in, T = 0 doorbell answers, repeatable. `tests/native_host_test.py` (125 checks since 20261108, in
+    `tests/run_tests.sh`): the v32io real cartridges give the same report and image as against `v32dev.py serve`. Open: pipe/socket classes.
+
+  * **20261108 (central maintenance), VS-19 leftovers**: `dev [info]`, `dev format [force]`, `dev attach|swap N SPEC`, `dev detach N` (README, `help dev`);
+    `save`/`restore` keep the native host's state (queues, counters, session; the whole mailbox region), so a split run equals the whole run
+    (`native_host_test.py`: every frame of a storage and of a serial conversation, polled and with the doorbell; 125 checks); a restore with other kinds of
+    device is warned about. Fixed on the way: an unused channel's descriptor (0) was closed by `devhost_stop`. Disk images stay outside the state.
 
   * **20261106 (central maintenance), VS-17**: v32nix answered SN-2: P-E1 (timer interrupt) not wanted, only P-E2. `--v32dev-doorbell[=MS]` in
     `memc.c` (interface exactly as v32nix specified: header word 8 bit 1, per-channel counters at header words 10..13, a `c2h_head` store is the

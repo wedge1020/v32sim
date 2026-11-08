@@ -44,8 +44,8 @@ tools/               scripts for people who test other projects with v32sim (doc
   oracle/              C++ tools on the stock ConsoleLogic: v32orun (the one runner; refrun v32run vrun v32prof v32peek v32shot are wrappers) sysprof (+ build.sh)
 tests/               the suites; run_harness_tests.sh covers tools/ (examples/ holds its cartridges)
 docs/                TOOLS TESTING PROFILING AGENTS-SNIPPET CONSOLIDATION V32DBG-STATUS PROPOSALS-STATUS, the specs
-                     (V32DBG-SPEC, V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS), repro/ (cases for other projects), agents/ (one card per tool),
-                     proposals/ (one request list per other project, IDs S*-n; v32sim's own backlog VS-10..)
+                     (V32DBG-SPEC, V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS), docs/repro/ (cases for other projects), agents/ (one card per tool),
+                     docs/proposals/ (one request list per other project, IDs S*-n; v32sim's own backlog VS-10..)
 ```
 
 ## Working on it

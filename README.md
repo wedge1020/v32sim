@@ -611,9 +611,15 @@ native host is an error. SPEC, same syntax as `v32dev.py serve`:
 
 The host runs at every frame boundary (heartbeat once per frame, then every channel until no work is left). With `--v32dev-doorbell` a ring is
 answered **at once** (T = 0, no flush, no wait, no wall clock), so a run with a native host is repeatable (the tests compare two cards byte for
-byte). The session number is a counter, not the time. `mailbox [N]` shows the native host's counters per channel. A savestate load re-synchronises
-the host with the restored mailbox (a half-received message is dropped; the disk file is not part of a savestate). Test: `tests/native_host_test.py`
-(run by `tests/run_tests.sh`) runs the v32io real cartridges (`storage_test`, `serial_test`) against it and against `v32dev.py serve`: same report,
+byte). The session number is a counter, not the time. `mailbox [N]` shows the native host's counters per channel. **`save` / `restore` keep the native host**: the state file ends with the
+host's queues, counters and session number, and a restore puts back the whole mailbox region, host side included, so a run split in two (save, new
+process, restore, continue) is identical to the whole run, for storage and for serial, with and without the doorbell (checked at every frame of the
+conversation). A state file without that block, or one saved with other kinds of native device, restores as before (the present host side is kept, a
+half-received message is dropped, with a warning for the second case). The disk image is a file outside the state: restore with the image as it was
+(a different sector count is warned about). **`dev` command** (`help dev`): `dev [info]` (the `v32dev.py info` lines), `dev format [force]` (the built-in
+`v32dev.py format`: the card becomes a mailbox now, with the configured devices typed in), `dev attach N SPEC`, `dev detach N`, `dev swap N SPEC` at run
+time (the program sees the host go away, and a new session when it comes back, as a changed medium); in `--batch` a failing `dev` command ends the run with
+status 4. Test: `tests/native_host_test.py` (run by `tests/run_tests.sh`) runs the v32io real cartridges (`storage_test`, `serial_test`) against it and against `v32dev.py serve`: same report,
 same image.
 
 ## The v32io Mouse

@@ -144,6 +144,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "  kbd [SUBCOMMAND]        v32kbd keyboard: type text, press keys, host input\n");
             fprintf (stdout, "  mouse [SUBCOMMAND]      v32mouse mouse: move, buttons, on a gamepad port\n");
             fprintf (stdout, "  mailbox [CHANNEL]       v32dev mailbox state of the memory card\n");
+            fprintf (stdout, "  dev [SUBCOMMAND]        native v32dev host: attach, detach or swap a device, format the card, info\n");
             fprintf (stdout, "  load cart|memc:file     load component into memory\n");
             fprintf (stdout, "  unload bios|cart|memc   unload component from memory\n");
             fprintf (stdout, "  inventory               system resource inventory\n");
@@ -241,6 +242,22 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    8-F the bright versions: 9 bright red, F white, the default), or '.' for a blank,\n");
             fprintf (stdout, "    so a test can check that a word is red. A name that is not one of the words above is\n");
             fprintf (stdout, "    a file to write (the screenshot command writes the pixels to a PNG).\n");
+            break;
+
+        case INPUT_DEV:
+            fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    dev [info]               one line per channel (type, host, program, session, ring positions)\n");
+            fprintf (stdout, "    dev format [force]       format the memory card as a v32dev mailbox (force: even if the\n");
+            fprintf (stdout, "                             last 64 KiB hold other data, or it already is a mailbox)\n");
+            fprintf (stdout, "    dev attach N SPEC        serve channel N with a native device (SPEC as --v32dev-host)\n");
+            fprintf (stdout, "    dev detach N             stop serving channel N (the program sees the host go away)\n");
+            fprintf (stdout, "    dev swap N SPEC          detach N and attach SPEC: a new session, as a changed medium\n\n");
+            fprintf (stdout, "DESCRIPTION:\n");
+            fprintf (stdout, "    SPEC is storage:FILE[,bytes][,ro][,sector=N][,create=S] or serial:stdio|echo[,hup=N]\n");
+            fprintf (stdout, "    (+ in=FILE, out=FILE, hangup). The native host works on the card in memory, answers at a\n");
+            fprintf (stdout, "    frame boundary (at once with --v32dev-doorbell) and uses no wall clock. 'save'/'restore'\n");
+            fprintf (stdout, "    keep the host's state (queues, counters, session); a disk image is a file outside the\n");
+            fprintf (stdout, "    state: restore with the same image contents.\n");
             break;
 
         case INPUT_MAILBOX:

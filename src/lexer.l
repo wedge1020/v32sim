@@ -219,6 +219,7 @@ static int  lex_command (void)
         case CMD_INVENTORY:   return (T_INVENTORY);
         case CMD_KBD:         BEGIN (PATH); return (T_KBD);
         case CMD_MOUSE:       BEGIN (PATH); return (T_MOUSE);
+        case CMD_DEV:         BEGIN (PATH); return (T_DEV);
         case CMD_LABEL:       return (T_LABEL);
         case CMD_MAILBOX:     return (T_MAILBOX);
         case CMD_LOAD:        BEGIN (LOADARGS); return (T_LOAD);

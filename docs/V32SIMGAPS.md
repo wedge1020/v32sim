@@ -4,10 +4,23 @@ This is a comparison of v32sim (`20261018-dev`) with the stock DesktopEmulator
 (`ComputerSoftware/DesktopEmulator/ConsoleLogic`, plus `Emulator/VideoOutput.cpp`
 for rendering). The goal is that a program behaves identically under both.
 
-**Method and confidence.** Both sources were read side by side. Nothing here was
-confirmed by running a cartridge on both: the reference BIOS and a flex binary were
-not available in the review environment, so every item is "by reading the code".
-Each entry gives the DesktopEmulator behavior (file and function), the v32sim
+**Reference revision.** `ComputerSoftware` commit `e75b537` ("Some minor or latent
+emulation fixes"), which includes the fixes for the defects in `BUGS.md` (region `MinY`
+reset, blending `default:`, `PlayChannel` target channel) and the 400-year leap rule.
+Everything else in `ConsoleLogic` is unchanged from the revision first reviewed
+(`ea62bc7`), so the other findings below stand.
+
+**Status (this revision).** Every item except G12 and G14 is closed, and the closures
+were verified by running the same cartridges on v32sim and on the stock ConsoleLogic
+(compiled headless as `tests/ref/refrun`, see *Verification* at the end). The entries
+below are kept as the original findings; each starts with a **Status** line. Four gaps
+that the review missed were found by the differential runs (G15-G18, at the end), and a
+fifth by the fuzzer (G19).
+
+**Method and confidence (original review).** Both sources were read side by side. Nothing
+in the entries was confirmed by running a cartridge on both at that point: the
+reference BIOS and a flex binary were not available in the review environment, so
+every item was "by reading the code". Each entry gives the DesktopEmulator behavior (file and function), the v32sim
 behavior (file and line), the visible effect, and a suggested change. Items are
 ordered by how likely an ordinary program is to notice them.
 
@@ -16,9 +29,10 @@ Line numbers refer to v32sim at the commit this file was added in.
 **Policy (decided by the v32sim maintainer): v32sim matches the DesktopEmulator's
 behavior, including its quirks.** Where the stock emulator does something odd, the
 simulator should do the same, and note the oddity in a comment. The "Upstream quirks"
-section at the end is therefore a list of behaviors to *mirror*, not to avoid. The one
-exception is host-undefined behavior (G12, shift counts of 32 or more), where there is
-no defined console behavior to copy.
+section at the end is the place where such behaviors are listed; it is currently empty
+because the ones found have since been fixed upstream. The one exception to the policy
+is host-undefined behavior (G12, shift counts of 32 or more), where there is no defined
+console behavior to copy.
 
 | ID  | Area                                   | Visible to ordinary programs? |
 | --- | -------------------------------------- | ----------------------------- |
@@ -41,6 +55,8 @@ no defined console behavior to copy.
 
 ## G1. RNG algorithm and seeding
 
+**Status: closed.** `ioports.c` implements minstd (start 1, write 0 ignored, sign bit cleared, sticky 0 from 0x80000000); `--seed=N` goes through the write rule. Tests `g01_rng`.
+
 **DesktopEmulator** (`V32RNG.cpp`): a linear congruential generator, the C++11
 `minstd_rand` constants. `CurrentValue` starts at **1** (also at every reset). A
 read returns `CurrentValue`, then sets
@@ -62,6 +78,8 @@ write rule). A first read of the port before any seeding must return 1.
 
 ## G2. `TIM_FrameCounter` is one behind
 
+**Status: closed.** `update_frame()` calls `timer_change_frame()` (frame start work: cycle 0, frame++, clock tick, date rollover), and `init_ioports` does it once for frame 1. Test `g02_timer`.
+
 **DesktopEmulator** (`V32Console::RunNextFrame`, `V32Timer::ChangeFrame`): the
 frame counter is incremented at the *start* of each frame, before the CPU runs. After
 reset it is 0, so the first frame executes with `TIM_FrameCounter == 1`.
@@ -82,6 +100,8 @@ equivalently initialize the counter so the first frame observes 1.
 
 ## G3. `TIM_CycleCounter` is one behind
 
+**Status: closed.** `cycle_begin()` increments the counter before the instruction executes. Test `g02_timer`.
+
 **DesktopEmulator** (`V32Console::RunNextFrame`): `Timer.RunNextCycle()` runs
 **before** `CPU.RunNextCycle()`, so an instruction reads a cycle counter that already
 includes its own cycle: the first instruction of a frame reads **1**.
@@ -98,26 +118,29 @@ differs.
 
 ## G4. `TIM_CurrentDate` day numbering (and leap years)
 
+**Status: closed.** 0-based `tm_yday`, rollover on `Days >= DaysThisYear` with the 400-year rule, `--fixed-clock` day 0-based (default 0, clamped to 365). Test `g04_date_rollover` (7 dates).
+
 **DesktopEmulator** (`V32Timer.cpp`): the lower half-word is `tm_yday`, which is
 **0-based** (January 1st = 0). At midnight the date is incremented and when
 `Days >= DaysThisYear` it becomes `(Year + 1) << 16` (day 0). The leap year test is
-`(Year % 4 == 0) && (Year % 100 != 0)`: it has **no 400-year rule** (the year 2000
-is not a leap year there). `V32Console::SetCurrentDate` accepts days 0 to 365.
+`((Year % 4 == 0) && (Year % 100 != 0)) || (Year % 400 == 0)` (the 400-year rule was
+added in `e75b537`; earlier revisions treated 2000 as a non-leap year).
+`V32Console::SetCurrentDate` accepts days 0 to 365.
 
 **v32sim** (`ioports.c:89`, `update_sys.c:128`): `tm_yday + 1` (1-based, January 1st =
-1); rollover when `value > daysinyear` back to day 1; leap years include the
-400-year rule. `--fixed-clock` defaults to day 1.
+1); rollover when `value > daysinyear` back to day 1. Its leap year rule already
+matches the console's. `--fixed-clock` defaults to day 1.
 
 **Effect.** Every date read is one day higher than the console's, so the month and
 day computed by the stock `date_*` helpers in `time.h` are one day off.
 
 **Suggested change.** Use `tm_yday` (0-based) and treat `--fixed-clock Y,D,S` day `D`
-as 0-based (default day 0). Per the policy above, also mirror the leap year rule
-(`Year % 4 == 0 && Year % 100 != 0`, no 400-year rule) and the rollover test
-`Days >= DaysThisYear`, with a comment saying the year 2000 is deliberately not a
-leap year, as on the console.
+as 0-based (default day 0), and make the rollover test `Days >= DaysThisYear` (days
+counted from 0). The leap year rule needs no change.
 
 ## G5. GPU port writes are not clamped or ignored
+
+**Status: closed.** All the clamps/rejections in the table are in `ioports_set`. Test `g05_gpu_ports` (98 cases).
 
 **DesktopEmulator** (`V32GPUWriters.cpp`): out-of-range values written to GPU ports are
 corrected, never stored raw and never an error:
@@ -147,6 +170,8 @@ changes the blend mode.
 README said 1639 and 1359).
 
 ## G6. Stack error semantics, and `PUSH SP`
+
+**Status: closed.** `PUSH`/`POP`/`CALL`/`RET` mirror `Push`/`Pop` (value taken before SP moves, SP<0 overflow, failed read changes nothing, underflow after the register is written). `decode_check` (`-e`) follows the same rules. Tests `g06a-i`, `g16d`.
 
 **DesktopEmulator** (`V32CPUProcessors.cpp: Push, Pop`, used by `PUSH`, `POP`, `CALL`
 and `RET`):
@@ -182,6 +207,8 @@ before decrementing) and use them for `PUSH`, `POP`, `CALL` and `RET`.
 
 ## G7. Memory bus address decoding
 
+**Status: closed.** `memory_chk` and the accessors decode `(address>>28)&3` and `address&0x0FFFFFFF`. Tests `g07a-d`.
+
 **DesktopEmulator** (`V32Buses.cpp: V32MemoryBus`): `device = (address >> 28) & 3`,
 `local = address & 0x0FFFFFFF`. Address **bits 30 and 31 are ignored**, so
 `0x40000000` is RAM, `0x90000000` is BIOS, `0xE0000000` is CART, and there is no
@@ -199,6 +226,8 @@ on the console. Negative addresses (e.g. -1) are in the same family.
 the range check.
 
 ## G8. Bad jump targets: when the error is raised
+
+**Status: closed.** Jumps do not validate; the fetch faults (with a stale `IR`/`IV` kept in `R2`/`R3`). `decode_check` no longer reports bad targets. Tests `g08a-g`.
 
 **DesktopEmulator** (`V32CPU::RunNextCycle`, `ProcessJMP` and friends): `JMP`, `CALL`,
 `JT`, `JF` and `RET` just load the instruction pointer; an unreadable target is not
@@ -220,6 +249,8 @@ word that fails does the same.
 
 ## G9. A CPU error ends the frame
 
+**Status: closed.** An error loads R0-R3 and ends the frame; the handler starts next frame. Tests `g09a-c`.
+
 **DesktopEmulator** (`V32CPU::RaiseHardwareError`, `V32Console::RunNextFrame`): the error
 handler is entered by throwing an exception that exits the frame's cycle loop, so
 the rest of the frame is not executed; the BIOS error handler's first instruction runs
@@ -237,6 +268,8 @@ side effects ordering relative to frames, differ slightly.
 occurs.
 
 ## G10. `MOVS`/`SETS`/`CMPS`: cycles and partial progress
+
+**Status: closed.** One word per execution/cycle, `CMPS` stops at the first difference, an error part way leaves the progress in `SR`/`DR`/`CR`; `decode_check` checks only the next word. Tests `g10a-d` (basic, huge-count `CMPS` early exit, partial progress, a `SETS` spanning frames).
 
 **DesktopEmulator** (`ProcessMOVS/SETS/CMPS`): one word per *instruction execution*
 (and per cycle): the instruction pointer is moved back by one until the count reaches
@@ -263,6 +296,8 @@ instruction until the count is exhausted), counting a cycle each.
 
 ## G11. ROM, BIOS and memory card validation
 
+**Status: closed.** `load.c: rom_check()` applies the console's checks and messages to the BIOS and cartridge before anything is allocated; failure exits with code 21. The memory card checks were already there. A ROM whose sections run past its own file is refused too (the console reads garbage). Test `tests/run_romcheck.sh` (28 malformed files, compared with refrun).
+
 **DesktopEmulator** (`V32Console::LoadBios`, `LoadCartridge`, `LoadMemoryCard`): files
 are rejected unless: the size is a multiple of 4; the signature is `V32-CART` (cartridge)
 or `V32-BIOS` (BIOS), and not the other kind; the version/revision is not newer than 1.0;
@@ -285,12 +320,16 @@ consistency and the BIOS/cartridge signature distinction.
 
 ## G12. `IDIV`/`IMOD` of `INT_MIN` by -1
 
+**Status: unchanged by policy** (host-undefined). Shift counts >= 32 and `INT_MIN / -1` stay defined as before; the fuzzer avoids them.
+
 **DesktopEmulator** performs a host `int32_t` division; `-2147483648 / -1` is undefined
 in C++ and traps (SIGFPE) on x86 hosts. **v32sim** defines the result (negation wraps,
 remainder 0). This is a deliberate safety choice in the sim; recorded for completeness.
 No change suggested unless exact host behavior is wanted.
 
 ## G13. Port numbers above 0x7FF
+
+**Status: closed.** `ioports_get`/`ioports_set` (and the `IN`/`OUT` decode) mask the port to 0x7FF. Test `g13_port_alias`.
 
 **DesktopEmulator** (`V32Buses.cpp: V32ControlBus`): `device = (port >> 8) & 7`,
 `local = port & 0xFF`, so a 14-bit port number such as `0x1200` is an alias of `0x200`
@@ -304,6 +343,8 @@ assembler warns about. Suggested change: mask `portaddr` to `0x7FF` at the start
 `ioports_get`/`ioports_set`.
 
 ## G14. Rendering fidelity (not verified)
+
+**Status: still unverified.** The reference renders through OpenGL, which the headless runner stubs, so pixels were not compared.
 
 The console renders through OpenGL (`Emulator/VideoOutput.cpp`): textured quads with
 `GL_NEAREST` sampling, a fragment shader computing `MultiplyColor * texel` in floating
@@ -325,6 +366,49 @@ reference).
 
 ---
 
+## Found by running both (not in the original review)
+
+**G15. `R3` after an error is the CPU's stale immediate register.** The console's `R3` is
+`ImmediateValue`, which only changes when an instruction with an immediate is fetched and
+is never cleared. After a bad jump (G8) or any error on an instruction without an
+immediate, `R3` is the last immediate fetched, possibly the BIOS's own `JMP` before the
+cartridge ran any. v32sim keeps `cpu_immediate` the same way. Tests `g15`, `g15b`.
+
+**G16. Failed reads leave the destination alone.** A `MOV` load, `IN` or `POP` that
+fails does not touch its register (and a failed store changes nothing else); `POP` that
+reads fine but underflows keeps the loaded value. Tests `g16a-d`.
+
+**G17. Port access matrix.** Every control-bus port of the 8 devices (local 0-0x30,
+0x7F, 0xFF; one read and seven different writes each) raises or does not raise the same
+errors, with the same register state, as the console: no difference was found beyond
+G5/G13. Generator `tests/ports_gen.py` (3264 programs).
+
+**G18. ROM pages were sized to the file.** v32sim sized the BIOS/CART pages to the file
+length in bytes (counted as words), so the program ROM looked 5-6 times larger than it is
+and execution ran on into the texture data instead of faulting at the end of the program.
+Now the page is exactly the VBIN word count; the texture pixels are kept past it, outside
+the addressable range (`memory_texel()`). Tests `g08f`, `g08g`.
+
+**G19. `IMIN`/`IMAX` with an immediate compared unsigned** (a negative immediate was
+"larger" than any positive register). Found by the fuzzer; now signed as on the console.
+
+---
+
+## Verification
+
+`tests/ref/build.sh <ComputerSoftware checkout> <dir>` builds `refrun` (the console logic
+at `e75b537` with stubbed video/audio/log callbacks), the assembler and the ROM packer.
+Then, with that directory as the tools dir:
+
+  * `tests/run_gaps.sh` - the hand-written cartridges (`tests/gaps`): 46 runs
+  * `tests/run_romcheck.sh` - malformed ROM files
+  * `tests/run_fuzz.sh` - random instruction programs (900 over three seeds) and the
+    port matrix (3264 programs)
+
+Each runs a BIOS and a cartridge on both and diffs the RAM (including the error
+handler's register dump). All pass. The fuzzer deliberately avoids host-undefined
+behavior and the wall clock.
+
 ## Checked and equivalent
 
 For reference, these were compared and no difference was found:
@@ -338,6 +422,9 @@ For reference, these were compared and no difference was found:
   * Error codes and the `R0`-`R3` loading, with `SP`/`BP` reset to `0x003FFFFF` and a jump
     to `0x10000000`, for errors other than those in G6, G8.
   * Reset state: `SP = BP = 0x003FFFFF`, entry at BIOS `0x10000004`.
+    (Correction: not entirely. R3 on an error was not `0`/the current immediate but the
+    CPU's stale immediate register, see G15. And BIOS/CART "sized to the loaded program
+    ROM" was wrong, see G18. The ALU claim also missed G19.)
   * Gamepad semantics: +/-3600 frame counts, opposite directions mutually exclusive,
     ignored input for disconnected pads, selection of an out-of-range pad ignored.
   * GPU: pixel budget accounting (draw, scale and rotation penalties, clear costs half
@@ -349,16 +436,21 @@ For reference, these were compared and no difference was found:
   * Memory card: write-back at the end of each frame; BIOS and CART are read-only and
     sized to the loaded program ROM.
 
-## Upstream quirks you may or may not want to mirror
+## Upstream quirks
 
-These are properties of the DesktopEmulator source that look like oversights. Per the
-policy at the top, v32sim should **reproduce them** (with a comment naming the quirk):
+None outstanding. The quirks found in the first review have been fixed in
+`ComputerSoftware` `e75b537`, so there is nothing to reproduce, and v32sim should
+**not** copy the old behavior:
 
-  * The leap year test lacks the 400-year rule (G4).
-  * `V32GPU::Reset` clears each region's `MinX` twice and never clears `MinY`
-    (`CartridgeTextures[i].Regions[j].MinX = 0;` appears twice), so region `MinY` values
-    survive a reset.
-  * `WriteGPUActiveBlending`'s unreachable `return true` means an unknown blending value
-    is not stored but is still passed to the video layer (which then ignores it).
-  * `V32SPU::PlayChannel` looks up the sound of the *selected* channel rather than of the
-    channel being played (harmless for the paths that call it today).
+  * the leap year test lacking the 400-year rule (G4);
+  * `V32GPU::Reset` never clearing region `MinY` (the console now clears it, so a
+    region's `MinY` is 0 after a reset, as the other fields are);
+  * `WriteGPUActiveBlending` passing an unknown blending value on to the video layer
+    (now ignored outright, which v32sim already does);
+  * `V32SPU::PlayChannel` taking the loop flag from the selected channel's sound instead
+    of the target channel's (now the target channel's).
+
+v32sim needs no change for these: its per-texture region tables are allocated zeroed
+when a ROM is loaded, it has no console-reset command that could leave stale regions
+behind (if one is added, it must clear all six region fields, `MinY` included), and
+`play_channel (channel_t *c)` in `spu.c` already uses the channel it is given.

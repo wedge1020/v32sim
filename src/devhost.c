@@ -925,30 +925,35 @@ void  devhost_start (void)
     }
 }
 
+static void  ch_close (int ch)
+{
+    dh_t  *d  = dh + ch;
+
+    if (d -> running != 0)
+    {
+        ch_withdraw (ch);
+    }
+    d -> running  = 0;
+    if ((d -> kind != 0) && (d -> fd >= 0))             // an unused channel has no descriptor (fd 0 would be standard input)
+    {
+        close (d -> fd);
+        d -> fd  = -1;
+    }
+    if ((d -> sink != NULL) && (d -> sink != stdout))
+    {
+        fclose (d -> sink);
+    }
+    d -> sink  = NULL;
+    out_clear (d);
+}
+
 void  devhost_stop (void)
 {
     int  ch  = 0;
 
     for (ch = 0; ch < DEV_CHANNELS; ch = ch + 1)
     {
-        dh_t  *d  = dh + ch;
-
-        if (d -> running != 0)
-        {
-            ch_withdraw (ch);
-        }
-        d -> running  = 0;
-        if (d -> fd >= 0)
-        {
-            close (d -> fd);
-            d -> fd  = -1;
-        }
-        if ((d -> sink != NULL) && (d -> sink != stdout))
-        {
-            fclose (d -> sink);
-        }
-        d -> sink  = NULL;
-        out_clear (d);
+        ch_close (ch);
     }
 }
 
@@ -1029,4 +1034,300 @@ void  devhost_describe (int ch, char *out, size_t len)
                   (d -> hung_up == TRUE) ? ", hung up" : "", (d -> bad != 0) ? ", corrupt stream seen" : "",
                   (d -> running != 0) ? "" : " (not running)");
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// 'dev' command: attach, detach and swap devices while the program runs
+//
+// A channel is given up completely (descriptors, buffers, the configuration) and its words in
+// the card are withdrawn: the program sees the host go away (the flags and status go to zero),
+// and an attach announces a new session, so a swap looks like a changed medium
+//
+static void  ch_forget (int ch)
+{
+    dh_t  *d  = dh + ch;
+
+    ch_close (ch);
+    free (d -> pend);
+    free (d -> out);
+    free (d -> inbox);
+    memset (d, 0, sizeof (*d));
+    d -> fd  = -1;
+}
+
+int  devhost_attach (int ch, const char *spec)
+{
+    char     arg[1100];
+    uint8_t  was  = failed;
+
+    if ((ch < 0) || (ch >= DEV_CHANNELS))
+    {
+        fprintf (stderr, "[ERROR] dev: no channel %d (valid: 0-%d)\n", ch, DEV_CHANNELS - 1);
+        return (-1);
+    }
+    if (dh[ch].kind != 0)
+    {
+        fprintf (stderr, "[ERROR] dev: channel %d is served already (dev detach %d, or dev swap %d SPEC)\n", ch, ch, ch);
+        return (-1);
+    }
+    snprintf (arg, sizeof (arg), "%d=%s", ch, spec);
+    if (devhost_add (arg) != 0)
+    {
+        ch_forget (ch);
+        return (-1);
+    }
+    if (memc_mailbox () == TRUE)
+    {
+        failed  = FALSE;
+        dev_open (dh + ch, ch);
+        if (dh[ch].running == 0)
+        {
+            ch_forget (ch);
+            failed  = was;
+            return (-1);
+        }
+        failed  = was;
+        fprintf (stdout, "channel %d: %s\n", ch, dh[ch].spec);
+    }
+    else
+    {
+        fprintf (stdout, "channel %d: %s (it starts when the card is a mailbox: dev format)\n", ch, dh[ch].spec);
+    }
+    return (0);
+}
+
+int  devhost_detach (int ch)
+{
+    if ((ch < 0) || (ch >= DEV_CHANNELS) || (dh[ch].kind == 0))
+    {
+        fprintf (stderr, "[ERROR] dev: channel %d has no native device\n", ch);
+        return (-1);
+    }
+    ch_forget (ch);
+    fprintf (stdout, "channel %d: detached\n", ch);
+    return (0);
+}
+
+int  devhost_swap (int ch, const char *spec)
+{
+    if (devhost_detach (ch) != 0)
+    {
+        return (-1);
+    }
+    return (devhost_attach (ch, spec));
+}
+
+static const char  *class_text (uint32_t cls)
+{
+    switch (cls)
+    {
+        case 0:   return ("none");
+        case 1:   return ("block");
+        case 2:   return ("char");
+        case 3:   return ("pipe");
+        case 4:   return ("socket");
+        default:  return ("class ?");
+    }
+}
+
+// 'dev info': the lines `v32dev.py info` prints for a card
+void  devhost_info (void)
+{
+    int       ch  = 0;
+    uint32_t  hp  = 0, cp = 0, type = 0;
+    const char *named = NULL;
+
+    if (memc_mailbox () == FALSE)
+    {
+        fprintf (stdout, "the memory card is not a v32dev mailbox (dev format)\n");
+        return;
+    }
+    for (ch = 0; ch < DEV_CHANNELS; ch = ch + 1)
+    {
+        hp     = hp_of (ch);
+        cp     = cp_of (ch);
+        type   = memc_word (hp + DEV_HP_TYPE);
+        named  = (type == 0) ? "none" : (type == TYPE_STORAGE) ? "storage" : (type == TYPE_SERIAL) ? "serial" : NULL;
+        fprintf (stdout, "channel %d: ", ch);
+        if (named != NULL)  fprintf (stdout, "%s (%s kind %u)", named, class_text (type >> 24), type & 0xFFFFFF);
+        else                fprintf (stdout, "%s kind %u", class_text (type >> 24), type & 0xFFFFFF);
+        fprintf (stdout, ", host %s, program %s, session %u/%u, h2c(head=%u tail=%u) c2h(head=%u tail=%u)%s\n",
+                 (memc_word (hp + DEV_HP_FLAGS) & 1) ? "attached" : "absent",
+                 (memc_word (cp + DEV_CP_FLAGS) & 1) ? "open" : "closed",
+                 memc_word (hp + DEV_HP_SESSION), memc_word (cp + DEV_CP_SESSION),
+                 memc_word (hp + DEV_HP_H2C_HEAD), memc_word (cp + DEV_CP_H2C_TAIL),
+                 memc_word (cp + DEV_CP_C2H_HEAD), memc_word (hp + DEV_HP_C2H_TAIL),
+                 (dh[ch].running != 0) ? " [native]" : "");
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// savestates: the native host's own state. It is written after everything else in the state
+// file (a file without it, and an older v32sim reading one with it, are both fine). A restore
+// puts back the whole mailbox region as it was saved, host-owned part included, and the host's
+// queues, counters and session number: what ran on a native host is repeatable, so the program
+// and the host continue exactly as they were. A disk image is a file outside the state; the
+// restore only warns when its size differs.
+//
+#define  DH_TAG      0x53544844u            // "DHTS"
+#define  DH_VERSION  1u
+
+// the part of a configuration a state depends on: the geometry and mode, not the names of the files
+static uint32_t  shape_of (const dh_t *d)
+{
+    return ((d -> sector_words << 8) | (uint32_t) ((d -> bytes_mode != 0) | ((d -> readonly != 0) << 1) | ((d -> echo != 0) << 2) |
+                                                   ((d -> use_stdio != 0) << 3)));
+}
+
+static int  w32 (FILE *f, uint32_t v)  { return (state_wr32 (f, v)); }
+static int  w64 (FILE *f, uint64_t v)  { return (state_wr32 (f, (uint32_t) v) || state_wr32 (f, (uint32_t) (v >> 32))); }
+static int  wwords (FILE *f, const uint32_t *w, uint32_t n)
+{
+    uint32_t  k  = 0;
+
+    for (k = 0; k < n; k = k + 1)  { if (w32 (f, w[k]) != 0)  return (-1); }
+    return (0);
+}
+static int  r64 (FILE *f, uint64_t *v)
+{
+    uint32_t  lo = 0, hi = 0;
+
+    if (state_rd32 (f, &lo) || state_rd32 (f, &hi))  return (-1);
+    *v  = (uint64_t) lo | ((uint64_t) hi << 32);
+    return (0);
+}
+static int  rwords (FILE *f, uint32_t **w, uint32_t *n, uint32_t limit)
+{
+    uint32_t  k = 0;
+
+    if ((state_rd32 (f, n) != 0) || (*n > limit))  return (-1);
+    *w  = (uint32_t *) calloc ((size_t) *n + 1, 4);
+    if (*w == NULL)  return (-1);
+    for (k = 0; k < *n; k = k + 1)  { if (state_rd32 (f, *w + k) != 0)  return (-1); }
+    return (0);
+}
+
+int  devhost_save (FILE *f)
+{
+    int       ch = 0;
+    uint32_t  k  = 0;
+    dh_t     *d  = NULL;
+
+    if ((devhost_configured () == FALSE) || (memc_mailbox () == FALSE))
+    {
+        return (0);
+    }
+    if (w32 (f, DH_TAG) || w32 (f, DH_VERSION) || w32 (f, sessions) || w32 (f, stdin_eof))  return (-1);
+    for (ch = 0; ch < DEV_CHANNELS; ch = ch + 1)
+    {
+        d  = dh + ch;
+        if (w32 (f, (uint32_t) d -> kind) || w32 (f, (d -> kind != 0) ? (uint32_t) d -> running : 0))  return (-1);
+        if (d -> kind == 0)  continue;
+        if (w32 (f, shape_of (d)))  return (-1);                          // what kind of device, not which file
+        if (d -> running == 0)  continue;
+        if (w32 (f, d -> cart_session) || w32 (f, d -> bad) || w32 (f, d -> warned) ||
+            w32 (f, d -> st_read) || w32 (f, d -> st_write) || w32 (f, d -> st_flush) || w32 (f, d -> st_bad) ||
+            w32 (f, (uint32_t) d -> hung_up) || w32 (f, (uint32_t) d -> hup_req) ||
+            w64 (f, d -> received) || w64 (f, d -> sent) || w64 (f, d -> sectors))  return (-1);
+        if (w32 (f, d -> npend) || wwords (f, d -> pend, d -> npend))  return (-1);
+        if (w32 (f, d -> nin) || wwords (f, d -> inbox, d -> nin))  return (-1);
+        if (w32 (f, d -> nout))  return (-1);
+        for (k = 0; k < d -> nout; k = k + 1)
+        {
+            if (w32 (f, d -> out[k].op) || w32 (f, d -> out[k].n) || wwords (f, d -> out[k].w, d -> out[k].n))  return (-1);
+        }
+    }
+    return (0);
+}
+
+// Returns 0: the host's state was read and applied (region = the saved mailbox region, put back whole first);
+// 1: the state file has none, or this run serves other devices: nothing was changed; -1: damaged (truncated).
+int  devhost_load (FILE *f, const uint32_t *region)
+{
+    dh_t      snap[DEV_CHANNELS];
+    uint32_t  tag = 0, ver = 0, sess = 0, eof = 0, kind = 0, run = 0, len = 0, c = 0, k = 0;
+    int       ch = 0, mismatch = 0, rc = -1;
+    uint64_t  sectors[DEV_CHANNELS];
+
+    memset (snap, 0, sizeof (snap));
+    memset (sectors, 0, sizeof (sectors));
+    if (state_rd32 (f, &tag) != 0)  return (1);                                     // end of file: an older state
+    if ((tag != DH_TAG) || (state_rd32 (f, &ver) != 0) || (ver != DH_VERSION))  return (1);
+    if ((state_rd32 (f, &sess) != 0) || (state_rd32 (f, &eof) != 0))  return (-1);
+    for (ch = 0; ch < DEV_CHANNELS; ch = ch + 1)
+    {
+        dh_t  *s  = snap + ch;
+
+        if ((state_rd32 (f, &kind) != 0) || (state_rd32 (f, &run) != 0))  goto out;
+        s -> kind     = (int) kind;
+        s -> running  = (int) run;
+        if (kind == 0)
+        {
+            if (dh[ch].kind != 0)  mismatch = 1;
+            continue;
+        }
+        if (state_rd32 (f, &len) != 0)  goto out;
+        if ((dh[ch].kind != (int) kind) || (len != shape_of (dh + ch)) || ((run != 0) != (dh[ch].running != 0)))  mismatch = 1;
+        if (run == 0)  continue;
+        if (state_rd32 (f, &s -> cart_session) || state_rd32 (f, &s -> bad) || state_rd32 (f, &c))  goto out;
+        s -> warned  = (uint8_t) c;
+        if (state_rd32 (f, &s -> st_read) || state_rd32 (f, &s -> st_write) || state_rd32 (f, &s -> st_flush) || state_rd32 (f, &s -> st_bad))  goto out;
+        if (state_rd32 (f, &c))  goto out;
+        s -> hung_up  = (int) c;
+        if (state_rd32 (f, &c))  goto out;
+        s -> hup_req  = (int) c;
+        if (r64 (f, &s -> received) || r64 (f, &s -> sent) || r64 (f, &sectors[ch]))  goto out;
+        if (rwords (f, &s -> pend, &s -> npend, 1u << 20))  goto out;
+        if (rwords (f, &s -> inbox, &s -> nin, 1u << 26))  goto out;
+        s -> cin  = s -> nin;
+        if (state_rd32 (f, &s -> nout) || (s -> nout > (1u << 20)))  goto out;
+        s -> out  = (msg_t *) calloc ((size_t) s -> nout + 1, sizeof (msg_t));
+        s -> cout = s -> nout;
+        for (k = 0; k < s -> nout; k = k + 1)
+        {
+            if (state_rd32 (f, &s -> out[k].op) || rwords (f, &s -> out[k].w, &s -> out[k].n, MSG_MAX))  goto out;
+        }
+    }
+    if (mismatch != 0)
+    {
+        fprintf (stderr, "[WARNING:DEVHOST] the state was saved with other native devices than these ('dev' shows them): "
+                         "the mailbox keeps the present host side\n");
+        rc  = 1;
+        goto out;
+    }
+    if (region != NULL)
+    {
+        memc_region_put (region);                                                    // calls devhost_resync, undone below
+    }
+    for (ch = 0; ch < DEV_CHANNELS; ch = ch + 1)
+    {
+        dh_t  *d = dh + ch, *s = snap + ch;
+
+        if ((d -> kind == 0) || (d -> running == 0))  continue;
+        if ((d -> kind == 1) && (sectors[ch] != d -> sectors))
+        {
+            fprintf (stderr, "[WARNING:DEVHOST] channel %d: '%s' has %llu sectors, the state was saved with %llu: the image is not the same\n",
+                     ch, d -> path, (unsigned long long) d -> sectors, (unsigned long long) sectors[ch]);
+        }
+        free (d -> pend);   d -> pend  = s -> pend;   d -> npend = s -> npend;   d -> cpend = s -> npend;   s -> pend = NULL;
+        free (d -> inbox);  d -> inbox = s -> inbox;  d -> nin   = s -> nin;     d -> cin   = s -> cin;     s -> inbox = NULL;
+        out_clear (d);
+        free (d -> out);    d -> out   = s -> out;    d -> nout  = s -> nout;    d -> cout  = s -> cout;    s -> out = NULL;
+        d -> cart_session = s -> cart_session;  d -> bad = s -> bad;  d -> warned = s -> warned;
+        d -> st_read = s -> st_read;  d -> st_write = s -> st_write;  d -> st_flush = s -> st_flush;  d -> st_bad = s -> st_bad;
+        d -> hung_up = s -> hung_up;  d -> hup_req = s -> hup_req;  d -> received = s -> received;  d -> sent = s -> sent;
+    }
+    sessions   = sess;
+    stdin_eof  = (uint8_t) eof;
+    rc         = 0;
+out:
+    for (ch = 0; ch < DEV_CHANNELS; ch = ch + 1)
+    {
+        free (snap[ch].pend);  free (snap[ch].inbox);
+        for (k = 0; k < snap[ch].nout; k = k + 1)  free (snap[ch].out[k].w);
+        free (snap[ch].out);
+    }
+    return (rc);
 }

@@ -19,6 +19,8 @@
 #include "globals.h"
 #include "ioports.h"
 #include "vtex.h"
+#include "memc.h"
+#include "devhost.h"
 
 #define  SAVE_MAGIC              "V32SIMSV"
 #define  SAVE_VERSION            1
@@ -250,6 +252,7 @@ uint8_t  state_save (const char *filename)
 
     if (gpu_save (f) != 0)  goto fail;
     if (spu_save (f) != 0)  goto fail;
+    if (devhost_save (f) != 0)  goto fail;      // the native v32dev host, if any: last, so an older reader never sees it
 
     if (fclose (f) != 0)
     {
@@ -284,6 +287,8 @@ uint8_t  state_restore (const char *filename)
     uint32_t   ntex       = 0;
     uint32_t  *keep_old   = NULL;
     uint32_t  *keep_new   = NULL;
+    uint32_t  *full_state = NULL;      // the saved mailbox region as it was: put back whole when the native host's state follows
+    int        dhrc       = 1;
     uint32_t   saved[NUM_REGISTERS];
     uint32_t   saved_rom  = 0;
     uint8_t    ok         = FALSE;
@@ -370,6 +375,8 @@ uint8_t  state_restore (const char *filename)
             if (keep_old != NULL)
             {
                 memc_region_get (keep_new);
+                full_state  = (uint32_t *) malloc (DEV_REGION_WORDS * sizeof (uint32_t));
+                if (full_state != NULL)  memcpy (full_state, keep_new, DEV_REGION_WORDS * sizeof (uint32_t));
                 memcpy (keep_new, keep_old, (DEV_HEADER_WORDS + DEV_HOST_WORDS) * sizeof (uint32_t));
                 memc_region_put (keep_new);
                 free (keep_old);  free (keep_new);
@@ -403,6 +410,11 @@ uint8_t  state_restore (const char *filename)
 
         if (gpu_restore (f) != 0)  goto truncated;
         if (spu_restore (f) != 0)  goto truncated;
+        if (full_state != NULL)
+        {
+            dhrc  = devhost_load (f, full_state);          // the native host's state (and the whole mailbox) if the file has it
+            if (dhrc < 0)  goto truncated;
+        }
     }
     while (0);
 
@@ -425,6 +437,7 @@ truncated:
 damaged:
     fprintf (stderr, "[WARNING] restore: the machine state may be partially restored\n");
 done:
+    free (full_state);
     fclose (f);
     return (ok);
 }

@@ -1,6 +1,8 @@
 #include "defines.h"
 #include "command.h"
 #include "assembly.h"
+#include "memc.h"
+#include "devhost.h"
 #include <stdarg.h>
 #include <ctype.h>
 #include <time.h>
@@ -55,6 +57,7 @@ static const struct
     { "kbd",         2, CMD_KBD       },
     { "mailbox",     2, CMD_MAILBOX   },
     { "mouse",       2, CMD_MOUSE     },
+    { "dev",         3, CMD_DEV       },
     { "label",       1, CMD_LABEL     },
     { "load",        2, CMD_LOAD      },
     { "next",        1, CMD_NEXT      },
@@ -1084,6 +1087,92 @@ static void  exec_console (cmd_t *c)
     else
     {
         exec_console_dump (c -> path, 0);      // anything else is a file name
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// dev: the native v32dev host (devhost.c) at run time -- the built-in `v32dev.py format` / `info`,
+// and attach, detach, swap of a device on a channel
+//
+static void  exec_dev (cmd_t *c)
+{
+    char   line[1100];
+    char  *verb  = NULL;
+    char  *a     = NULL;
+    char  *b     = NULL;
+    char  *p     = NULL;
+    int    ch    = 0;
+
+    if (c -> path == NULL)
+    {
+        devhost_info ();
+        return;
+    }
+    snprintf (line, sizeof (line), "%s", c -> path);
+    verb  = line;
+    p     = line;
+    while ((*p != '\0') && (*p != ' ') && (*p != '\t'))  p = p + 1;
+    if (*p != '\0')  { *p = '\0';  p = p + 1;  while ((*p == ' ') || (*p == '\t'))  p = p + 1; }
+    a  = p;                                                      // N, or "force"
+    while ((*p != '\0') && (*p != ' ') && (*p != '\t'))  p = p + 1;
+    if (*p != '\0')  { *p = '\0';  p = p + 1;  while ((*p == ' ') || (*p == '\t'))  p = p + 1; }
+    b  = p;                                                      // the rest of the line: a SPEC (may hold anything but a newline)
+    p  = b + strlen (b);
+    while ((p > b) && ((p[-1] == ' ') || (p[-1] == '\t')))  { p = p - 1;  *p = '\0'; }
+
+    if ((0 == strcasecmp (verb, "info")) || (0 == strcasecmp (verb, "status")))
+    {
+        devhost_info ();
+    }
+    else if (0 == strcasecmp (verb, "format"))
+    {
+        if ((*a != '\0') && (0 != strcasecmp (a, "force")))
+        {
+            fprintf (stderr, "[ERROR] dev: format takes only 'force'\n");
+            script_errors = script_errors + 1;
+            return;
+        }
+        if (memc_format ((*a != '\0') ? TRUE : FALSE) == TRUE)
+        {
+            fprintf (stdout, "the memory card is a v32dev mailbox\n");
+        }
+        else
+        {
+            script_errors = script_errors + 1;
+        }
+    }
+    else if ((0 == strcasecmp (verb, "attach")) || (0 == strcasecmp (verb, "swap")))
+    {
+        if ((*a < '0') || (*a > '9') || (a[1] != '\0') || (*b == '\0'))
+        {
+            fprintf (stderr, "[ERROR] dev: %s needs a channel and a SPEC (dev %s 0 storage:disk.img)\n", verb, verb);
+            script_errors = script_errors + 1;
+            return;
+        }
+        ch  = *a - '0';
+        if (((verb[0] == 'a') || (verb[0] == 'A')) ? (devhost_attach (ch, b) != 0) : (devhost_swap (ch, b) != 0))
+        {
+            script_errors = script_errors + 1;
+        }
+    }
+    else if (0 == strcasecmp (verb, "detach"))
+    {
+        if ((*a < '0') || (*a > '9') || (a[1] != '\0'))
+        {
+            fprintf (stderr, "[ERROR] dev: detach needs a channel (dev detach 0)\n");
+            script_errors = script_errors + 1;
+            return;
+        }
+        if (devhost_detach (*a - '0') != 0)
+        {
+            script_errors = script_errors + 1;
+        }
+    }
+    else
+    {
+        fprintf (stderr, "[ERROR] dev: unknown subcommand '%s' (try 'help dev')\n", verb);
+        script_errors = script_errors + 1;
     }
 }
 
@@ -2144,6 +2233,7 @@ static void  exec_help (cmd_t *c)
         case CMD_CONSOLE:     help (INPUT_CONSOLE);    break;
         case CMD_KBD:         help (INPUT_KBD);        break;
         case CMD_MOUSE:       help (INPUT_MOUSE);      break;
+        case CMD_DEV:         help (INPUT_DEV);        break;
         case CMD_MAILBOX:     help (INPUT_MAILBOX);    break;
         case CMD_IGNORE:      help (INPUT_IGNORE);     break;
         case CMD_INVENTORY:   help (INPUT_INVENTORY);  break;
@@ -2206,6 +2296,7 @@ uint8_t  cmd_execute (cmd_t *c)
         case CMD_CONSOLE:     exec_console (c);                     break;
         case CMD_KBD:         exec_kbd (c);                         break;
         case CMD_MOUSE:       exec_mouse (c);                       break;
+        case CMD_DEV:         exec_dev (c);                         break;
         case CMD_MAILBOX:     exec_mailbox (c);                     break;
         case CMD_ASM:         exec_asm (c);                         break;
         case CMD_HELP:        exec_help (c);                        break;

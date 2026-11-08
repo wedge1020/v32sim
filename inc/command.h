@@ -37,6 +37,7 @@ enum cmd_id
     CMD_INVENTORY,
     CMD_KBD,
     CMD_MOUSE,
+    CMD_DEV,
     CMD_LABEL,
     CMD_LOAD,
     CMD_MAILBOX,

@@ -8,7 +8,7 @@ From the 2026-11-03 consolidation and V32DBG / V32TRACE work, against v32sim 202
 | VS-10 | **B** | read `%define var_NAME ADDR` (v32lua globals and chunk locals) as data symbols, as `%define global_NAME` is read | found: `print counter` fails on a v32lua cart (checked) |
 | VS-11 | **B** | a v32mouse device (`--v32mouse=PORT`, `mouse move dx dy`, `mouse click left`), as the v32kbd is | v32nix P-I2; v32lua, v32c++ mouse APIs cannot be tested in v32sim except through `v32io-script.py` toggles |
 | VS-12 | **B** | one merged oracle runner in `tools/oracle` (BIOS or bare `.vbin`, frame-stamped input, peek/dump, GPU/SPU logs in v32lua's format, traps at addresses, BP watch) | six runners in five projects (CONSOLIDATION.md); v32lua's no longer builds |
-| VS-13 | B (part 1 done 20261106: GPU/SPU counters, region table, `stats`, `stats expect`, `tools/v32sim-statdiff.py`) | VS-9 remainder: GPU command / texture / region / SPU counters as `--frame-stats` columns, `--profile-event`, `expect stats`, GPU/SPU traces + replay, `statdiff` | `v32sim-proposal-perf-metrics-20261030.md` (NEStoV32's slow carts) |
+| VS-13 | B (part 1 done 20261106: GPU/SPU counters, region table, `stats`, `stats expect`, `tools/v32sim-statdiff.py`) | VS-9 remainder: GPU command / texture / region / SPU counters as `--frame-stats` columns, `--profile-event`, `expect stats`, GPU/SPU traces + replay, `statdiff` | `docs/proposals/v32sim-proposal-perf-metrics-20261030.md` (NEStoV32's slow carts) |
 | VS-14 | C | locals, what is left: Lua table walking, struct members (when SC-3 lands), `display NAME` that follows the frame, `info globals` (when SC-2 / SL-2 land), mark upvalues (SL-1) | V32DBG section 4 |
 | VS-15 | C | read v32as `--symbols` / a resolved `NAME.vbin.sym` (v32as SA-3) for function and ROM-data addresses | marker-mode `.debug` carries no data labels |
 | VS-16 | C | a way to name a low RAM word unambiguously: `print [0x75]` is an IOPort (up to 3 hex digits), `[0x00000075]` works; e.g. `[ram:0x75]` | found while testing v32lua globals |
@@ -40,3 +40,21 @@ proposal SE-3 asks upstream for the same thing; whichever comes first.
 ## VS-13 .. VS-18
 
 As in the table; VS-13's design is the perf-metrics proposal (sections 4.1-4.6, phases 1-4).
+
+---
+
+## Status 20261108
+
+| item | state |
+|---|---|
+| VS-10 `%define var_NAME` | **done** (read as `NAME`; `var_NAME` resolves too) |
+| VS-11 v32mouse | **done** 20261106 |
+| VS-12 one oracle runner | **done**: `tools/oracle/orun.cpp` = `v32orun` (bare `.vbin` or BIOS + cart, GPU/SPU logs in v32lua's format, traps, `-B`, `-b`, CFI / SPU-state options, real-GPU `gpu_dropped`); `refrun` / `v32run` / `vrun` / `v32prof` / `v32peek` / `v32shot` are wrappers; v32lua and v32cc dropped their runners |
+| VS-13 counters, `--profile-event`, traces, `v32gpureplay`, `--time-breakdown` | **done** 20261106 (open: SPU channels-playing and memory-card counters) |
+| VS-14 struct members | **done for structs / unions** (`struct:TAG:WORDS{x:int@0;...}` printed `{x = 3, y = 5}`); Lua tables, upvalues open |
+| VS-15 `NAME.vbin.sym` | **done**: read after `NAME.asm.sym` (sizes there), wins on addresses; `#` lines skipped |
+| VS-16 `[ram:0x75]` | **done**; a cartridge argument `-` runs the BIOS alone |
+| VS-17 | P-E2 done 20261106 (`--v32dev-doorbell`); P-E1 declined by v32nix |
+| VS-18 V32TRACE | **done** (report, series, markers, host cost, `input2=`) |
+| VS-19 native v32dev host | **done** 20261106 (`--v32dev-host`); open: `dev` command, built-in `format` / `info`, device state in savestates (see TODO.md) |
+| V32DBG section 4 | **done**; `type=char` 20261108 |

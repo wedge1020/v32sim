@@ -222,6 +222,19 @@ static uint8_t  native_format (void)
     return (TRUE);
 }
 
+static void  mailbox_activate (void)
+{
+    mc.mailbox  = TRUE;
+    cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, (memc_doorbell == TRUE) ? 3 : 1);
+    cw_set (DEV_REGION_START + DEV_H_EMU_BEAT,  0);
+    if (devhost_ok () == TRUE)
+    {
+        devhost_start ();
+    }
+    bell_reset ();
+    fprintf (verbose, "[MEMC] v32dev mailbox active\n");
+}
+
 void  memc_attach (const char *path)
 {
     const char *env  = getenv ("V32DEV_DISABLE");
@@ -272,16 +285,57 @@ void  memc_attach (const char *path)
 
     if ((mc.disabled == FALSE) && (mc.fd >= 0) && (header_valid () != 0))
     {
-        mc.mailbox  = TRUE;
-        cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, (memc_doorbell == TRUE) ? 3 : 1);
-        cw_set (DEV_REGION_START + DEV_H_EMU_BEAT,  0);
-        if (devhost_ok () == TRUE)
-        {
-            devhost_start ();
-        }
-        bell_reset ();
-        fprintf (verbose, "[MEMC] v32dev mailbox active\n");
+        mailbox_activate ();
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// memc_format(): 'dev format [force]', the built-in `v32dev.py format`: the card in the machine
+// becomes a v32dev mailbox now, with the native devices that are configured typed in. Without
+// force it refuses a card whose last 64 KiB hold other data, and a card that already is a
+// mailbox (the program may be using it); with force the region is zeroed and made again.
+//
+uint8_t  memc_format (uint8_t force)
+{
+    uint8_t   saved_force  = devhost_force;
+    uint8_t   ok           = FALSE;
+    off_t     base         = (off_t) (2 * wordsize);
+    uint8_t   zero[4]      = { 0, 0, 0, 0 };
+
+    if (mc.attached == FALSE)
+    {
+        fprintf (stderr, "[ERROR] dev format: no memory card is loaded\n");
+        return (FALSE);
+    }
+    if (mc.disabled == TRUE)
+    {
+        fprintf (stderr, "[ERROR] dev format: V32DEV_DISABLE is set\n");
+        return (FALSE);
+    }
+    if ((mc.mailbox == TRUE) && (force == FALSE))
+    {
+        fprintf (stderr, "[ERROR] dev format: the card already is a v32dev mailbox ('dev format force' makes it again, and the program loses what it had in it)\n");
+        return (FALSE);
+    }
+    if (mc.mailbox == TRUE)
+    {
+        devhost_stop ();
+        mc.mailbox  = FALSE;
+        cw_set (DEV_REGION_START, 0);                                    // not a mailbox any more: native_format makes it again
+        if ((mc.fd >= 0) && (mc.writable == TRUE))
+        {
+            (void) pwrite (mc.fd, zero, 4, base + (off_t) DEV_REGION_START * 4);
+        }
+    }
+    devhost_force  = force;
+    ok             = native_format ();
+    devhost_force  = saved_force;
+    if (ok == TRUE)
+    {
+        mailbox_activate ();
+    }
+    return (ok);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////

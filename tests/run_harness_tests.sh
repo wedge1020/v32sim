@@ -125,6 +125,17 @@ if [ -f "$W/loc/locals.vbin.vars" ]; then
     echo "$out" | grep -q "^arr = {[-0-9]*, [-0-9]*, [-0-9]*, [-0-9]*} .*int\[4\]" && echo "$out" | grep -qE "^p = (\{0x00000003, 0x00000005\} .*struct:pt:2|\{x = 3, y = 5\} .*struct:pt:2)" && echo "$out" | grep -q "^q = 0x.*ptr" \
         && ! echo "$out" | grep -q "^f = " && ok "array, struct, pointer; another function's variables stay out" || bad "work's locals: $(echo "$out" | tr '\n' '|' | cut -c1-250)"
 else skipt "locals (C)" "this v32as writes no .vbin.vars"; fi
+# the values must stay true after v32opt promotes the slots into registers (v32opt 20261105+), and a char shows its character
+if [ -x "$V32TC/v32opt" ] && [ -f "$W/loc/locals.vbin.vars" ]; then
+    for lvl in 0 2 3; do
+        mkdir -p "$W/vo$lvl"; cp "$EX/vars_opt.c" "$W/vo$lvl/"
+        ( cd "$W/vo$lvl" && "$V32TC/v32cc" -g -S -o vo.asm vars_opt.c >/dev/null 2>&1 && "$V32TC/v32opt" -O$lvl vo.asm -o vo$lvl.asm >/dev/null 2>&1 &&
+          sh "$T/v32mkcart.sh" -o . vo$lvl.asm >/dev/null 2>&1 ) || { bad "building vars_opt.c at -O$lvl"; continue; }
+        out=$(printf 'break vars_opt.c:14\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x --max-frames=3000 -B "$V32BIOS" "$W/vo$lvl/vo$lvl.v32" 2>/dev/null)
+        echo "$out" | grep -q "^i = 10 " && echo "$out" | grep -q "^s = 45 " && echo "$out" | grep -q "^c = 65 'A' " \
+            && ok "locals at -O$lvl are true (i = 10, s = 45, c = 65 'A')" || bad "locals at -O$lvl: $(echo "$out" | tr '\n' '|' | cut -c1-220)"
+    done
+else skipt "locals under v32opt" "no v32opt in V32TC"; fi
 if [ -x "$V32TC/v32lua" ]; then
     mkdir -p "$W/lua"; cp "$EX/locals.lua" "$W/lua/"
     ( cd "$W/lua" && "$V32TC/v32lua" -g -o locals.asm locals.lua >/dev/null 2>&1 && "$V32TC/v32as" -g -o locals.vbin locals.asm >/dev/null 2>&1 &&
