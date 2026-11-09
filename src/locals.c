@@ -336,6 +336,60 @@ static where_t  locate (const lvar_t *v, uint32_t bp, int frame, uint32_t *addr,
     return (WHERE_NONE);
 }
 
+
+// show_lua_table(): a Lua table's contents after its address: the array part, then the hash part
+// ("key = value"), as v32lua's runtime lays them out (header: flags/capacity, length, array_ptr,
+// hash_ptr; hash: capacity, count, then open-addressed key/value slots). Nested tables show only
+// their address; at most 8 entries are listed.
+static void  show_lua_table (uint32_t w)
+{
+    uint32_t  hdr = w & 0x003FFFFF;
+    uint32_t  flags = 0, len = 0, arr = 0, hash = 0, v = 0, k = 0;
+    int       shown = 0, more = FALSE, first = TRUE;
+    uint32_t  i = 0;
+
+    if (rd (hdr, &flags) == FALSE || rd (hdr + 1, &len) == FALSE ||
+        rd (hdr + 2, &arr) == FALSE || rd (hdr + 3, &hash) == FALSE)
+    {
+        return;
+    }
+    if ((len > 1024) || ((flags & 0xFFFF) > 65535))    { return; }
+    fprintf (stdout, " {");
+    for (i = 0; (i < len) && (arr != 0); i++)
+    {
+        if (shown >= 8) { more = TRUE; break; }
+        if (rd (arr + i, &v) == FALSE) { break; }
+        if (!first) fprintf (stdout, ", ");
+        first = FALSE;
+        shown++;
+        output_lua_value (v);
+    }
+    if ((hash != 0) && (more == FALSE))
+    {
+        uint32_t  cap = 0;
+
+        if ((rd (hash, &cap) == TRUE) && (cap > 0) && (cap <= 4096))
+        {
+            for (i = 0; i < cap; i++)
+            {
+                if ((rd (hash + 2 + 2 * i, &k) == FALSE) || (rd (hash + 3 + 2 * i, &v) == FALSE)) { break; }
+                if ((k == 0xFFC00000) || (k == 0xFFC00003)) { continue; }      // empty / tombstone
+                if (shown >= 8) { more = TRUE; break; }
+                if (!first) fprintf (stdout, ", ");
+                first = FALSE;
+                shown++;
+                fprintf (stdout, "[");
+                output_lua_value (k);
+                fprintf (stdout, "]");
+                fprintf (stdout, " = ");
+                output_lua_value (v);
+            }
+        }
+    }
+    if (more) fprintf (stdout, ", ...");
+    fprintf (stdout, "}");
+}
+
 static void  show_scalar (const char *type, uint32_t w)
 {
     float  f  = 0.0f;
@@ -370,9 +424,10 @@ static void  show_scalar (const char *type, uint32_t w)
             }
         }
     }
-    else if (strcmp (type, "lua") == 0)
+    else if ((strcmp (type, "lua") == 0) || (strcmp (type, "lua-table") == 0))
     {
         output_lua_value (w);
+        if ((w & 0xFFC00000) == 0xFF800000)  { show_lua_table (w); }
     }
     else if (strcmp (type, "int") == 0)
     {

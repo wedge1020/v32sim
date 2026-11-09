@@ -140,10 +140,12 @@ if [ -x "$V32TC/v32lua" ]; then
     mkdir -p "$W/lua"; cp "$EX/locals.lua" "$W/lua/"
     ( cd "$W/lua" && "$V32TC/v32lua" -g -o locals.asm locals.lua >/dev/null 2>&1 && "$V32TC/v32as" -g -o locals.vbin locals.asm >/dev/null 2>&1 &&
       sed 's|<binary path="[^"]*"|<binary path="locals.vbin"|' locals.xml > l.xml && "$V32TC/packrom" l.xml -o locals.v32 >/dev/null 2>&1 ) || bad "building locals.lua"
-    out=$(printf 'break locals.lua:5\ncontinue\nnext\nlocals\nbreak locals.lua:19\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x -B "$V32BIOS" -L lua "$W/lua/locals.v32" 2>/dev/null)
+    out=$(printf 'break locals.lua:5\ncontinue\nnext\nlocals\nbreak locals.lua:20\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x -B "$V32BIOS" -L lua "$W/lua/locals.v32" 2>/dev/null)
     echo "$out" | grep -q '^n = 10.0000 .*boxed' && ok "a boxed Lua local is read through its box" || bad "boxed: $(echo "$out" | head -4 | tr '\n' '|')"
     echo "$out" | grep -q '^s = "hello"' && echo "$out" | grep -q '^ok = true' && echo "$out" | grep -q '^nothing = nil' && echo "$out" | grep -q '^t = table: ' \
         && ok "Lua strings, booleans, nil, tables" || bad "Lua values: $(echo "$out" | tr '\n' '|' | cut -c1-250)"
+    echo "$out" | grep -q '^t = table: 0x[0-9A-F]* {1.0000, 2.0000, 3.0000}' && echo "$out" | grep -q '^pt = table: .*\["x"\] = 3.0000' \
+        && ok "Lua tables show their array and hash entries" || bad "Lua table contents: $(echo "$out" | grep -E '^(t|pt) =' | tr '\n' '|' | cut -c1-250)"
 else skipt "locals (Lua)" "no v32lua in V32TC"; fi
 
 echo "== V32TRACE report against the DesktopEmulator recorder (needs GBTOV32_TREE and ORACLE/v32trace-ref)"

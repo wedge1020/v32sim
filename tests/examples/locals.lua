@@ -11,6 +11,7 @@ end
 
 local function work(a, b)
   local t = {1, 2, 3}
+  local pt = {x = 3, name = "ab"}
   local s = "hello"
   local ok = true
   local f = counter(10)
