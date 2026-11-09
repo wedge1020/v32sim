@@ -30,7 +30,7 @@ AGENTS.md) and `docs/TOOLS.md` (which tool for which question). The rest of this
 ```
 src/ inc/            the simulator (README "Project Layout"); gen/ is the flex/bison output, checked in
 tools/               scripts for people who test other projects with v32sim (docs/TOOLS.md)
-  v32mkcart.sh         C/asm -> cartridge with debug files (v32cc/v32as, or the stock tools)
+  v32mkcart.sh         C/C++/Lua/asm -> cartridge with debug files (v32cc/v32c++/v32lua + v32as, optional v32opt -O, or the stock tools)
   v32sim-selfcheck.sh  run test_errors-style cartridges, pass/FAIL (or --oracle: on the stock core)
   v32sim-session.py    typed-session script generator (V32DOS's mkcmd.py, generalized)
   v32sim-golden.sh     sessions + golden screens (V32DOS's run.sh, generalized)

@@ -497,6 +497,21 @@ steps.
 | `list`, `list LINE`, `list FILE:LINE`, `list FUNCTION` | ten lines of source, `=>` marking the current one; `list` again continues |
 | `bt`, `frame N`, `up`, `down` | the frames, selected frame (used by `list` and `finish`) |
 
+### The debug stack: C, C++ and Lua, optimized or not
+
+v32sim is the end of one debug pipeline shared by every Vircon32 language tool:
+
+```
+source ->  v32cc -g | v32c++ -g --compiler=v32cc | v32lua -g   ->  [v32opt -O2/-O3]  ->  v32as -g  ->  v32sim
+```
+
+`tools/v32mkcart.sh [-O LEVEL] SRC.c|.cpp|.lua|.asm` runs the right chain (set `V32TC` to the toolchain
+directory) and leaves `NAME.vbin.debug`, `.vbin.vars` and `.asm.sym` beside the cartridge. Line numbers
+follow the file you wrote (for C/C++ macros, the line of the *use*, not the header). After `v32opt`,
+a variable that was kept in a register is followed through its `;@home` records; one whose register
+is gone shows `<optimized out>`. `tests/run_stack_tests.sh` checks all of this on one program in three
+languages at -O0/-O2/-O3 (part of `make check`). Per-tool status: [docs/V32DBG-STATUS.md](docs/V32DBG-STATUS.md).
+
 `break LINE` is a **decimal** number below `0x10000000` when line information is loaded;
 addresses are written in hex (`break 0x20000012`), as before. `break FUNCTION` sets the
 breakpoint on the function's first instruction (not on every line, although the assembler's

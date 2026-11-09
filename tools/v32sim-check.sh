@@ -25,6 +25,7 @@ run() { # name command...
 skipit() { printf '%-34sSKIP  %s\n' "$1" "$2"; skip=$((skip+1)); }
 run batch   bash "$T/run_batch_tests.sh" "$TC"
 run src     bash "$T/run_src_tests.sh" "$TC"
+run stack   bash "$T/run_stack_tests.sh" "$TC"
 ORACLE=; [ -x "$TC/refrun" ] && ORACLE=$TC
 if [ -n "$ORACLE" ]; then
     run gaps     bash "$T/run_gaps.sh" "$TC"

@@ -1,13 +1,17 @@
 # TODO
 
-Status as of version `20261108-dev`.
+Status as of version `20261109-dev`.
 
 ## DONE (removed from this list)
+
+  * **20261109 (central maintenance)**: v32sim is the hub of the debug stack. `tools/v32mkcart.sh` builds C, C++ (`v32c++ -g --compiler=v32cc`) and Lua (`v32lua -g`) and takes `-O LEVEL` (v32opt);
+    `tests/run_stack_tests.sh` (new suite `stack` in `make check`) checks `bt`, `break FILE:LINE`, `locals` and macro lines across C/C++/Lua x -O0/-O2/-O3 (33 checks).
+    Closed in the other projects: v32c++ `-g`, v32cc macro origins, v32opt `optimized-out` for dead variables, v32lua global/prologue markers. `V32DBG-STATUS.md` rewritten.
 
   * **20261108 (central maintenance)**: `docs/V32DBG-SPEC.md` is hosted here (the one copy; `V32DBG-STATUS.md` has a new "Against the spec" table);
     `--dump` failures (bad spec, unknown symbol, unreadable memory) now exit with status 5 (nothing else set one; `quit N` still wins), tests in
     `run_batch_tests.sh` (31 checks); `type=char` shown (`65 'A'`); `tools/v32sim-check.sh` / `make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]` runs
-    every suite from one toolchain dir (7 suites, one summary line); `tests/run_gaps.sh` is executable again; PROPOSALS-STATUS rows that contradicted
+    every suite from one toolchain dir (7 suites then, 8 now; one summary line); `tests/run_gaps.sh` is executable again; PROPOSALS-STATUS rows that contradicted
     each other (4.2-4.6, P-I2) fixed. Lua tables print their contents (20261108). Not read, by decision: `;@lang` (the file extension decides) and `;@fn lines=A..B`.
 
   * **20261106 (central maintenance), VS-19**: native v32dev host (`--v32dev-host=N=SPEC`, `src/devhost.c`): storage and serial, a port of `v32dev.py`

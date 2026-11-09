@@ -19,7 +19,8 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 
 | question | tool |
 |---|---|
-| build a cartridge with debug files from C or assembly | `tools/v32mkcart.sh` |
+| build a cartridge with debug files from C, C++, Lua or assembly (optionally optimized: `-O 2`) | `tools/v32mkcart.sh` ([V32DBG-STATUS.md](V32DBG-STATUS.md) for the stack) |
+| check the whole debug stack (v32sim -> v32opt -> v32cc / v32c++ / v32lua -> v32as) | `tests/run_stack_tests.sh TOOLCHAIN_DIR` |
 | step through it, set breakpoints, watch a variable | `v32sim cart.v32` (README "The Debugger", "Source-Level Debugging") |
 | see the local variables of a frame | `locals` / `info locals` (needs `NAME.vbin.vars`: v32cc -g or v32lua -g, then v32as -g) |
 | run a whole set of carts: which crash, trap, overrun | `tools/v32sim-corpus.py` (CSV, screenshots, `--input fixed` for fair load numbers) |
@@ -71,7 +72,7 @@ Short cards for every tool of the ecosystem, for agents: `docs/agents/`.
 |---|---|---|
 | `NAME.asm.sym` | `v32cc -g` | data symbols with sizes: `print counter`, `x/d buf`, `watch [n]`, `--dump=1@n` |
 | `NAME.vbin.debug` | `v32as -g` (or the stock `assemble -g program`) | labels, `break FILE:LINE`, `bt`, `--source` |
-| `NAME.vbin.vars` | `v32as -g` from the `;@var` lines of `v32cc -g` / `v32lua -g` | `locals`, and locals in `print`/`x`/`watch`/`expect` |
+| `NAME.vbin.vars` | `v32as -g` from the `;@var` lines of `v32cc -g` / `v32lua -g` (also via `v32c++ -g`; `v32opt` rewrites `loc=` and marks dead variables `optimized-out`) | `locals`, and locals in `print`/`x`/`watch`/`expect` |
 | `;@src FILE:LINE` lines in the `.asm` | `v32cc -g`, `v32lua -g`; for stock-compiler output `v32opt/scripts/v32srcmark.py` | the source-level modes |
 
 The stock `compile` / `assemble` write no enhanced debug info on their own. With the stock chain v32sim still finds data

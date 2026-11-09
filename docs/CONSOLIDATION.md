@@ -20,7 +20,7 @@ the projects that grew their own keep thin wrappers or standalone tools. Surveye
 | `tools/v32sim-peek.sh` | v32nix `tools/peek.sh`, `klog.sh` | uses `--dump` on v32sim instead of v32peek; `-t` decodes a text ring | integer and text reads on the example |
 | `tools/v32sim-selfcheck.sh` | v32cxx `tools/vircon32/check.sh` (the emulator half) | any cartridge, any `test_errors` global; v32sim by default, `--oracle` for the stock core; plays `CART.input` | pass/fail agree on both engines |
 | `tools/vprof2cmd.py` | new | v32prof scripts -> v32sim commands | per-frame gamepad history **identical** to v32peek, 600 words, with press/release/tap |
-| `tools/v32mkcart.sh` | new (the build lines of v32cxx `check.sh`, v32nix `cart.sh`, v32cc `cartrun.py`) | v32cc/v32as default, `--stock`, `--srcmark` | all three chains on the example |
+| `tools/v32mkcart.sh` | new (the build lines of v32cxx `check.sh`, v32nix `cart.sh`, v32cc `cartrun.py`) | the one front door: C, C++ (`v32c++ -g` via v32cc) and Lua (`v32lua -g`) -> `v32as -g`; `-O LEVEL` runs `v32opt` (keeps `NAME.O0.asm`); `--stock`, `--srcmark` | `tests/run_stack_tests.sh`: C, C++, Lua x -O0/-O2/-O3 on one program (33 checks), in `v32sim-check.sh` as suite `stack` |
 | `--frame-stats=FILE`, `--frame-stats-skip=N` | v32prof's per-frame load; VS-9 proposal 4.1 (first slice) | new, `src/framestats.c` | CPU % and GPU % **identical to v32prof on 400 of 400 frames** |
 | `AGENTS.md`, `CLAUDE.md`, `docs/{TOOLS,TESTING,PROFILING,AGENTS-SNIPPET}.md` | v32cxx `AGENTS.md` (pattern), v32nix `tests/README.md` and `simtest.sh` header, V32DOS `V32SIM-PROPOSAL.md` | new text | - |
 | `tests/run_harness_tests.sh`, `tests/examples/` | new | 13 checks of everything above | 13 / 13 |
@@ -76,8 +76,7 @@ wrappers (`v32orun --compat=NAME`), so `run_gaps.sh` (46/46), `run_romcheck.sh` 
 ## Open items
 
 1. **V32DBG, owners outside v32sim** (2026-11-08): v32opt's `loc=` rewriting, v32cc's function end, globals, struct members and `type=char` are done
-   (v32opt / v32as / v32cc 20261105-dev, v32cc `type=char` 20261108). Open: v32lua chunk locals and upvalues; v32c++ `-g`; macro origins (v32cc
-   SC-5); `;@lang` and `;@fn lines=` are deliberately not read by v32sim (the extension and the line table say the same). Details: `V32DBG-STATUS.md`.
+   (v32opt / v32as / v32cc 20261105-dev, v32cc `type=char` 20261108). Closed 2026-11-09: v32c++ `-g` (`--compiler=v32cc`), v32cc macro origins, v32opt dead variables (`optimized-out`), v32lua chunk-local/global cleanup. Not read on purpose: `;@lang` and `;@fn lines=` are deliberately not read by v32sim (the extension and the line table say the same). Details: `V32DBG-STATUS.md`.
 2. **One oracle runner**: done for the runners (above); `v32prof`/`v32peek`/`v32shot` are folded in; `sysprof` and `v32trace-ref` remain; the old `refrun.cpp`, `v32run.cpp`, `v32peek.cpp`, `v32prof.cpp`, `v32shot.cpp` sources were deleted on 2026-11-08 (nothing built them).
 3. **VS-9 beyond frame stats**: GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`.
 4. **v32mouse in v32sim** (v32nix P-I2; today only gamepad toggles through `v32io-script.py`), and optional emulator extensions to
