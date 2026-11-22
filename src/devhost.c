@@ -919,7 +919,7 @@ void  devhost_start (void)
             dev_open (dh + ch, ch);
             if (dh[ch].running != 0)
             {
-                fprintf (verbose, "[DEVHOST] channel %d: %s\n", ch, dh[ch].spec);
+                DPRINTF(verbose, "[DEVHOST] channel %d: %s\n", ch, dh[ch].spec);
             }
         }
     }

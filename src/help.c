@@ -34,6 +34,8 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --kbd-input=SOURCE    host key source: stdin, fd:N, FIFO/pipe/file (implies --v32kbd)\n");
     fprintf (stdout, "     --v32mouse[=PORT]     emulate a v32mouse on gamepad PORT (default 1); drive it with the\n                           'mouse' command\n");
     fprintf (stdout, "     --fast                do not throttle to real time (frames run as fast as possible)\n");
+    fprintf (stdout, "     --turbo[=report]      --fast, plus: spin loops that cannot change anything are fast-forwarded and a full GPU\n                           pixel queue is dropped instead of painted (screenshots may then be incomplete; README \"Turbo mode\");\n                           =report prints what was skipped to stderr at exit\n");
+    fprintf (stdout, "     --gpu-eager           paint every GPU command at once instead of when a screenshot or save needs the pixels\n                           (same pictures; for comparing, and for timing the painting itself)\n");
     fprintf (stdout, "     --frame-us=N          wall-clock microseconds per frame (default 16666; 0 = --fast)\n");
     fprintf (stdout, "     --max-frames=N        stop after N frames\n");
     fprintf (stdout, "     --fixed-clock[=Y,D,S] TIM_CurrentDate/Time start at year Y, day D (0 = Jan 1st), S seconds\n");

@@ -218,7 +218,7 @@ static uint8_t  native_format (void)
         (void) pwrite (mc.fd, word, 4, base + (off_t) (DEV_REGION_START + i) * 4);
         cw_set (DEV_REGION_START + i, hdr[i]);
     }
-    fprintf (verbose, "[MEMC] formatted '%s' as a v32dev mailbox\n", mc.path);
+    DPRINTF(verbose, "[MEMC] formatted '%s' as a v32dev mailbox\n", mc.path);
     return (TRUE);
 }
 
@@ -232,7 +232,7 @@ static void  mailbox_activate (void)
         devhost_start ();
     }
     bell_reset ();
-    fprintf (verbose, "[MEMC] v32dev mailbox active\n");
+    DPRINTF(verbose, "[MEMC] v32dev mailbox active\n");
 }
 
 void  memc_attach (const char *path)
@@ -583,7 +583,7 @@ void  memc_flush (void)
     }
     else
     {
-        fprintf (verbose, "[MEMC] saved '%s' (%d segments)\n", mc.path, nseg);
+        DPRINTF(verbose, "[MEMC] saved '%s' (%d segments)\n", mc.path, nseg);
     }
 
     mc.flushes  = mc.flushes + 1;

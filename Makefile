@@ -31,7 +31,14 @@ BINDIR  = bin
 
 INC     = -I$(INCDIR) -I$(OBJDIR)
 
-CFLAGS  = -Wall --std=gnu18 -funsigned-char -Wno-unused-value
+# Optimization. -O2 and link-time optimization are the default (the simulator is a hot loop spread over several
+# files: LTO lets the memory, port and cycle helpers inline into it); 'make LTO=' builds without LTO, 'make OPT=-O3' etc.
+# Do NOT add -ffast-math or -march=native: the GPU and the float instructions must give the same last bit as the
+# DesktopEmulator on every host (-ffp-contract=off keeps compilers from fusing multiply-adds on hosts that have them).
+OPT     ?= -O2
+LTO     ?= $(shell for f in -flto=auto -flto; do echo 'int main(void){return 0;}' | $(CC) $$f -x c - -o /dev/null 2>/dev/null && { echo $$f; break; }; done)
+
+CFLAGS  = -Wall --std=gnu18 -funsigned-char -Wno-unused-value $(OPT) $(LTO) -ffp-contract=off
 CFLAGS += -Wno-pointer-sign -Wno-main -Wno-int-conversion
 CFLAGS += -Wno-unused-but-set-variable
 
@@ -71,6 +78,13 @@ $(BIN): $(OBJ) | $(BINDIR)
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(GENHDR) | $(OBJDIR)
 	$(CC) $(CFLAGS) $(INC) -MMD -MP -c $< -o $@
 
+# without flex and bison (tools/build-nogen.sh's situation) the checked-in output in gen/ is used
+HAVE_GEN_TOOLS := $(shell command -v $(FLEX) >/dev/null 2>&1 && command -v $(BISON) >/dev/null 2>&1 && echo yes)
+
+ifneq ($(HAVE_GEN_TOOLS),yes)
+$(GENSRC) $(GENHDR): | $(OBJDIR)
+	cp gen/$(notdir $@) $@
+else
 # command grammar: bison writes parser.c and parser.h, flex writes lexer.c (which
 # includes parser.h for the token numbers)
 $(OBJDIR)/parser.c: $(SRCDIR)/parser.y | $(OBJDIR)
@@ -89,6 +103,7 @@ $(OBJDIR)/asm_parser.h: $(OBJDIR)/asm_parser.c ;
 
 $(OBJDIR)/asm_lexer.c: $(SRCDIR)/asm_lexer.l $(OBJDIR)/asm_parser.h | $(OBJDIR)
 	$(FLEX) -P asm -o $@ $<
+endif
 
 $(OBJDIR)/parser.o $(OBJDIR)/lexer.o $(OBJDIR)/asm_parser.o $(OBJDIR)/asm_lexer.o: $(OBJDIR)/%.o: $(OBJDIR)/%.c
 	$(CC) $(CFLAGS) $(GENFLAGS) $(INC) -MMD -MP -c $< -o $@
@@ -98,11 +113,11 @@ $(OBJDIR) $(BINDIR):
 
 # development build; object files are not rebuilt on flag changes, so run
 # 'make clean' when switching between this, 'asan', and the default build
-debug: CFLAGS += -DDEBUG -g
+debug: CFLAGS += -DDEBUG -g -O0 -fno-lto
 debug: $(BIN)
 
 # sanitizer build (ASan + UBSan) for hunting memory errors
-asan: CFLAGS += -g -fsanitize=address,undefined -fno-omit-frame-pointer
+asan: CFLAGS += -g -O1 -fno-lto -fsanitize=address,undefined -fno-omit-frame-pointer
 asan: $(BIN)
 
 # refresh gen/, the flex/bison output that tools/build-nogen.sh (and the bootstrap archives of v32nix and V32DOS) build from
@@ -125,10 +140,11 @@ test-harness: $(BIN)
 	tests/run_harness_tests.sh
 
 # make version            print the version
-# make version VERSION=x  stamp x into inc/version.h (and the docs' "version" lines)
+# make version VERSION=x  stamp x into inc/version.h and TODO.md's "Status as of version" line (the only places the version is written)
 ifeq ($(origin VERSION),command line)
 version:
 	@sed 's/^\(\#define  *VERSION  *\)"[^"]*"/\1"$(VERSION)"/' inc/version.h > inc/version.h.tmp && mv inc/version.h.tmp inc/version.h
+	@sed 's/^\(Status as of version `\)[^`]*`/\1$(VERSION)`/' TODO.md > TODO.md.tmp && mv TODO.md.tmp TODO.md
 	@echo "$(TARGET) $(VERSION)"
 else
 version:
@@ -136,10 +152,15 @@ version:
 endif
 
 # install: the binary to ~/bin/bin.$(ARCH) or ~/bin, and the helper tools (v32sim-peek.sh, v32sim-golden.sh,
-# v32sim-session.py, oracle/, ... : what the other projects call through $V32SIM_HOME/tools) to ~/share/v32sim.
-# sysinstall: the same under $(PREFIX) (default /usr/local; DESTDIR for packaging). The tools find the binary
-# beside themselves (../bin/v32sim), then on $PATH.
+# v32sim-session.py, oracle/, ... : what the other projects call through $V32SIM_HOME/tools) to $(USRLIB)/tools
+# (~/.local/lib/v32sim/tools, as v32cc's `make install` uses ~/.local/lib/v32cc).
+# sysinstall: the binary to $(PREFIX)/bin and the tools to $(VROOT)/v32sim/tools (/usr/local/Vircon32/v32tools/v32sim/tools:
+# the Vircon32 tools tree v32cc and v32cxx install into). DESTDIR for packaging. The tools find the binary beside
+# themselves (../bin/v32sim, in a checkout), then on $PATH.
+# Both remove what an older v32sim installed in share/v32sim (~/share/v32sim, $(PREFIX)/share/v32sim).
 PREFIX ?= /usr/local
+VROOT  ?= $(PREFIX)/Vircon32/v32tools
+USRLIB ?= $(HOME)/.local/lib/v32sim
 
 install: $(BIN)
 	@if [ -d ~/bin/bin.$(ARCH) ]; then \
@@ -151,19 +172,21 @@ install: $(BIN)
 	else \
 		echo "Skipping: neither ~/bin/bin.$(ARCH) nor ~/bin exist"; \
 	fi
-	@echo "Installing the tools to ~/share/v32sim/"; mkdir -p ~/share/v32sim && cp -R tools ~/share/v32sim/ && find ~/share/v32sim/tools -type f -name '*.o' -delete
+	@echo "Installing the tools to $(USRLIB)/tools"; rm -rf $(USRLIB)/tools ~/share/v32sim; mkdir -p $(USRLIB) && \
+		cp -R tools $(USRLIB)/ && find $(USRLIB)/tools -type f -name '*.o' -delete
 
 uninstall:
-	rm -f ~/bin/bin.$(ARCH)/$(TARGET) ~/bin/$(TARGET); rm -rf ~/share/v32sim
+	rm -f ~/bin/bin.$(ARCH)/$(TARGET) ~/bin/$(TARGET); rm -rf $(USRLIB) ~/share/v32sim
 
 sysinstall: $(BIN)
-	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/share/v32sim
+	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(VROOT)/v32sim
 	install -m 755 $(BIN) $(DESTDIR)$(PREFIX)/bin/$(TARGET)
-	cp -R tools $(DESTDIR)$(PREFIX)/share/v32sim/
-	@echo "Installed $(TARGET) to $(PREFIX)/bin and the tools to $(PREFIX)/share/v32sim/tools"
+	rm -rf $(DESTDIR)$(VROOT)/v32sim/tools $(DESTDIR)$(PREFIX)/share/v32sim
+	cp -R tools $(DESTDIR)$(VROOT)/v32sim/ && find $(DESTDIR)$(VROOT)/v32sim/tools -type f -name '*.o' -delete
+	@echo "Installed $(TARGET) to $(PREFIX)/bin and the tools to $(VROOT)/v32sim/tools"
 
 sysuninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET); rm -rf $(DESTDIR)$(PREFIX)/share/v32sim
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET); rm -rf $(DESTDIR)$(VROOT)/v32sim $(DESTDIR)$(PREFIX)/share/v32sim
 
 # the archive carries the date of the version: ../v32sim-project-YYYYMMDD.zip
 ARCHIVE = ../v32sim-project-$(shell echo $(VERSION_STRING) | cut -c1-8).zip

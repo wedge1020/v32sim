@@ -12,6 +12,7 @@
 # the words are printed (a frame limit is not an error here).
 HERE=$(cd "$(dirname "$0")" && pwd)
 SIM=${V32SIM:-$HERE/../bin/v32sim}; [ -x "$SIM" ] || SIM=$(command -v v32sim)
+XF=${V32SIM_FLAGS:-}          # extra v32sim options for every run, e.g. V32SIM_FLAGS=--turbo
 BIOS=${V32BIOS:-StandardBios.v32}; FRAMES=600; TEXT=0; INPUT=; CARD=
 while [ $# -gt 0 ]; do
     case $1 in -B) BIOS=$2; shift 2;; -F) FRAMES=$2; shift 2;; -t) TEXT=1; shift;; -s) INPUT=$2; shift 2;; -M) CARD=$2; shift 2;; *) break;; esac
@@ -25,9 +26,9 @@ if [ -n "$CARD" ]; then
 fi
 if [ -n "$INPUT" ]; then
     CMD=$(mktemp); python3 -I "$HERE/vprof2cmd.py" "$INPUT" --frames "$FRAMES" > "$CMD" || exit 2
-    out=$("$SIM" --batch --fast -x --max-frames="$FRAMES" -B "$BIOS" $MARG --dump="$COUNT@$SYM" "$CART" < "$CMD" 2>/dev/null); rm -f "$CMD"
+    out=$("$SIM" --batch --fast $XF -x --max-frames="$FRAMES" -B "$BIOS" $MARG --dump="$COUNT@$SYM" "$CART" < "$CMD" 2>/dev/null); rm -f "$CMD"
 else
-    out=$("$SIM" --batch -r --fast -x --max-frames="$FRAMES" -B "$BIOS" $MARG --dump="$COUNT@$SYM" "$CART" < /dev/null 2>/dev/null)
+    out=$("$SIM" --batch -r --fast $XF -x --max-frames="$FRAMES" -B "$BIOS" $MARG --dump="$COUNT@$SYM" "$CART" < /dev/null 2>/dev/null)
 fi
 if [ $TEXT = 1 ]; then
     echo "$out" | python3 -I -c '

@@ -128,6 +128,11 @@ extern FILE      *display;
 extern FILE      *devnull;
 extern FILE      *debug;
 extern FILE      *verbose;
+
+// DPRINTF(stream, ...): fprintf to the --debug / --verbose streams. Those point at /dev/null unless
+// asked for, so test that first: formatting a message nobody will read cost most of the run time
+// of a simulated instruction (the arguments are not evaluated when the stream is /dev/null).
+#define DPRINTF(stream, ...)  do { if (__builtin_expect ((stream) != devnull, 0)) fprintf ((stream), __VA_ARGS__); } while (0)
 extern int8_t    *biosfile;
 extern int8_t    *cartfile;
 extern int8_t    *memcfile;
@@ -172,7 +177,6 @@ extern uint8_t    nextflag;
 extern uint64_t   insn_count;
 #define  BP_TEMP    9           // linked_l.space of a one-shot breakpoint (tbreak)
 extern uint8_t    haltflag;
-extern uint8_t    turboflag;
 extern uint8_t    waitflag;
 extern uint32_t   frame_us;
 extern uint32_t   max_frames;
@@ -286,6 +290,10 @@ void      spu_cart_insert (uint32_t);
 void      spu_cart_remove (void);
 void      memc_save      (void);
 void      gpu_reset      (void);
+void      gpu_flush      (void);                               // paint the draws still queued (gpu.c)
+extern uint8_t   gpu_eager;                                    // --gpu-eager
+extern uint8_t   gpu_turbo;                                    // --turbo
+extern uint64_t  gpu_skipped;
 void      gpu_new_frame  (void);
 int       gpu_console_show (FILE *);
 char     *gpu_console_render (int, size_t *);
@@ -331,6 +339,18 @@ void      timer_change_frame (void);                          // the timer's sta
 void      addrprof_init  (void);                               // address profile (addrprofile.c)
 uint8_t   addrprof_enabled (void);
 void      addrprof_count (uint32_t);
+extern uint8_t   turbo_mode;
+extern uint8_t   turbo_report;                                   // --turbo (turbo.c)
+extern uint32_t  spin_epoch;                                   // turbo.c: bumped by stores, port writes, volatile reads
+extern uint64_t  spin_skipped;
+extern uint8_t   spin_tracking;
+void      spin_note_store (data_t *);
+void      turbo_reset    (void);
+void      turbo_spin_observe (void);
+void      perf_repeat_snapshot (uint32_t *);
+void      perf_repeat_add (const uint32_t *, const uint32_t *, uint32_t);
+extern uint8_t   addrprof_active;                              // --profile-out / --profile-top: counting
+extern uint8_t   srcdebug_stepping;                            // a source-level step is running (srcdebug.c)
 void      addrprof_write (void);
 uint32_t  locals_load_cart (const char *);                   // local variables, NAME.vbin.vars (locals.c)
 uint32_t  locals_load_file (const char *);

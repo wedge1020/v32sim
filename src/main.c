@@ -63,7 +63,6 @@ int8_t   *symbolfile;      // --symbol-file=FILE: data symbols (v32cc NAME.asm.s
 int8_t   *kbdinput;        // --kbd-input: host source of v32kbd keys
 int32_t   mouseport;       // --v32mouse: gamepad port of the mouse, -1 = none
 int32_t   kbdport;         // --v32kbd: gamepad port of the keyboard, -1 = none
-uint8_t   turboflag;
 uint8_t   waitflag;
 uint8_t   wordsize;
 uint32_t  next_bt_lvl;
@@ -122,6 +121,37 @@ static void  fetch_instruction (void)
 {
     REG(IP)                            = rom_offset;
     fetch_fault                        = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////
+    //
+    // The usual case, kept short: the instruction (and its immediate word) lie inside a
+    // loaded ROM/RAM page. Anything else (the memory card page, which counts accesses,
+    // or a fetch that fails) takes the general path below.
+    //
+    {
+        uint32_t      ip      = (uint32_t) rom_offset;
+        uint32_t      offset  = ip & 0x0FFFFFFF;
+        const mem_t  *m       = memory + ((ip & V32_PAGE_MASK) >> 28);
+
+        if (__builtin_expect (((ip & V32_PAGE_MASK) != (V32_PAGE_MEMC << 28)) &&
+                              (m -> data != NULL) && (offset + 1 < m -> size), 1))
+        {
+            const data_t  *d  = m -> data + offset;
+
+            REG(IR)  = d -> value.i32;
+            if ((REG(IR) & IMMVAL_MASK) == IMMVAL_MASK)
+            {
+                decodeflags  = FLAG_IMMEDIATE;
+                REG(IV)      = (d + 1) -> value.i32;
+            }
+            else
+            {
+                decodeflags  = FLAG_NONE;
+                REG(IV)      = 0x00000000;
+            }
+            return;
+        }
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
@@ -221,7 +251,6 @@ int32_t   main (int32_t  argc, char **argv)
     kbdport                         = -1;
     mouseport                       = -1;
     frame_us                        = 1000000 / 60;
-    turboflag                       = FALSE;
     waitflag                        = FALSE;
     errorcheck                      = FALSE;
     sys_error                       = ERROR_NONE;
@@ -289,7 +318,7 @@ int32_t   main (int32_t  argc, char **argv)
     //
     if (cartfile                   == NULL)
     {
-        fprintf (verbose, "[v32sim] started without specifying V32 cartridge file!\n");
+        DPRINTF(verbose, "[v32sim] started without specifying V32 cartridge file!\n");
     }
 
     ////////////////////////////////////////////////////////////////////////////////////
@@ -522,7 +551,7 @@ int32_t   main (int32_t  argc, char **argv)
                 if (btmp           == NULL) // not an existing breakpoint
                 {
                     btmp            = list_grab (&tpoint, tmp);
-                    fprintf (debug, "[main] BREAKing at offset 0x%.8X\n", value);
+                    DPRINTF(debug, "[main] BREAKing at offset 0x%.8X\n", value);
                     bpoint          = list_add (bpoint, btmp);
                 }
             }
@@ -537,8 +566,8 @@ int32_t   main (int32_t  argc, char **argv)
                     {
                         btmp        = list_grab (&tpoint, tmp);
                         btmp -> RAW = value;
-                        fprintf (debug, "[main] BREAKing at label: '%s'\n", btmp -> label);
-                        fprintf (debug, "[main] BREAKing at offset 0x%.8X\n", btmp -> RAW);
+                        DPRINTF(debug, "[main] BREAKing at label: '%s'\n", btmp -> label);
+                        DPRINTF(debug, "[main] BREAKing at offset 0x%.8X\n", btmp -> RAW);
                         bpoint      = list_add (bpoint, btmp);
                     }
                 }
@@ -679,7 +708,7 @@ int32_t   main (int32_t  argc, char **argv)
         //
         if ((commandfile              != NULL) && (runflag == TRUE))
         {
-            fprintf (verbose, "LOADING COMMAND-FILE\n");
+            DPRINTF(verbose, "LOADING COMMAND-FILE\n");
             load_command ();
             fetch_instruction ();
         }
@@ -689,7 +718,7 @@ int32_t   main (int32_t  argc, char **argv)
         // Source-level stepping (step and next in the source modes, finish, until): the engine looks at the
         // instruction about to run and says whether the line has changed
         //
-        if (srcdebug_check ()         == TRUE)
+        if ((srcdebug_stepping       == TRUE) && (srcdebug_check () == TRUE))
         {
             runflag                    = FALSE;
         }
@@ -948,16 +977,19 @@ int32_t   main (int32_t  argc, char **argv)
                 {
                     cpu_immediate      = REG(IV);
                 }
-                addrprof_count (REG(IP));
+                if (addrprof_active   == TRUE)
+                {
+                    addrprof_count (REG(IP));
+                }
                 if (v32trace_on == TRUE)
                 {
                     v32trace_instr ((uint32_t) REG(IP));
                 }
                 insn_count             = insn_count + 1;
-                decode (REG(IR), REG(IV), FREG(IV), decodeflags | FLAG_PROCESS);
+                decode_process (REG(IR), REG(IV), FREG(IV), decodeflags | FLAG_PROCESS);
 
                 // Check for watchpoint triggers
-                if (wpoint_check ()   == TRUE)
+                if ((wpoint          != NULL) && (wpoint_check () == TRUE))
                 {
                     runflag            = FALSE;
                 }
@@ -1066,6 +1098,10 @@ int32_t   main (int32_t  argc, char **argv)
         //
         if (branchflag                == TRUE)
         {
+            if (turbo_mode            == TRUE)
+            {
+                turbo_spin_observe ();       // --turbo: a loop that repeats exactly is fast-forwarded
+            }
             branchflag                 = FALSE;
             if (retflag               == TRUE)
             {
@@ -1158,6 +1194,11 @@ int32_t   main (int32_t  argc, char **argv)
     if (quit_status_set              == TRUE)
     {
         exitstatus                  = quit_status;
+    }
+    if ((turbo_mode == TRUE) && (turbo_report == TRUE))
+    {
+        fprintf (stderr, "[turbo] fast-forwarded %llu spin-loop cycles, dropped %llu queued GPU draws\n",
+                 (unsigned long long) spin_skipped, (unsigned long long) gpu_skipped);
     }
     gputrace_close ();
     ft_write ();

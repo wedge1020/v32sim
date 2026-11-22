@@ -66,16 +66,49 @@ static int       noextra      = FALSE;
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-// blend(): combine one source pixel (color 0-255 floats, alpha 0-1) into the
-// framebuffer using the active blending mode
+// Pixels. The framebuffer is only ever looked at by a screenshot or a save state, so the
+// pixel work is deferred: what a draw or a clear would paint is queued (pend[]) and painted,
+// in order, when something asks for the framebuffer (gpu_flush) or when the queue is full.
+// The result is exactly what painting at once would give. A clear that overwrites every
+// pixel (opaque, not additive/subtractive) makes everything queued before it unnecessary, so
+// a program that clears the screen every frame never has anything to paint but its last frame.
+// Under --turbo a full queue is dropped instead of painted (gpu_skipped counts the draws).
 //
-static void  blend (int x, int y, float r, float g, float b, float a, int32_t mode)
-{
-    float     src[3]  = { r, g, b };
-    uint8_t  *dst     = framebuffer[y][x];
-    int       i       = 0;
-    float     v       = 0.0f;
+// The arithmetic below is the arithmetic of the original per-pixel blend() in the same order
+// (so the same floats): the speedups are the same results reached with fewer steps (a
+// transparent source leaves the pixel alone, an opaque one replaces it, the per-channel
+// colour products come from a table). Do not build this with -ffast-math or -march=native:
+// fused multiply-adds would change the last bit of some pixels.
+//
+#define  PEND_MAX   16384
 
+typedef struct
+{
+    uint8_t   clear;                 // 1 = fill the screen with colour 'mult'
+    int32_t   seltex;
+    int32_t   mode;
+    uint32_t  mult;
+    float     vx[4];
+    float     vy[4];
+    float     tminx, tmaxx, tminy, tmaxy;
+} pend_t;
+
+static pend_t    pend[PEND_MAX];
+static uint32_t  pend_n         = 0;
+uint8_t          gpu_eager      = FALSE;       // --gpu-eager: paint every command at once
+uint8_t          gpu_turbo      = FALSE;       // --turbo: a full queue is dropped, not painted
+uint64_t         gpu_skipped    = 0;           // draws dropped that way
+
+static inline __attribute__((always_inline)) void  blend_px (uint8_t *dst, float r, float g, float b, float a, int32_t mode)
+{
+    float  src[3]  = { r, g, b };
+    float  v       = 0.0f;
+    int    i       = 0;
+
+    if (a == 0.0f)
+    {
+        return;                                        // nothing is added, subtracted or mixed in
+    }
     for (i = 0; i < 3; i = i + 1)
     {
         switch (mode)
@@ -87,13 +120,279 @@ static void  blend (int x, int y, float r, float g, float b, float a, int32_t mo
                 v = dst[i] - src[i] * a;
                 break;
             default: // alpha
-                v = src[i] * a + dst[i] * (1.0f - a);
+                v = (a == 1.0f) ? src[i] : (src[i] * a + dst[i] * (1.0f - a));
                 break;
         }
         if (v < 0.0f)   v = 0.0f;
         if (v > 255.0f) v = 255.0f;
         dst[i] = (uint8_t) (v + 0.5f);
     }
+}
+
+//
+// per-channel products of the multiply colour: lut_c[k][v] = v * mult_k / 255 and lut_a[v] =
+// (v / 255) * (mult_a / 255), the floats the per-pixel formulas give. Rebuilt when the colour changes.
+//
+static float     lut_c[3][256];
+static float     lut_a[256];
+static uint32_t  lut_mult   = 0;
+static uint8_t   lut_ok     = FALSE;
+
+static void  lut_build (uint32_t mult)
+{
+    float  m[3]  = { (float) (mult & 0xFF), (float) ((mult >> 8) & 0xFF), (float) ((mult >> 16) & 0xFF) };
+    float  ma    = (float) (mult >> 24);
+    int    v     = 0;
+    int    k     = 0;
+
+    if ((lut_ok == TRUE) && (lut_mult == mult))
+    {
+        return;
+    }
+    for (v = 0; v < 256; v = v + 1)
+    {
+        for (k = 0; k < 3; k = k + 1)
+        {
+            lut_c[k][v]  = (float) v * m[k] / 255.0f;
+        }
+        lut_a[v]  = ((float) v / 255.0f) * (ma / 255.0f);
+    }
+    lut_mult  = mult;
+    lut_ok    = TRUE;
+}
+
+static uint32_t  gpu_texel (const vtex_t *tex, int x, int y);
+
+static void  pend_fill (uint32_t  c,  int32_t  mode)
+{
+    uint8_t  *dst  = &framebuffer[0][0][0];
+    float     a    = (float) (c >> 24) / 255.0f;
+    int       n    = 0;
+
+    if ((a == 1.0f) && (mode != GPUBlendingMode_Add) && (mode != GPUBlendingMode_Subtract))
+    {
+        uint8_t  r  = (uint8_t) (c & 0xFF);
+        uint8_t  g  = (uint8_t) ((c >> 8) & 0xFF);
+        uint8_t  b  = (uint8_t) ((c >> 16) & 0xFF);
+
+        for (n = 0; n < GPU_SCREEN_PIXELS; n = n + 1)
+        {
+            dst[3 * n]      = r;
+            dst[3 * n + 1]  = g;
+            dst[3 * n + 2]  = b;
+        }
+        return;
+    }
+    for (n = 0; n < GPU_SCREEN_PIXELS; n = n + 1)
+    {
+        blend_px (dst + 3 * n, (float) (c & 0xFF), (float) ((c >> 8) & 0xFF), (float) ((c >> 16) & 0xFF), a, mode);
+    }
+}
+
+//
+// the texel array of a texture: a pointer to the data_t of its first texel when all
+// wide * high texels are in the page, else NULL (then every texel is looked up on its own)
+//
+static const data_t  *tex_base (const vtex_t *tex)
+{
+    uint32_t  page  = (tex -> offset & V32_PAGE_MASK) >> 28;
+    uint64_t  off   = (tex -> offset & 0x0FFFFFFF);
+    uint64_t  n     = (uint64_t) tex -> wide * tex -> high;
+
+    if ((memory + page) -> data == NULL)                           return (NULL);
+    if (n == 0)                                                    return (NULL);
+    if (off + n > (uint64_t) (memory + page) -> size + (memory + page) -> extra)  return (NULL);
+    return ((memory + page) -> data + off);
+}
+
+static inline __attribute__((always_inline)) uint32_t  tex_at (const vtex_t *tex, const data_t *tb, int x, int y)
+{
+    if ((x < 0) || (y < 0) || (x >= tex -> wide) || (y >= tex -> high))
+    {
+        return (0);
+    }
+    if (tb != NULL)
+    {
+        return ((tb + (size_t) y * tex -> wide + x) -> value.raw);
+    }
+    return (gpu_texel (tex, x, y));
+}
+
+//
+// paint one queued draw: the rasterization the original gpu_draw_impl did inline. The pixel
+// centre (x + 0.5, y + 0.5) is expressed as P = V0 + s (V1-V0) + t (V2-V0) and is inside
+// when 0 <= s,t < 1; the texel is that of (u, v) = lerp (s, t) of the region corners.
+//
+static void  pend_draw (const pend_t *p)
+{
+    const vtex_t  *tex   = NULL;
+    const data_t  *tb    = NULL;
+    const float   *vx    = p -> vx;
+    const float   *vy    = p -> vy;
+    float          e1x   = vx[1] - vx[0];
+    float          e1y   = vy[1] - vy[0];
+    float          e2x   = vx[2] - vx[0];
+    float          e2y   = vy[2] - vy[0];
+    float          det   = e1x * e2y - e1y * e2x;
+    float          lox   = vx[0];
+    float          hix   = vx[0];
+    float          loy   = vy[0];
+    float          hiy   = vy[0];
+    int            x0    = 0;
+    int            x1    = 0;
+    int            y0    = 0;
+    int            y1    = 0;
+    int            x     = 0;
+    int            y     = 0;
+    int            i     = 0;
+    int32_t        mode  = p -> mode;
+    float          tminx = p -> tminx, tmaxx = p -> tmaxx, tminy = p -> tminy, tmaxy = p -> tmaxy;
+
+    if (p -> seltex == -1)
+    {
+        tex = bios_vtex;
+    }
+    else if ((p -> seltex >= 0) && (cart_vtex != NULL) && ((uint32_t) p -> seltex < cart_vtex -> qty))
+    {
+        tex = cart_vtex + p -> seltex;
+    }
+    if ((tex == NULL) || (tex -> size == 0))
+    {
+        return;
+    }
+    tb  = tex_base (tex);
+    lut_build (p -> mult);
+
+    for (i = 1; i < 4; i = i + 1)
+    {
+        if (vx[i] < lox) lox = vx[i];
+        if (vx[i] > hix) hix = vx[i];
+        if (vy[i] < loy) loy = vy[i];
+        if (vy[i] > hiy) hiy = vy[i];
+    }
+    x0 = (int) floorf (lox);  if (x0 < 0) x0 = 0;
+    y0 = (int) floorf (loy);  if (y0 < 0) y0 = 0;
+    x1 = (int) ceilf  (hix);  if (x1 > GPU_SCREEN_W) x1 = GPU_SCREEN_W;
+    y1 = (int) ceilf  (hiy);  if (y1 > GPU_SCREEN_H) y1 = GPU_SCREEN_H;
+    if ((x0 >= x1) || (y0 >= y1))
+    {
+        return;
+    }
+
+    if ((e1y == 0.0f) && (e2x == 0.0f))
+    {
+        //
+        // axis-aligned (no rotation): s depends only on the column and t only on the row
+        // (the terms with e1y and e2x are +-0), so find the source column of every pixel
+        // column and the source row of every pixel row once
+        //
+        int  colx[GPU_SCREEN_W];
+        int  rowy[GPU_SCREEN_H];
+
+        for (x = x0; x < x1; x = x + 1)
+        {
+            float  dx  = ((float) x + 0.5f) - vx[0];
+            float  s   = (dx * e2y - 0.0f) / det;
+
+            colx[x]  = ((s < 0.0f) || (s >= 1.0f)) ? -1 : (int) floorf (tminx + s * (tmaxx - tminx));
+        }
+        for (y = y0; y < y1; y = y + 1)
+        {
+            float  dy  = ((float) y + 0.5f) - vy[0];
+            float  t   = (e1x * dy - 0.0f) / det;
+
+            rowy[y]  = ((t < 0.0f) || (t >= 1.0f)) ? -1 : (int) floorf (tminy + t * (tmaxy - tminy));
+        }
+        for (y = y0; y < y1; y = y + 1)
+        {
+            uint8_t  *row  = &framebuffer[y][0][0];
+            int       ty   = rowy[y];
+
+            if ((ty < 0) || (ty >= tex -> high))
+            {
+                continue;                                    // outside the texture: transparent, nothing to paint
+            }
+            for (x = x0; x < x1; x = x + 1)
+            {
+                int       tx  = colx[x];
+                uint32_t  c   = 0;
+
+                if ((tx < 0) || (tx >= tex -> wide))
+                {
+                    continue;
+                }
+                c  = (tb != NULL) ? (tb + (size_t) ty * tex -> wide + tx) -> value.raw : gpu_texel (tex, tx, ty);
+                if ((c >> 24) == 0)
+                {
+                    continue;                                // a = 0: the pixel is left as it is, in every mode
+                }
+                blend_px (row + 3 * x, lut_c[0][c & 0xFF], lut_c[1][(c >> 8) & 0xFF], lut_c[2][(c >> 16) & 0xFF],
+                          lut_a[c >> 24], mode);
+            }
+        }
+        return;
+    }
+
+    for (y = y0; y < y1; y = y + 1)
+    {
+        for (x = x0; x < x1; x = x + 1)
+        {
+            float     dx  = ((float) x + 0.5f) - vx[0];
+            float     dy  = ((float) y + 0.5f) - vy[0];
+            float     s   = (dx * e2y - dy * e2x) / det;
+            float     t   = (e1x * dy - e1y * dx) / det;
+            float     u   = 0.0f;
+            float     v   = 0.0f;
+            uint32_t  c   = 0;
+
+            if ((s < 0.0f) || (s >= 1.0f) || (t < 0.0f) || (t >= 1.0f))
+            {
+                continue;
+            }
+            u  = tminx + s * (tmaxx - tminx);
+            v  = tminy + t * (tmaxy - tminy);
+            c  = tex_at (tex, tb, (int) floorf (u), (int) floorf (v));
+            if ((c >> 24) == 0)
+            {
+                continue;
+            }
+            blend_px (&framebuffer[y][x][0], lut_c[0][c & 0xFF], lut_c[1][(c >> 8) & 0xFF], lut_c[2][(c >> 16) & 0xFF],
+                      lut_a[c >> 24], mode);
+        }
+    }
+}
+
+//
+// gpu_flush(): paint what is queued. Called before the framebuffer is read, and by the
+// loaders before the textures a queued draw refers to are replaced
+//
+void  gpu_flush (void)
+{
+    uint32_t  n  = 0;
+
+    for (n = 0; n < pend_n; n = n + 1)
+    {
+        if (pend[n].clear == TRUE)  pend_fill (pend[n].mult, pend[n].mode);
+        else                        pend_draw (pend + n);
+    }
+    pend_n  = 0;
+}
+
+static pend_t  *pend_next (void)
+{
+    if (pend_n == PEND_MAX)
+    {
+        if (gpu_turbo == TRUE)
+        {
+            gpu_skipped  = gpu_skipped + pend_n;
+            pend_n       = 0;
+        }
+        else
+        {
+            gpu_flush ();
+        }
+    }
+    return (pend + pend_n++);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -104,21 +403,24 @@ static void  gpu_clear (void)
 {
     uint32_t  c     = (uint32_t) IPORTGET(GPU_ClearColor);
     int32_t   mode  = IPORTGET(GPU_ActiveBlending);
-    int       x     = 0;
-    int       y     = 0;
+    pend_t   *q     = NULL;
 
     perf_gpu_clear ();
     hl_nbox  = 0;                                        // what was drawn is gone
     hl_head  = 0;
 
-    for (y = 0; y < GPU_SCREEN_H; y = y + 1)
+    if (((c >> 24) == 255) && (mode != GPUBlendingMode_Add) && (mode != GPUBlendingMode_Subtract))
     {
-        for (x = 0; x < GPU_SCREEN_W; x = x + 1)
-        {
-            blend (x, y, (float) (c & 0xFF), (float) ((c >> 8) & 0xFF),
-                         (float) ((c >> 16) & 0xFF), (float) (c >> 24) / 255.0f, mode);
-        }
+        pend_n  = 0;                                     // every pixel is replaced: the queue is moot
     }
+    else if ((c >> 24) == 0)
+    {
+        return;                                          // no change at all
+    }
+    q         = pend_next ();
+    q -> clear  = TRUE;
+    q -> mult   = c;
+    q -> mode   = mode;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -127,6 +429,7 @@ static void  gpu_clear (void)
 //
 void  gpu_reset (void)
 {
+    pend_n  = 0;
     memset (framebuffer, 0, sizeof (framebuffer));
 }
 
@@ -180,7 +483,7 @@ void  gpu_new_frame (void)
 // gpu_texel(): fetch pixel (x, y) of the selected texture as 0xAABBGGRR, or 0 if
 // outside the texture
 //
-static uint32_t  gpu_texel (vtex_t *tex, int x, int y)
+static uint32_t  gpu_texel (const vtex_t *tex, int x, int y)
 {
     word_t  *w  = NULL;
 
@@ -915,40 +1218,16 @@ static void  gpu_draw_impl (uint8_t scaling, uint8_t rotation)
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
-    // rasterize the parallelogram: for every pixel centre inside the bounding box,
-    // solve P = V0 + s (V1-V0) + t (V2-V0); inside when 0 <= s,t < 1
+    // the quad is known: note where it was drawn for the highlight outlines, and queue the
+    // pixels (pend_draw() rasterizes the parallelogram when the framebuffer is needed)
     //
     {
-        float  e1x  = vx[1] - vx[0];
-        float  e1y  = vy[1] - vy[0];
-        float  e2x  = vx[2] - vx[0];
-        float  e2y  = vy[2] - vy[0];
-        float  det  = e1x * e2y - e1y * e2x;
-        float  lox  = vx[0];
-        float  hix  = vx[0];
-        float  loy  = vy[0];
-        float  hiy  = vy[0];
-        int    x0   = 0;
-        int    x1   = 0;
-        int    y0   = 0;
-        int    y1   = 0;
-        int    x    = 0;
-        int    y    = 0;
-        float  mr   = (float) (mult & 0xFF);
-        float  mg   = (float) ((mult >> 8) & 0xFF);
-        float  mb   = (float) ((mult >> 16) & 0xFF);
-        float  ma   = (float) (mult >> 24);
+        float  det  = (vx[1] - vx[0]) * (vy[2] - vy[0]) - (vy[1] - vy[0]) * (vx[2] - vx[0]);
+        pend_t *q   = NULL;
 
         if (fabsf (det) < 1e-9f)
         {
             return; // degenerate (zero scale)
-        }
-        for (i = 1; i < 4; i = i + 1)
-        {
-            if (vx[i] < lox) lox = vx[i];
-            if (vx[i] > hix) hix = vx[i];
-            if (vy[i] < loy) loy = vy[i];
-            if (vy[i] > hiy) hiy = vy[i];
         }
         for (i = 0; i < hl_nreg; i = i + 1)
         {
@@ -965,38 +1244,15 @@ static void  gpu_draw_impl (uint8_t scaling, uint8_t rotation)
                 break;
             }
         }
-        x0 = (int) floorf (lox);  if (x0 < 0) x0 = 0;
-        y0 = (int) floorf (loy);  if (y0 < 0) y0 = 0;
-        x1 = (int) ceilf  (hix);  if (x1 > GPU_SCREEN_W) x1 = GPU_SCREEN_W;
-        y1 = (int) ceilf  (hiy);  if (y1 > GPU_SCREEN_H) y1 = GPU_SCREEN_H;
-
-        for (y = y0; y < y1; y = y + 1)
-        {
-            for (x = x0; x < x1; x = x + 1)
-            {
-                float     dx  = ((float) x + 0.5f) - vx[0];
-                float     dy  = ((float) y + 0.5f) - vy[0];
-                float     s   = (dx * e2y - dy * e2x) / det;
-                float     t   = (e1x * dy - e1y * dx) / det;
-                float     u   = 0.0f;
-                float     v   = 0.0f;
-                uint32_t  c   = 0;
-                float     a   = 0.0f;
-
-                if ((s < 0.0f) || (s >= 1.0f) || (t < 0.0f) || (t >= 1.0f))
-                {
-                    continue;
-                }
-                u  = tminx + s * (tmaxx - tminx);
-                v  = tminy + t * (tmaxy - tminy);
-                c  = gpu_texel (tex, (int) floorf (u), (int) floorf (v));
-                a  = ((float) (c >> 24) / 255.0f) * (ma / 255.0f);
-                blend (x, y, (float) (c & 0xFF)         * mr / 255.0f,
-                             (float) ((c >> 8) & 0xFF)  * mg / 255.0f,
-                             (float) ((c >> 16) & 0xFF) * mb / 255.0f,
-                       a, mode);
-            }
-        }
+        q          = pend_next ();
+        q -> clear = FALSE;
+        q -> seltex = seltex;
+        q -> mode  = mode;
+        q -> mult  = mult;
+        memcpy (q -> vx, vx, sizeof (vx));
+        memcpy (q -> vy, vy, sizeof (vy));
+        q -> tminx = tminx;  q -> tmaxx = tmaxx;
+        q -> tminy = tminy;  q -> tmaxy = tmaxy;
     }
 }
 
@@ -1062,6 +1318,8 @@ int  gpu_save (FILE *f)
     int  x  = 0;
     int  y  = 0;
 
+    gpu_flush ();
+
     for (y = 0; y < GPU_SCREEN_H; y = y + 1)
     {
         for (x = 0; x < GPU_SCREEN_W; x = x + 1)
@@ -1082,6 +1340,8 @@ int  gpu_restore (FILE *f)
     int       x  = 0;
     int       y  = 0;
     uint32_t  v  = 0;
+
+    pend_n  = 0;                      // the saved screen replaces whatever was pending
 
     for (y = 0; y < GPU_SCREEN_H; y = y + 1)
     {
@@ -1461,6 +1721,12 @@ static uint8_t  shot_write (const char *filename, int plain)
     z    = (uint8_t *) malloc (zlen);
     if ((raw != NULL) && (z != NULL))
     {
+        gpu_flush ();
+        if (gpu_skipped > 0)
+        {
+            fprintf (stderr, "[screenshot] warning: --turbo skipped %llu draws that did not fit the pending queue; the picture may be incomplete\n",
+                     (unsigned long long) gpu_skipped);
+        }
         memcpy (shot, framebuffer, sizeof (shot));       // a copy: the outlines are not on the screen
         if ((plain == FALSE) && (noextra == FALSE))
         {
@@ -1542,5 +1808,9 @@ void  gpu_command (int32_t command)
     uint64_t  t0  = ft_now ();
 
     gpu_command_impl (command);
+    if (gpu_eager == TRUE)
+    {
+        gpu_flush ();
+    }
     ft_gpu (t0);
 }

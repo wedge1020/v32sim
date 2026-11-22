@@ -24,7 +24,7 @@ linked_l *listnode (uint8_t  type, uint32_t  value)
     newnode -> next      = NULL;
     newnode -> end       = NULL;
 
-    fprintf (debug, "[listnode] type: %hhu, value: %u\n", newnode -> type, value);
+    DPRINTF(debug, "[listnode] type: %hhu, value: %u\n", newnode -> type, value);
 
     return (newnode);
 }

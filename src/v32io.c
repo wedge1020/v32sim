@@ -735,7 +735,7 @@ static void  source_poll (void)
     {
         if (kbd.eofignore == 0)
         {
-            fprintf (verbose, "[v32kbd] end of the host input\n");
+            DPRINTF(verbose, "[v32kbd] end of the host input\n");
             source_close ();
         }
         return;

@@ -159,55 +159,31 @@ uint8_t  memory_chk (uint32_t  address, uint8_t  flag, uint8_t  sys_force)
     //
     uint32_t  page             = (address & V32_PAGE_MASK) >> 28;
     uint32_t  offset           = (address & 0x0FFFFFFF);
-    uint8_t   type[5];
-    uint8_t   action[6];
-    uint8_t   attr             = 0;
+    const mem_t *m             = memory + page;
+    uint8_t   attr             = m -> flag;
     uint8_t   result           = TRUE;
-    int8_t    error            = ERROR_NONE;
-
-    if ((flag & FLAG_READ)    == FLAG_READ)
-    {
-        sprintf (action, "read");
-        error                  = ERROR_MEMORY_READ;
-    }
-    else
-    {
-        sprintf (action, "write");
-        error                  = ERROR_MEMORY_WRITE;
-    }
-
-    switch (page)
-    {
-        case V32_PAGE_RAM:
-            sprintf (type, "RAM ");
-            break;
-
-        case V32_PAGE_BIOS:
-            sprintf (type, "BIOS");
-            break;
-
-        case V32_PAGE_CART:
-            sprintf (type, "CART");
-            break;
-
-        default:    // V32_PAGE_MEMC
-            sprintf (type, "MEMC");
-            break;
-    }
+    int8_t    error            = ((flag & FLAG_READ) == FLAG_READ) ? ERROR_MEMORY_READ : ERROR_MEMORY_WRITE;
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
-    // report the error, set system error
+    // report the error, set system error (the texts are only built for a message that
+    // will be printed: this function runs for every memory access)
     //
-    attr                       = (memory+page) -> flag;
-    if ((offset               >= (memory+page) -> size) ||
+    if ((offset               >= m -> size) ||
         ((sys_force           == FALSE) &&
          (flag                != (flag & attr))))
     {
         if (sys_force         == FALSE)
         {
-            fprintf (verbose, "[ERROR] invalid %s %s at 0x%.8X\n",
-                              type, action, address);
+            if (verbose       != devnull)
+            {
+                const char  *action  = ((flag & FLAG_READ) == FLAG_READ) ? "read" : "write";
+                const char  *type    = (page == V32_PAGE_RAM)  ? "RAM " :
+                                       (page == V32_PAGE_BIOS) ? "BIOS" :
+                                       (page == V32_PAGE_CART) ? "CART" : "MEMC";
+
+                fprintf (verbose, "[ERROR] invalid %s %s at 0x%.8X\n", type, action, address);
+            }
             sys_error          = error;
         }
         result                 = FALSE;
@@ -217,7 +193,7 @@ uint8_t  memory_chk (uint32_t  address, uint8_t  flag, uint8_t  sys_force)
     //
     // memory not loaded (so any access would be an error)
     //
-    if ((memory+page) -> data == NULL)
+    if (m -> data == NULL)
     {
         if ((result           == TRUE) &&
             (sys_force        == FALSE))
@@ -263,6 +239,17 @@ word_t *memory_get (uint32_t  address, uint8_t  sys_force)
     uint8_t   check                = FLAG_NONE;
     word_t   *wptr                 = NULL;
 
+    {
+        // the common case, without the checks' bookkeeping: inside the page, readable (or forced), loaded
+        const mem_t  *m            = memory + page;
+
+        if (__builtin_expect ((offset < m -> size) && (m -> data != NULL) &&
+                              ((sys_force == TRUE) || ((m -> flag & FLAG_READ) == FLAG_READ)), 1))
+        {
+            if ((page == V32_PAGE_MEMC) && (sys_force == FALSE))  perf_memc_access ();
+            return (&(m -> data + offset) -> value);
+        }
+    }
     check                          = memory_chk (address, FLAG_READ, sys_force);
     if (check                     == TRUE)
     {
@@ -281,10 +268,21 @@ void    memory_set (uint32_t  address, uint32_t  dataword, uint8_t  sys_force)
     uint32_t  offset                = (address & 0x0FFFFFFF);
     uint8_t   check                 = TRUE;
 
+    {
+        const mem_t  *m             = memory + page;
+
+        if (__builtin_expect ((page != V32_PAGE_MEMC) && ((m -> flag & FLAG_WRITE) == FLAG_WRITE) && (offset < m -> size) && (m -> data != NULL), 1))
+        {
+            if (__builtin_expect (spin_tracking == TRUE, 0))  spin_note_store (m -> data + offset);   // turbo.c
+            (m -> data + offset) -> value.i32  = dataword;       // not the memory card (which tracks its writes)
+            return;
+        }
+    }
     check                           = memory_chk (address, FLAG_WRITE, sys_force);
     if (check                      == TRUE)
     {
         dptr                        = (memory+page)  -> data;
+        spin_epoch                  = spin_epoch + 1;
         (dptr+offset) -> value.i32  = dataword;
         if (page                   == V32_PAGE_MEMC)
         {
@@ -301,10 +299,21 @@ void    fmemory_set (uint32_t  address, float  dataword, uint8_t  sys_force)
     uint32_t  offset                = (address & 0x0FFFFFFF);
     uint8_t   check                 = TRUE;
 
+    {
+        const mem_t  *m             = memory + page;
+
+        if (__builtin_expect ((page != V32_PAGE_MEMC) && ((m -> flag & FLAG_WRITE) == FLAG_WRITE) && (offset < m -> size) && (m -> data != NULL), 1))
+        {
+            if (__builtin_expect (spin_tracking == TRUE, 0))  spin_note_store (m -> data + offset);
+            (m -> data + offset) -> value.f32  = dataword;
+            return;
+        }
+    }
     check                           = memory_chk (address, FLAG_WRITE, sys_force);
     if (check                      == TRUE)
     {
         dptr                        = (memory+page)  -> data;
+        spin_epoch                  = spin_epoch + 1;
         (dptr+offset) -> value.f32  = dataword;
         if (page                   == V32_PAGE_MEMC)
         {

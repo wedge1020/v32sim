@@ -204,6 +204,22 @@ void  perf_port_read (uint16_t port)
 }
 
 void  perf_memc_access (void)             { cur[C_MEMC] = cur[C_MEMC] + 1; }
+
+//
+// --turbo spin loops (turbo.c): the counters a loop without stores can move are instructions, gamepad
+// reads and memory-card reads; a skipped repeat adds k times what one trip added
+//
+void  perf_repeat_snapshot (uint32_t *out)
+{
+    out[0] = cur[C_INSTR];  out[1] = cur[C_PADREADS];  out[2] = cur[C_MEMC];
+}
+
+void  perf_repeat_add (const uint32_t *before, const uint32_t *after, uint32_t k)
+{
+    cur[C_INSTR]    = cur[C_INSTR]    + k * (after[0] - before[0]);
+    cur[C_PADREADS] = cur[C_PADREADS] + k * (after[1] - before[1]);
+    cur[C_MEMC]     = cur[C_MEMC]     + k * (after[2] - before[2]);
+}
 void  perf_instruction (void)             { cur[C_INSTR] = cur[C_INSTR] + 1; }
 void  perf_bus_words (int sets)           { if (sets) cur[C_SETS] = cur[C_SETS] + 1; else cur[C_MOVS] = cur[C_MOVS] + 1; }
 

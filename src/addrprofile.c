@@ -16,6 +16,7 @@ uint32_t  profile_top        = 0;        // --profile-top=N
 uint8_t   fixed_cycles       = FALSE;    // --fixed-cycles
 uint8_t   profile_by_function = FALSE;   // --profile-by=function
 uint8_t   profile_event      = PROFEV_INSTR;   // --profile-event=KIND (VS-13 4.2)
+uint8_t   addrprof_active   = FALSE;    // counting is on: the main loop calls addrprof_count only then
 static uint32_t  cur_ip      = 0;        // the instruction being executed, for the events it causes
 
 const char *const profile_event_name[PROFEV_N] = { "instr", "gpu-draw", "gpu-portwrite", "spu-write", "cycles" };
@@ -43,6 +44,7 @@ void  addrprof_init (void)
     {
         return;
     }
+    addrprof_active  = TRUE;
     for (page = 0; page < NUM_MEMORY_PAGES; page = page + 1)
     {
         if ((memory+page) -> size > 0)

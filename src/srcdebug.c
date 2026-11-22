@@ -683,9 +683,12 @@ static char    last_file[512];
 static uint32_t last_line  = 0;
 static uint8_t last_has_loc = FALSE;
 
+uint8_t  srcdebug_stepping  = FALSE;       // a source-level step is in progress (the main loop calls srcdebug_check only then)
+
 void  srcdebug_cancel (void)
 {
-    ss.mode  = SS_NONE;
+    ss.mode            = SS_NONE;
+    srcdebug_stepping  = FALSE;
 }
 
 // the user is back at the prompt, or the machine moved: frames and the list position are stale
@@ -705,6 +708,7 @@ static void  begin (int mode, const char *tag)
 
     memset (&ss, 0, sizeof (ss));
     ss.mode   = mode;
+    srcdebug_stepping  = (mode != SS_NONE);
     ss.tag    = tag;
     ss.insn0  = insn_count;
     e         = find_contain ((uint32_t) REG(IP));
@@ -857,6 +861,7 @@ static void  stop_here (void)
     const char  *tag   = ss.tag;
 
     ss.mode  = SS_NONE;
+    srcdebug_stepping  = FALSE;
     runflag  = FALSE;
     moved ();
     if (e == NULL)

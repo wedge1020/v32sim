@@ -16,5 +16,5 @@ else
       bison -p asm --defines=asm_parser.h -o asm_parser.c "$SRC/src/asm_parser.y" && flex -P asm -o asm_lexer.c "$SRC/src/asm_lexer.l" ) || exit 1
 fi
 LH=; [ "$(uname -s)" = Darwin ] || LH=-lhistory
-( cd "$W" && cc -O2 -w --std=gnu18 -funsigned-char -I"$SRC/inc" -Igen -o "$OUT/v32sim" "$SRC"/src/*.c gen/*.c -lreadline -lm $LH ) || { echo "v32sim build failed" >&2; exit 1; }
+( cd "$W" && cc -O2 -ffp-contract=off -w --std=gnu18 -funsigned-char -I"$SRC/inc" -Igen -o "$OUT/v32sim" "$SRC"/src/*.c gen/*.c -lreadline -lm $LH ) || { echo "v32sim build failed" >&2; exit 1; }
 rm -rf "$W"; echo "built $OUT/v32sim"

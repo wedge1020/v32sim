@@ -170,7 +170,7 @@ uint32_t  locals_load_cart (const char *datafile)
     }
     fclose (fptr);
     tally  = locals_load_file (vars_file);
-    fprintf (verbose, "LOADING LOCALS FROM: %s (%u)\n", vars_file, tally);
+    DPRINTF(verbose, "LOADING LOCALS FROM: %s (%u)\n", vars_file, tally);
     return (tally);
 }
 

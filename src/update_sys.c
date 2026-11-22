@@ -2,11 +2,6 @@
 
 #include "defines.h"
 
-// === NEW: Turbo mode flag (declare extern if defined in main.c) ===
-#ifndef TURBOFLAG_DECLARED
-extern uint8_t turboflag;  // Defined in main.c via --turbo
-#endif
-
 // === NEW: High-resolution timer helper ===
 static uint64_t get_ns(void) {
     struct timespec ts;
@@ -16,7 +11,7 @@ static uint64_t get_ns(void) {
 
 // === NEW: Frame-based throttling state ===
 static uint64_t frame_start_ns = 0;
-#define CYCLES_PER_FRAME (turboflag ? 500000 : 250000)  // 500k (30MHz) or 250k (15MHz)
+#define CYCLES_PER_FRAME V32_CYCLES_PER_FRAME            // 250k cycles: 15 MHz at 60 frames per second
 #define FRAME_TIME_NS    (frame_us * 1000ULL)                    // ~16.67ms by default
 
 //
@@ -40,8 +35,14 @@ uint8_t   frame_limit   = FALSE;   // set when max_frames was reached
 // the first instruction of a frame reads TIM_CycleCounter = 1 and an instruction that
 // raises a hardware error has already been counted.
 //
+// The counter is a plain port word (any write, forced or not, just stores it), so it is kept
+// through a pointer instead of two trips through the port decoder per instruction.
+static int32_t  *cyclecounter(void) {
+    return (&(*(ioports + ((TIM_CycleCounter & 0x0700) >> 8)))[TIM_CycleCounter & 0x00FF].value.i32);
+}
+
 void cycle_begin(void) {
-    SYSPORTSET(TIM_CycleCounter, IPORTGET(TIM_CycleCounter) + 1);
+    *cyclecounter() += 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -51,7 +52,7 @@ void cycle_begin(void) {
 // the console just stops running the frame)
 //
 void update_cycle(void) {
-    uint32_t cycles = IPORTGET(TIM_CycleCounter);
+    uint32_t cycles = (uint32_t) *cyclecounter();
 
     if ((waitflag == TRUE) || (cycles >= CYCLES_PER_FRAME)) {
         update_frame();
@@ -95,6 +96,7 @@ void timer_change_frame(void) {
 }
 
 void update_frame(void) {
+    turbo_reset ();                      // a repeating loop is only a loop within one frame
     uint64_t ft_t_enter = ft_now ();
     ft_enter ();
     ////////////////////////////////////////////////////////////////////////////////////

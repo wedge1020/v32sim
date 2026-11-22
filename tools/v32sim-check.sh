@@ -32,6 +32,7 @@ if [ -n "$ORACLE" ]; then
     run romcheck bash "$T/run_romcheck.sh" "$TC"
     [ $QUICK = 1 ] && skipit fuzz "--quick" || run fuzz bash "$T/run_fuzz.sh" "$TC" "1" 100
 else skipit "gaps/romcheck/fuzz" "no refrun in the toolchain dir"; fi
+if [ -x "$TC/compile" ] && [ -x "$TC/assemble" ]; then run turbo bash "$T/run_turbo_tests.sh" "$TC"; else skipit turbo "no stock compile/assemble in the toolchain dir"; fi
 H="V32TC=$TC V32BIOS=$BIOS"; [ -n "$ORACLE" ] && H="$H ORACLE=$ORACLE"; [ -n "$SM" ] && H="$H V32SRCMARK=$SM"; [ -n "$IO" ] && H="$H V32IO=$IO"
 run harness env $H bash "$T/run_harness_tests.sh"
 if [ -n "$IO" ]; then run "v32io (kbd, v32dev, native)" bash "$T/run_tests.sh" "$TC" "$IO"; else skipit "v32io suites" "no --v32io"; fi

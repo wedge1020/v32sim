@@ -40,6 +40,8 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "kbd-input",      required_argument, 0, 23  },
        { "v32mouse",       optional_argument, 0, 60  },
        { "fast",           no_argument,       0, 24  },
+       { "turbo",          optional_argument, 0, 218 },
+       { "gpu-eager",      no_argument,       0, 219 },
        { "frame-us",       required_argument, 0, 25  },
        { "max-frames",     required_argument, 0, 26  },
        { "console-color",  required_argument, 0, 29  },
@@ -110,11 +112,11 @@ void  process_args (int32_t  argc, int8_t **argv)
                 tmp                = listnode (LIST_MEM, value);
                 if (value         != 0) // offset provided
                 {
-                    fprintf (debug, "[arg] BREAK adding the offset '%s'\n", optarg);
+                    DPRINTF(debug, "[arg] BREAK adding the offset '%s'\n", optarg);
                 }
                 else // assuming label
                 {
-                    fprintf (debug, "[arg] BREAK adding the label: '%s'\n", optarg);
+                    DPRINTF(debug, "[arg] BREAK adding the label: '%s'\n", optarg);
                     tmp -> label   = (int8_t *) ralloc (sizeof (int8_t), strlen (optarg) + 1, FLAG_NONE);
                     strcpy (tmp -> label, optarg);
                 }
@@ -263,6 +265,25 @@ void  process_args (int32_t  argc, int8_t **argv)
 
             case 24: // fast
                 frame_us           = 0;
+                break;
+
+            case 219: // gpu-eager: paint every draw at once (the old behaviour, for comparison)
+                gpu_eager          = TRUE;
+                break;
+
+            case 218: // turbo: --fast, and the shortcuts of turbo.c / gpu.c
+                frame_us           = 0;
+                turbo_mode         = TRUE;
+                gpu_turbo          = TRUE;
+                if ((optarg != NULL) && (strcmp (optarg, "report") == 0))
+                {
+                    turbo_report   = TRUE;
+                }
+                else if (optarg != NULL)
+                {
+                    fprintf (stderr, "[ERROR] --turbo takes no value except 'report' (got '%s')\n", optarg);
+                    exit (1);
+                }
                 break;
 
             case 25: // frame-us

@@ -270,6 +270,7 @@ static uint8_t  rom_check (FILE *fptr, int8_t *filename, uint32_t page, uint32_t
 //
 uint8_t  load_memory (uint32_t  page, int8_t *filename)
 {
+    gpu_flush ();                       // queued draws refer to the textures about to be replaced
     ////////////////////////////////////////////////////////////////////////////////////
     //
     // Declare and initialize variables
@@ -480,13 +481,13 @@ uint8_t  load_memory (uint32_t  page, int8_t *filename)
                         SYSPORTSET(CAR_NumberOfSounds,   num_vsnd);
                         SYSPORTSET(CAR_Connected,        TRUE);
                         SYSPORTSET(CAR_ProgramROMSize,   data_size);
-                        fprintf (debug, "[LOAD:CART] ");
+                        DPRINTF(debug, "[LOAD:CART] ");
                     }
                     else
                     {
-                        fprintf (debug, "[LOAD:BIOS] ");
+                        DPRINTF(debug, "[LOAD:BIOS] ");
                     }
-                    fprintf (debug, "#vtex: %u, #vsnd: %u, romsize: 0x%.8X\n",
+                    DPRINTF(debug, "#vtex: %u, #vsnd: %u, romsize: 0x%.8X\n",
                                     num_vtex, num_vsnd, data_size);
                     /*
                     if ((debugflag                 == TRUE) &&
@@ -499,7 +500,7 @@ uint8_t  load_memory (uint32_t  page, int8_t *filename)
                     break;
 
                 case V32_PAGE_MEMC: // we need to skip ahead to word ?? (check for value)
-                    fprintf (debug, "[LOAD:MEMC]\n");
+                    DPRINTF(debug, "[LOAD:MEMC]\n");
                     fseek (fptr, (0x02 * wordsize), SEEK_SET);
                     SYSPORTSET(MEM_Connected,        TRUE);
                     data_size           = MEMC_WORDS;
@@ -546,7 +547,7 @@ uint8_t  load_memory (uint32_t  page, int8_t *filename)
             if ((page                  == V32_PAGE_BIOS) ||
                 (page                  == V32_PAGE_CART))
             {
-                fprintf (debug, "[LOAD:VBIN] final offset is: 0x%.8X\n", offset);
+                DPRINTF(debug, "[LOAD:VBIN] final offset is: 0x%.8X\n", offset);
                 for (count              = 0;
                      count             <  num_vtex;
                      count              = count + 1)
@@ -596,7 +597,7 @@ uint8_t  load_memory (uint32_t  page, int8_t *filename)
                         }
                     }
 
-                    fprintf (debug, "[LOAD:VBIN] final offset of vtex #%d is: 0x%.8X\n", count, offset);
+                    DPRINTF(debug, "[LOAD:VBIN] final offset of vtex #%d is: 0x%.8X\n", count, offset);
                 }
 
                 ////////////////////////////////////////////////////////////////////////
@@ -651,14 +652,14 @@ uint8_t  load_memory (uint32_t  page, int8_t *filename)
                             samples[n]  = (uint32_t) b[0]         | ((uint32_t) b[1] << 8) |
                                           ((uint32_t) b[2] << 16) | ((uint32_t) b[3] << 24);
                         }
-                        fprintf (debug, "[LOAD:VSND] sound #%d: %u samples\n", count, nsamples);
+                        DPRINTF(debug, "[LOAD:VSND] sound #%d: %u samples\n", count, nsamples);
                         spu_sound_load ((page == V32_PAGE_BIOS) ? -1 : count, nsamples, samples);
                     }
                 }
             }
             else
             {
-                fprintf (debug, "[LOAD:MEMC] final offset is: 0x%.8X (%u)\n", offset, offset);
+                DPRINTF(debug, "[LOAD:MEMC] final offset is: 0x%.8X (%u)\n", offset, offset);
             }
             
             fclose (fptr);
@@ -689,6 +690,7 @@ uint8_t  load_memory (uint32_t  page, int8_t *filename)
 //
 uint8_t  unload_memory (uint32_t  page)
 {
+    gpu_flush ();
     ////////////////////////////////////////////////////////////////////////////////////
     //
     // Declare and initialize variables
@@ -734,7 +736,7 @@ uint8_t  unload_memory (uint32_t  page)
             break;
 
         default:
-            fprintf (verbose, "[unload_memory] invalid page %u specified\n", page);
+            DPRINTF(verbose, "[unload_memory] invalid page %u specified\n", page);
             result                  = FALSE;
             break;
     }

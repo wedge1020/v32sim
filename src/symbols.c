@@ -240,14 +240,14 @@ uint32_t  sym_load_cart (const char *datafile)
     {
         fclose (fptr);
         tally = sym_load_file (found);
-        fprintf (verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
+        DPRINTF(verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
     }
     fptr = open_search_file (datafile, ".vbin.sym", found, sizeof (found));
     if (fptr != NULL)
     {
         fclose (fptr);
         tally = tally + sym_load_file (found);
-        fprintf (verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
+        DPRINTF(verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
     }
     if (tally > 0)
     {
@@ -258,7 +258,7 @@ uint32_t  sym_load_cart (const char *datafile)
     {
         tally = sym_load_asm (fptr);
         fclose (fptr);
-        fprintf (verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
+        DPRINTF(verbose, "LOADING SYMBOLS FROM: %s (%u)\n", found, tally);
     }
     return (tally);
 }

@@ -1,8 +1,20 @@
 # TODO
 
-Status as of version `20261109-dev`.
+Status as of version `20261122-dev`.
 
 ## DONE (removed from this list)
+
+  * **20261122 (performance)**: v32sim is 5-100x faster on the workloads measured (`docs/PERFORMANCE.md`, README "Speed and Turbo Mode"):
+    `--debug`/`--verbose` text is no longer formatted when nobody reads it (the main cost: it was built for every instruction and
+    written to /dev/null), memory checks build their error text only on an error, short paths for memory / port / fetch / cycle
+    counter, hooks (watchpoints, source stepping, address profile) skipped unless armed, free-listed CALL/RET backtrace nodes,
+    `-O2 -flto` in the Makefile (it had no -O at all), deferred and faster GPU painting (queue until a screenshot / save needs
+    the pixels; an opaque clear drops the queue; `--gpu-eager` paints at once, for comparison), `--turbo[=report]` (spin-loop
+    fast-forward, dropping of a full GPU queue; implies `--fast`). The dead `turboflag` (a never-set 30 MHz switch in
+    update_sys.c) was removed. Makefile: `make` falls back to `gen/` without flex/bison, `-ffp-contract=off`, `version` also stamps
+    TODO.md. New suite `tests/run_turbo_tests.sh` (in `make check`, needs only the stock toolchain). Same results as before:
+    gaps 46, romcheck 28, fuzz and ports differential suites, screenshots and statistics byte-identical to the 20261109 build.
+    Not run here (no v32cc / v32as / v32io in this session): batch, src, stack, harness and v32io suites: run `make check TC=...`.
 
   * **20261109 (central maintenance)**: v32sim is the hub of the debug stack. `tools/v32mkcart.sh` builds C, C++ (`v32c++ -g --compiler=v32cc`) and Lua (`v32lua -g`) and takes `-O LEVEL` (v32opt);
     `tests/run_stack_tests.sh` (new suite `stack` in `make check`) checks `bt`, `break FILE:LINE`, `locals` and macro lines across C/C++/Lua x -O0/-O2/-O3 (33 checks).
@@ -77,7 +89,7 @@ Status as of version `20261109-dev`.
     `NAME.asm.sym`; `#` lines are skipped in the `.debug`/`.sym` files (`.vars` ignored all but `var,` rows already); VS-14 (structs):
     `struct:TAG:WORDS{x:int@0;...}` types are parsed and printed as `{x = 3, y = 5}` (upvalue and global records still open);
     VS-16 `ram:0x75` addresses a low RAM word (`[ram:0x75]`), and a cartridge argument `-` runs the BIOS alone;
-    `make version VERSION=...` stamps, `install`/`uninstall`/`sysinstall`/`sysuninstall` (tools go to share/v32sim);
+    `make version VERSION=...` stamps, `install`/`uninstall`/`sysinstall`/`sysuninstall` (tools go to Vircon32/v32tools/v32sim/tools; ~/.local/lib/v32sim/tools for `install`);
     `v32sim-peek.sh -M CARD`; `v32sim-selfcheck.sh -M` blank card; V32TRACE spec copy updated.
 
   * **V32TRACE (spec 2)** - `--v32trace=PREFIX`, `--v32trace-meta`, `--v32trace-labels`, `--v32trace-norestart`: traps, events, restart after a trap,
@@ -142,6 +154,18 @@ Status as of version `20261109-dev`.
   * **Fixed** - `--dump=N@NAME` read a name made of hex digits (`ab`, `f`, `cafe`) as an address.
 
 ## STILL LACKING
+
+### Speed ideas not done (20261122; measure on v32nix first, `docs/PERFORMANCE.md`)
+
+  * A decoded-instruction cache / computed-goto dispatch and an inner loop that leaves the generic loop only when a hook is armed
+    (the per-instruction cost is now ~9 ns, about the stock console logic's; this is the next 1.5-2x for CPU-bound runs).
+  * Painting: span copies for opaque axis-aligned draws, skipping queued draws that a later opaque draw covers completely
+    (would make `--turbo`'s dropped queue exact), SIMD blends.
+  * Spin-loop skipping for loops that only count (`polls++`): needs the loop's effect as a closed form; and for loops polling the
+    host (v32kbd input).
+  * A PGO build target (`make pgo`); a `v32sim --bench` that prints instructions/s and frames/s for a cart.
+  * `memc_frame` flushes dirty card pages every frame (the DesktopEmulator's policy, needed by a live v32dev host): measure with a
+    busy mailbox; a `--v32dev-host` run has no external reader and could batch.
 
 
   * **VS-9 beyond `--frame-stats`** - GPU/SPU counters, texture/region switches, `--profile-event`, `expect stats`, traces + replay.

@@ -502,14 +502,14 @@ static void  exec_break (cmd_t *c)
     }
     if (c -> has_num == TRUE)
     {
-        fprintf (debug, "[break] adding the offset 0x%.8X\n", c -> num);
+        DPRINTF(debug, "[break] adding the offset 0x%.8X\n", c -> num);
         add_break (c -> num, temp);
     }
     else if (c -> name != NULL)
     {
         if (srcdebug_function (c -> name, &faddr) == TRUE)       // a function: its first instruction
         {
-            fprintf (debug, "[break] adding the function '%s' (0x%.8X)\n", c -> name, faddr);
+            DPRINTF(debug, "[break] adding the function '%s' (0x%.8X)\n", c -> name, faddr);
             add_break (faddr, temp);
             return;
         }
@@ -518,7 +518,7 @@ static void  exec_break (cmd_t *c)
             if ((ltmp -> label != NULL) &&
                 (0 == strcasecmp (ltmp -> label, c -> name)))
             {
-                fprintf (debug, "[break] adding the label '%s' (0x%.8X)\n", ltmp -> label, ltmp -> I32);
+                DPRINTF(debug, "[break] adding the label '%s' (0x%.8X)\n", ltmp -> label, ltmp -> I32);
                 add_break (ltmp -> I32, temp);
                 count  = count + 1;
             }
@@ -557,9 +557,11 @@ static void  exec_backtrace (void)
 
     while (tmp != NULL)
     {
-        if (tmp -> label != NULL)
+        linked_l  *known  = (tmp -> label != NULL) ? tmp : find_label_at (lpoint, tmp -> RAW);
+
+        if (known != NULL)
         {
-            fprintf (stdout, "#%u  %s\n",     count, tmp -> label);
+            fprintf (stdout, "#%u  %s\n",     count, known -> label);
         }
         else
         {
@@ -1215,7 +1217,7 @@ static void  exec_gamepad (cmd_t *c)
         return;
     }
 
-    fprintf (verbose, "[gamepad%d] %s\n", IPORTGET(INP_SelectedGamepad),
+    DPRINTF(verbose, "[gamepad%d] %s\n", IPORTGET(INP_SelectedGamepad),
                       (c -> word != NULL) ? c -> word : "(display)");
 
     if (c -> word == NULL)
@@ -1345,23 +1347,23 @@ static void  exec_set_option (cmd_t *c)
 
         case OPT_DEREF:
             derefaddr   = state;
-            fprintf (debug, "[set] derefaddr %s!\n", state ? "ENABLED" : "DISABLED");
+            DPRINTF(debug, "[set] derefaddr %s!\n", state ? "ENABLED" : "DISABLED");
             break;
 
         case OPT_ERRORCHK:
             errorcheck  = state;
-            fprintf (verbose, "errorchk %s!\n", state ? "ENABLED" : "DISABLED");
+            DPRINTF(verbose, "errorchk %s!\n", state ? "ENABLED" : "DISABLED");
             break;
 
         case OPT_DEBUG:
             if (state == TRUE)
             {
                 debug   = stderr;
-                fprintf (debug, "[set] debugging ENABLED!\n");
+                DPRINTF(debug, "[set] debugging ENABLED!\n");
             }
             else
             {
-                fprintf (debug, "[set] disabling debugging!\n");
+                DPRINTF(debug, "[set] disabling debugging!\n");
                 debug   = devnull;
             }
             break;
@@ -1372,18 +1374,18 @@ static void  exec_set_option (cmd_t *c)
 
         case OPT_PROFILE:
             profileflag = state;
-            fprintf (verbose, "instruction profiling %s!\n", state ? "ENABLED" : "DISABLED");
+            DPRINTF(verbose, "instruction profiling %s!\n", state ? "ENABLED" : "DISABLED");
             break;
 
         case OPT_VERBOSE:
             if (state == TRUE)
             {
                 verbose = stderr;
-                fprintf (verbose, "verbosity ENABLED!\n");
+                DPRINTF(verbose, "verbosity ENABLED!\n");
             }
             else
             {
-                fprintf (verbose, "disabling verbosity!\n");
+                DPRINTF(verbose, "disabling verbosity!\n");
                 verbose = devnull;
             }
             break;
@@ -1433,7 +1435,7 @@ static void  exec_set (cmd_t *c)
     {
         case SETK_REG:
             REG(c -> set_reg) = value.i32;   // raw bits: also right for floats
-            fprintf (debug, "[%s] setting to 0x%.8X\n", REGNAME(c -> set_reg), REG(c -> set_reg));
+            DPRINTF(debug, "[%s] setting to 0x%.8X\n", REGNAME(c -> set_reg), REG(c -> set_reg));
 
             ////////////////////////////////////////////////////////////////////////////
             //
@@ -1463,7 +1465,7 @@ static void  exec_set (cmd_t *c)
                 fprintf (stderr, "[ERROR] set: 0x%.3X is not a valid IOPort\n", c -> set_addr);
                 break;
             }
-            fprintf (debug, "[set] Setting IOPort 0x%.3X to 0x%.8X\n", c -> set_addr, value.raw);
+            DPRINTF(debug, "[set] Setting IOPort 0x%.3X to 0x%.8X\n", c -> set_addr, value.raw);
             ioports_set ((uint16_t) c -> set_addr, value.i32, value.f32, TRUE);
             break;
     }
@@ -1481,34 +1483,34 @@ static void  exec_replace (cmd_t *c)
     int32_t   offset  = REG(IP);
     uint32_t  word    = 0xFFFFFFFF;
 
-    fprintf (debug, "[replace] replacing ");
+    DPRINTF(debug, "[replace] replacing ");
     for (index = 0; index < c -> rep_count; index = index + 1)
     {
         switch (c -> rep[index].which)
         {
             case IP:
                 offset = c -> rep[index].value;
-                fprintf (debug, "IP:0x%.8X ", offset);
+                DPRINTF(debug, "IP:0x%.8X ", offset);
                 break;
 
             case IR:
-                fprintf (debug, "IR:0x%.8X ", ISYSMEMGET(offset));
+                DPRINTF(debug, "IR:0x%.8X ", ISYSMEMGET(offset));
                 word   = c -> rep[index].value;
-                fprintf (debug, "with IR:0x%.8X ", word);
+                DPRINTF(debug, "with IR:0x%.8X ", word);
                 SYSMEMSET(offset, word);
                 break;
 
             case IV:
                 if (0 < (word & IMMVAL_MASK))
                 {
-                    fprintf (debug, "IV:0x%.8X ", ISYSMEMGET(offset + 1));
-                    fprintf (debug, "with IV:0x%.8X ", c -> rep[index].value);
+                    DPRINTF(debug, "IV:0x%.8X ", ISYSMEMGET(offset + 1));
+                    DPRINTF(debug, "with IV:0x%.8X ", c -> rep[index].value);
                     SYSMEMSET(offset + 1, c -> rep[index].value);
                 }
                 break;
         }
     }
-    fprintf (debug, "\n");
+    DPRINTF(debug, "\n");
 
     // the instruction being stepped was fetched before the patch: fetch it again
     asm_refresh_ir ();
@@ -1658,7 +1660,7 @@ static void  exec_load (cmd_t *c)
         unload_memory (page);   // replacing a component: unload (and save a MEMC) first
     }
 
-    fprintf (debug, "[load] %s filename: '%s'\n", c -> name, c -> path);
+    DPRINTF(debug, "[load] %s filename: '%s'\n", c -> name, c -> path);
     if (load_memory (page, c -> path) == FALSE)
     {
         fprintf (stderr, "[ERROR] load: '%s' was not loaded\n", c -> path);
@@ -1702,9 +1704,9 @@ static void  exec_unload (cmd_t *c)
 
     switch (page)
     {
-        case V32_PAGE_BIOS:   fprintf (verbose, "[unload] UNLOADING BIOS\n");     break;
-        case V32_PAGE_CART:   fprintf (verbose, "[unload] UNLOADING CART\n");     break;
-        case V32_PAGE_MEMC:   fprintf (verbose, "[unload] UNLOADING MEMCARD\n");  break;
+        case V32_PAGE_BIOS:   DPRINTF(verbose, "[unload] UNLOADING BIOS\n");     break;
+        case V32_PAGE_CART:   DPRINTF(verbose, "[unload] UNLOADING CART\n");     break;
+        case V32_PAGE_MEMC:   DPRINTF(verbose, "[unload] UNLOADING MEMCARD\n");  break;
     }
     unload_memory (page);
 }

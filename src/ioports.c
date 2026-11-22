@@ -593,7 +593,7 @@ uint8_t  ioports_chk  (uint16_t  portaddr, uint8_t  mode, uint8_t  sys_force)
         pptr                = *(ioports+type);
         if (attr           >= (pptr+0) -> qty)
         {
-            fprintf (verbose, "[ERROR] invalid %.3s port 0x%.3hX\n",
+            DPRINTF(verbose, "[ERROR] invalid %.3s port 0x%.3hX\n",
                               (pptr+0) -> name, portaddr);
             sys_error       = error;
             result          = FALSE;
@@ -601,7 +601,7 @@ uint8_t  ioports_chk  (uint16_t  portaddr, uint8_t  mode, uint8_t  sys_force)
     }
     else
     {
-        fprintf (verbose, "[ERROR] invalid port 0x%.3hX\n", portaddr);
+        DPRINTF(verbose, "[ERROR] invalid port 0x%.3hX\n", portaddr);
         sys_error           = error;
         result              = FALSE;
     }
@@ -621,12 +621,12 @@ uint8_t  ioports_chk  (uint16_t  portaddr, uint8_t  mode, uint8_t  sys_force)
             {
                 if (mode   == FLAG_READ)
                 {
-                    fprintf (verbose, "[ERROR] port '%s' not accessible via READ!\n",
+                    DPRINTF(verbose, "[ERROR] port '%s' not accessible via READ!\n",
                                      (pptr+attr) -> name);
                 }
                 else
                 {
-                    fprintf (verbose, "[ERROR] port '%s' not accessible via WRITE!\n",
+                    DPRINTF(verbose, "[ERROR] port '%s' not accessible via WRITE!\n",
                                      (pptr+attr) -> name);
                 }
                 sys_error   = error;
@@ -736,6 +736,8 @@ data_t  *ioports_ptr  (uint16_t  portaddr)
     return (result);
 }
 
+static uint8_t  port_readable[PORT_MASK + 1];     // see ioports_get()
+
 word_t  ioports_get  (uint16_t  portaddr, uint8_t  sys_force)
 {
     ////////////////////////////////////////////////////////////////////////////////////
@@ -751,7 +753,22 @@ word_t  ioports_get  (uint16_t  portaddr, uint8_t  sys_force)
     portaddr                              = portaddr & PORT_MASK;
     result.raw                            = 0x00000000;
 
-    check                                 = ioports_chk (portaddr, FLAG_READ, sys_force);
+    //
+    // a port that has passed the strict read check once passes it always (the port table is fixed
+    // once initialized): remember it, so a plain read does not repeat the lookups
+    //
+    if (port_readable[portaddr]          == TRUE)
+    {
+        check                             = TRUE;
+    }
+    else
+    {
+        check                             = ioports_chk (portaddr, FLAG_READ, sys_force);
+        if ((check == TRUE) && (sys_force == FALSE))
+        {
+            port_readable[portaddr]       = TRUE;
+        }
+    }
     if (check                            == TRUE)
     {
         if (sys_force                    == FALSE)
@@ -761,6 +778,10 @@ word_t  ioports_get  (uint16_t  portaddr, uint8_t  sys_force)
         type                              = (portaddr & 0x0700) >> 8;
         attr                              = (portaddr & 0x00FF);
         pptr                              = *(ioports+type);
+        if ((portaddr == RNG_CurrentValue) || (portaddr == TIM_CycleCounter))
+        {
+            spin_epoch                    = spin_epoch + 1;   // volatile: a repeating loop must not skip over reads of these
+        }
         switch (portaddr)
         {
             ////////////////////////////////////////////////////////////////////////////
@@ -813,6 +834,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
     type                               = (portaddr & 0x0700) >> 8;
     attr                               = (portaddr & 0x00FF);
     pptr                               = *(ioports+type);
+    spin_epoch                         = spin_epoch + 1;   // a port write (turbo.c)
     check                              = ioports_chk (portaddr, FLAG_WRITE, sys_force);
     if (check                         == TRUE)
     {
@@ -853,7 +875,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((i32              <  -1) ||
                     (i32              >= 256))
                 {
-                    fprintf (debug, "[ioports_set] invalid texture id %d\n", i32);
+                    DPRINTF(debug, "[ioports_set] invalid texture id %d\n", i32);
                     break;
                 }
 
@@ -866,7 +888,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((i32              >= 0) &&
                     (cart_vtex        == NULL))
                 {
-                    fprintf (debug, "[ioports_set] no CART textures present (%d)\n", i32);
+                    DPRINTF(debug, "[ioports_set] no CART textures present (%d)\n", i32);
                     break;
                 }
 
@@ -880,7 +902,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((cart_vtex        != NULL) &&
                     (i32              >= (int32_t) (cart_vtex)  -> qty))
                 {
-                    fprintf (debug, "[ioports_set] invalid CART texture id (%d)\n", i32);
+                    DPRINTF(debug, "[ioports_set] invalid CART texture id (%d)\n", i32);
                     break;
                 }
                 
@@ -935,7 +957,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
 
                 if (rptr              == NULL)
                 {
-                    fprintf (debug, "[ioports_set] region ptr is NULL\n");
+                    DPRINTF(debug, "[ioports_set] region ptr is NULL\n");
                     break;
                 }
 
@@ -960,7 +982,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((i32              <  0) ||
                     (i32              >= 4096))
                 {
-                    fprintf (debug, "[ioports_set] invalid region id %d\n", i32);
+                    DPRINTF(debug, "[ioports_set] invalid region id %d\n", i32);
                     break;
                 }
 
@@ -973,7 +995,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((num              <= -2)   ||
                     (num              >= 256))
                 {
-                    fprintf (debug, "[ioports_set] invalid texture id %d\n", num);
+                    DPRINTF(debug, "[ioports_set] invalid texture id %d\n", num);
                     break;
                 }
 
@@ -984,7 +1006,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((num              >= 0) &&
                     (cart_vtex        == NULL))
                 {
-                    fprintf (debug, "[ioports_set] no CART textures loaded\n");
+                    DPRINTF(debug, "[ioports_set] no CART textures loaded\n");
                     break;
                 }
 
@@ -996,7 +1018,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                     (cart_vtex        != NULL) &&
                     (num              >= cart_vtex -> qty))
                 {
-                    fprintf (debug, "[ioports_set] invalid texture id %d\n", num);
+                    DPRINTF(debug, "[ioports_set] invalid texture id %d\n", num);
                     break;
                 }
 
@@ -1130,7 +1152,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((i32         <  0) ||
                     (i32         >  3))
                 {
-                    fprintf (debug, "[ioports_set] invalid gamepad id %d\n", i32);
+                    DPRINTF(debug, "[ioports_set] invalid gamepad id %d\n", i32);
                     break;
                 }
 
@@ -1183,7 +1205,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((id               <  0) ||
                     (id               >  3))
                 {
-                    fprintf (debug, "[ioports_set] invalid gamepad id %d\n", id);
+                    DPRINTF(debug, "[ioports_set] invalid gamepad id %d\n", id);
                     break;
                 }
 
@@ -1225,7 +1247,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 if ((id               <  0) ||
                     (id               >  3))
                 {
-                    fprintf (debug, "[ioports_set] invalid gamepad id %d\n", i32);
+                    DPRINTF(debug, "[ioports_set] invalid gamepad id %d\n", i32);
                     break;
                 }
 
@@ -1236,7 +1258,7 @@ uint8_t  ioports_set (uint16_t  portaddr, int32_t  i32, float  f32, uint8_t  sys
                 check                  = IPORTGET(INP_GamepadConnected);
                 if (check             != TRUE)
                 {
-                    fprintf (debug, "[ioports_set] gamepad %d not connected\n", id);
+                    DPRINTF(debug, "[ioports_set] gamepad %d not connected\n", id);
                     break;
                 }
 

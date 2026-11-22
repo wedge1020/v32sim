@@ -93,6 +93,7 @@ software — and to automate cart testing.
 - [The v32io Keyboard](#the-v32io-keyboard)
 - [The Text Console](#the-text-console)
 - [Running Unattended](#running-unattended)
+- [Speed and Turbo Mode](#speed-and-turbo-mode)
 - [Scripting](#scripting)
 - [Tests](#tests)
 - [IOPORTS](#ioports)
@@ -151,11 +152,15 @@ screenshot writer is built in).
 
 ```
 make            # default build          -> bin/v32sim
-make debug      # -DDEBUG -g build       -> bin/v32sim
+make LTO=       # without link-time optimization (default: -O2 -flto when the compiler has it; OPT=-O3 etc.)
+make debug      # -DDEBUG -g -O0 build   -> bin/v32sim
 make asan       # AddressSanitizer + UBSan build, for hunting memory errors
 make version    # print the version string
 make clean      # remove obj/ contents (including generated parser) and bin/v32sim
 ```
+
+Without flex and bison the checked-in `gen/` output is used (as `tools/build-nogen.sh` does).
+Do not add `-ffast-math` or `-march=native`: the GPU and the float instructions must give the same last bit on every host.
 
 Object files  and dependency files  land in  `obj/`; the binary  lands in
 `bin/v32sim`. Header  dependencies are  tracked, so  editing a  header in
@@ -209,6 +214,8 @@ Mandatory arguments to long options are mandatory for short options too.
  --highlight=T:R[:COLOR]   outline texture T region R (bios:R) in screenshots; comma separated list
  --noextra                 no grid and no outlines in screenshots
  --fast                    do not throttle to real time
+ --turbo[=report]          --fast, plus spin-loop fast-forwarding and dropping of an overfull GPU pixel queue (Speed and Turbo Mode)
+ --gpu-eager               paint every GPU command at once (the pictures are the same; for comparing and timing)
  --frame-us=N              wall-clock microseconds per frame (default 16666)
  --max-frames=N            stop after N frames
  --fixed-clock[=Y,D,S]     start TIM_CurrentDate/Time at year Y, day D (0 = Jan 1st), S seconds (default 2026,0,0)
@@ -822,6 +829,50 @@ environment is used when `--input` is not given. `--input=@FILE` takes the scrip
 `.trace.txt` report). `--input-port=N` picks the gamepad (default 0); it is connected. Changes happen
 between frames, as the `gamepad` command makes them: a button held from frame F reads 1 in frame F.
 
+## Speed and Turbo Mode
+
+How fast v32sim runs matters for test runs (a v32nix boot and compile is hundreds of millions of instructions). What
+makes it fast, in the order it was found (numbers in `docs/PERFORMANCE.md`):
+
+  * **No work for messages nobody reads.** `--debug` / `--verbose` text used to be formatted for every instruction and
+    thrown away into `/dev/null`; now `DPRINTF` (inc/globals.h) tests the stream first. Memory checks build their error
+    texts only when there is an error.
+  * **Short paths for the common case**: RAM/ROM reads and writes, instruction fetch, port reads and the cycle counter
+    skip the generic checks; the main loop does not call the watchpoint, source-step or address-profile code unless one is armed.
+  * **Backtrace nodes** (CALL/RET) come from a free list and their labels are looked up when `backtrace` is asked for.
+  * **Deferred painting.** The framebuffer is only read by a screenshot or a save state, so a draw or a clear is queued
+    and painted when the pixels are needed (or when 16384 are queued). An opaque clear drops everything queued before it,
+    so a program that clears every frame paints nothing but what a screenshot asks for. The painting is exactly what
+    painting at once would give (`--gpu-eager` does that, to compare); it also got faster (axis-aligned draws find their
+    source columns and rows once, transparent texels are skipped, per-channel colour products come from a table).
+  * **Build flags**: `-O2` and `-flto` by default; `-ffp-contract=off` keeps float results identical on hosts with fused multiply-add.
+
+All of that is on in the default mode and changes no result (the differential suites against the stock console logic, the
+screenshots and the statistics are byte-identical to the earlier builds; the only visible difference is that `backtrace`
+resolves a label when it is shown, not when the call happened).
+
+`--turbo[=report]` is for runs where nobody watches the pixels or the clock. It implies `--fast` (never sleeps) and adds two
+things that can differ from a normal run:
+
+  * **Spin-loop fast-forward.** A program that polls (typically `TIM_FrameCounter`, or a button) until the frame changes burns
+    the frame's 250000 cycles one trip at a time. When a loop is seen to repeat exactly (at two taken branches to the same
+    address all 16 registers are equal, every RAM word stored to in between holds its old value again - a CALL and RET leave
+    the stack as they found it - and no port was written, no volatile port (`TIM_CycleCounter`, `RNG_CurrentValue`) read,
+    no card memory written, no frame ended), whole trips are skipped in one step: `TIM_CycleCounter`, the instruction count and
+    the per-frame instruction / gamepad-read / card-read counters advance as they would have, and the last trips always run for
+    real, so the frame ends at the same instruction with the same registers and memory. **No result changes** (checked on
+    RAM, registers, exit status and `--frame-stats`); what is not seen is the individual instructions, so the skipping is off
+    while anything would watch them: breakpoints, watchpoints, `-w`, stepping and source stepping, `-p` and `--profile-out/-top`,
+    V32TRACE, `-v` / `-D`. A loop that counts or stores something new every trip is never skipped.
+  * **A full GPU queue is dropped, not painted.** If 16384 draws are queued with no screenshot or save in between (a program
+    that never clears), the oldest are dropped. Nothing the program can observe changes (draw accounting, the text console,
+    GPU counters and traces use the commands, not the pixels), but a later `screenshot` or `save` shows only what was
+    queued since, and says so (`warning: --turbo skipped N draws`). Programs that clear their screen, and any run that is
+    screenshotted at least every 16384 draws, are exact.
+
+`--turbo=report` prints what was skipped to stderr at exit. Turbo never changes the machine's clock: the cycle counter, the
+frame counter, the date and time advance as in a normal run.
+
 ## Scripting
 
 Everything a script needs to drive a headless run and to say what went wrong. A script
@@ -923,6 +974,10 @@ interactive prompt is unchanged.
 `tests/run_src_tests.sh [V32AS_DIR]` checks the source-level commands (54 checks) on
 `tests/src/bench.asm`, assembly written the way `v32lua -g` writes it, with `v32as` only: the
 cartridge is made by `tests/mkcart.py`, and the BIOS is `tests/gaps/bios.asm`.
+
+`tests/run_turbo_tests.sh TOOLCHAIN` (stock `compile`, `assemble`, `packrom` and `StandardBios.v32` only; 45 checks) covers `--turbo`, `--turbo=report`
+and `--gpu-eager`: equal results with and without turbo on a polling cartridge, nothing skipped when the loop stores, identical
+screenshots deferred / eager / turbo, and the dropped-queue warning.
 
 `tests/run_harness_tests.sh` (`V32TC`, `V32BIOS`, optionally `ORACLE` and `V32SRCMARK`) checks the scripts in `tools/` and their
 agreement with the stock console logic: self-check pass/fail on both engines, symbols from a stock-compiler `.asm`,

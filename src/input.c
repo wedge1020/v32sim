@@ -84,7 +84,7 @@ uint8_t *get_input (FILE *fptr, const uint8_t *prompt)
     //
     // display what was input
     //
-    fprintf (debug, "[get_input] input_string: \"%s\" (input_length: %lu)\n",
+    DPRINTF(debug, "[get_input] input_string: \"%s\" (input_length: %lu)\n",
                     input_string, input_length);
 
     if (input_length      == 0)
@@ -319,7 +319,7 @@ FILE  *open_search_file (const char *datafile, const char *suffix, char *found, 
             snprintf (found, foundlen, "%s", cand);
             return (fptr);
         }
-        fprintf (debug, "[search] No file '%s' found.\n", cand);
+        DPRINTF(debug, "[search] No file '%s' found.\n", cand);
     }
     return (NULL);
 }
@@ -428,10 +428,10 @@ uint32_t  load_labels (uint8_t *datafile, uint8_t  page, uint8_t  flag)
     fptr  = open_debug_file ((const char *) datafile, flag, found, sizeof (found));
     if (fptr                               == NULL)
     {
-        fprintf (debug, "[load_labels] no debug file for '%s'\n", datafile);
+        DPRINTF(debug, "[load_labels] no debug file for '%s'\n", datafile);
         return (0);
     }
-    fprintf (debug, "[load_labels] debugfile:    '%s'\n", found);
+    DPRINTF(debug, "[load_labels] debugfile:    '%s'\n", found);
     {
         // debug-file names are relative to the build directory: remember where the
         // debug file and the V32 file live (and their parents) to resolve them
@@ -457,13 +457,13 @@ uint32_t  load_labels (uint8_t *datafile, uint8_t  page, uint8_t  flag)
 
     if (page                               == V32_PAGE_BIOS)
     {
-        fprintf (verbose, "[BIOS] ");
+        DPRINTF(verbose, "[BIOS] ");
     }
     else if (page                          == V32_PAGE_CART)
     {
-        fprintf (verbose, "[CART] ");
+        DPRINTF(verbose, "[CART] ");
     }
-    fprintf (verbose, "LOADING DEBUGGING DATA FROM: %s\n", found);
+    DPRINTF(verbose, "LOADING DEBUGGING DATA FROM: %s\n", found);
 
     while (fgets (line, sizeof (line), fptr) != NULL)
     {
@@ -490,7 +490,7 @@ uint32_t  load_labels (uint8_t *datafile, uint8_t  page, uint8_t  flag)
             // f0 offset, f1 asm file, f2 asm line, f3 label (optional)
             if ((f0 == NULL) || (f1 == NULL) || (f2 == NULL))
             {
-                fprintf (debug, "[load_labels] skipping malformed line '%s'\n", line);
+                DPRINTF(debug, "[load_labels] skipping malformed line '%s'\n", line);
                 continue;
             }
             ltmp            = listnode (page, (uint32_t) strtoul (f0, NULL, 16));
@@ -508,7 +508,7 @@ uint32_t  load_labels (uint8_t *datafile, uint8_t  page, uint8_t  flag)
             // f0 asm file, f1 asm line, f2 C file, f3 C line, f4 function (optional)
             if ((f0 == NULL) || (f1 == NULL) || (f2 == NULL) || (f3 == NULL))
             {
-                fprintf (debug, "[load_labels] skipping malformed line '%s'\n", line);
+                DPRINTF(debug, "[load_labels] skipping malformed line '%s'\n", line);
                 continue;
             }
             ltmp            = listnode (page, 0);

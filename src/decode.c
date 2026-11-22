@@ -422,8 +422,8 @@ void  decode_display (uint32_t  instruction,
                     value              = REG(src);
                     if (derefaddr     == TRUE)
                     {
-                        fprintf (debug, "REG(src): 0x%.8X\n", REG(src));
-                        fprintf (debug, "[SRCREG]: 0x%.8X\n", IMEMGET(REG(src)));
+                        DPRINTF(debug, "REG(src): 0x%.8X\n", REG(src));
+                        DPRINTF(debug, "[SRCREG]: 0x%.8X\n", IMEMGET(REG(src)));
                     }
                     break;
 
@@ -441,8 +441,8 @@ void  decode_display (uint32_t  instruction,
                     }
                     if (derefaddr     == TRUE)
                     {
-                        fprintf (debug, "value: 0x%.8X\n", value);
-                        fprintf (debug, "[SRCREG+Imm]: 0x%.8X\n", IMEMGET(value));
+                        DPRINTF(debug, "value: 0x%.8X\n", value);
+                        DPRINTF(debug, "[SRCREG+Imm]: 0x%.8X\n", IMEMGET(value));
                     }
                     break;
 
@@ -463,7 +463,7 @@ void  decode_display (uint32_t  instruction,
                     value              = ((signed) immediate >= 0) ? immediate : -immediate;
                     sprintf (destination, "[R%u%c%d],", dst, sign, value);
                     sprintf (source,      "R%u",           src);
-                    fprintf (debug,       "sign: '%c', value: %d\n", sign, value);
+                    DPRINTF(debug,       "sign: '%c', value: %d\n", sign, value);
                     value              = REG(dst) + immediate;
                     break;
             }
@@ -864,6 +864,39 @@ void  decode_display (uint32_t  instruction,
     //rfree (source);
 }
 
+//
+// the call-stack nodes (tpoint): recycled instead of malloc'ed and freed per CALL / RET
+//
+static linked_l  *bt_free_list  = NULL;
+
+static linked_l  *bt_node_new (uint32_t  value)
+{
+    linked_l  *n  = bt_free_list;
+
+    if (n == NULL)
+    {
+        return (listnode (LIST_MEM, value));
+    }
+    bt_free_list  = n -> next;
+    memset (n, 0, sizeof (*n));
+    n -> type      = LIST_MEM;
+    n -> FMT       = FORMAT_DEFAULT;
+    n -> space     = 7;
+    n -> time      = -1.0;
+    n -> RAW       = value;
+    return (n);
+}
+
+static void  bt_node_free (linked_l  *n)
+{
+    if (n -> label != NULL)
+    {
+        rfree (n -> label);
+    }
+    n -> next     = bt_free_list;
+    bt_free_list  = n;
+}
+
 void  decode_process (uint32_t  instruction,
                       uint32_t  immediate,
                       float     fimmediate,
@@ -967,16 +1000,9 @@ void  decode_process (uint32_t  instruction,
             //
             // add entry to beginning of backtrace list (tpoint)
             //
-            ptmp                       = listnode (LIST_MEM, REG(IP));
-            dtmp                       = find_label_at (lpoint, REG(IP));
-            if (dtmp                  != NULL) // subroutine has an associated label
-            {
-                value                  = strlen (dtmp -> label);
-                ptmp -> label          = (int8_t *) ralloc (sizeof (int8_t),
-                                                            strlen (dtmp -> label) + 1,
-                                                            FLAG_NONE);
-                strcpy (ptmp -> label, dtmp -> label);
-            }
+            // (the label is looked up when 'backtrace' shows the entry, not on every call; the
+            // nodes come from a free list: a CALL and a RET are among the commonest instructions)
+            ptmp                       = bt_node_new (REG(IP));
             tpoint                     = add_list (tpoint, ptmp);
 
             break;
@@ -1015,11 +1041,7 @@ void  decode_process (uint32_t  instruction,
                 ptmp                   = tpoint;
                 tpoint                 = tpoint -> next;
                 ptmp -> next           = NULL;
-                if (ptmp -> label     != NULL)
-                {
-                    rfree (ptmp -> label);
-                }
-                rfree (ptmp);
+                bt_node_free (ptmp);
                 ptmp                   = NULL;
             }
             break;
@@ -1109,7 +1131,7 @@ void  decode_process (uint32_t  instruction,
             }
             else
             {
-                fprintf (debug, "SRCREG: 0x%.8X, immediate: 0x%.8X, S+i: 0x%.8X\n",
+                DPRINTF(debug, "SRCREG: 0x%.8X, immediate: 0x%.8X, S+i: 0x%.8X\n",
                         SRCREG, immediate, (SRCREG + immediate));
                 DSTREG      = SRCREG + immediate;
             }
@@ -1127,7 +1149,7 @@ void  decode_process (uint32_t  instruction,
                     break;
 
                 case 02: // MOV DSTREG, [Immediate]
-                    fprintf (debug, "[decode_process] MOV(2): memory_get (0x%.8X)\n",
+                    DPRINTF(debug, "[decode_process] MOV(2): memory_get (0x%.8X)\n",
                             immediate);
                     value   = IMEMGET(immediate);
                     if (sys_error == ERROR_NONE)       // a failed read leaves the register alone
@@ -1137,7 +1159,7 @@ void  decode_process (uint32_t  instruction,
                     break;
 
                 case 03: // MOV DSTREG, [SRCREG]
-                    fprintf (debug, "[decode_process] MOV(3): memory_get (0x%.8X)\n",
+                    DPRINTF(debug, "[decode_process] MOV(3): memory_get (0x%.8X)\n",
                             SRCREG);
                     value   = IMEMGET(SRCREG);
                     if (sys_error == ERROR_NONE)
@@ -1147,7 +1169,7 @@ void  decode_process (uint32_t  instruction,
                     break;
 
                 case 04: // MOV DSTREG, [SRCREG+Immediate]
-                    fprintf (debug, "[decode_process] MOV(4): memory_get (0x%.8X)\n",
+                    DPRINTF(debug, "[decode_process] MOV(4): memory_get (0x%.8X)\n",
                             (SRCREG + immediate));
                     value   = IMEMGET(SRCREG + immediate);
                     if (sys_error == ERROR_NONE)
@@ -1157,19 +1179,19 @@ void  decode_process (uint32_t  instruction,
                     break;
 
                 case 05: // MOV [Immediate], SRCREG
-                    fprintf (debug, "[decode_process] MOV(5): memory_set (0x%.8X, 0x%.8X)\n",
+                    DPRINTF(debug, "[decode_process] MOV(5): memory_set (0x%.8X, 0x%.8X)\n",
                             immediate, SRCREG);
                     MEMSET(immediate,  SRCREG);
                     break;
 
                 case 06: // MOV [DSTREG], SRCREG
-                    fprintf (debug, "[decode_process] MOV(6): memory_set (0x%.8X, 0x%.8X)\n",
+                    DPRINTF(debug, "[decode_process] MOV(6): memory_set (0x%.8X, 0x%.8X)\n",
                             DSTREG,    SRCREG);
                     MEMSET(DSTREG,     SRCREG);
                     break;
 
                 case 07: // MOV [DSTREG+Immediate], SRCREG
-                    fprintf (debug, "[decode_process] MOV(7): memory_set (0x%.8X, 0x%.8X)\n",
+                    DPRINTF(debug, "[decode_process] MOV(7): memory_set (0x%.8X, 0x%.8X)\n",
                             (DSTREG + immediate), SRCREG);
                     MEMSET((DSTREG + immediate),  SRCREG);
                     break;
@@ -1177,7 +1199,7 @@ void  decode_process (uint32_t  instruction,
             break;
 
         case PUSH:
-            fprintf (debug, "[decode_process] PUSH: memory_set (0x%.8X, 0x%.8X)\n", REG(SP), DSTREG);
+            DPRINTF(debug, "[decode_process] PUSH: memory_set (0x%.8X, 0x%.8X)\n", REG(SP), DSTREG);
             ////////////////////////////////////////////////////////////////////////////
             //
             // the console's Push(): the value is taken BEFORE SP moves (PUSH SP pushes
@@ -1195,7 +1217,7 @@ void  decode_process (uint32_t  instruction,
             break;
 
         case POP:
-            fprintf (debug, "[decode_process] POP: memory_get (0x%.8X)\n", REG(SP));
+            DPRINTF(debug, "[decode_process] POP: memory_get (0x%.8X)\n", REG(SP));
             ////////////////////////////////////////////////////////////////////////////
             //
             // the console's Pop(): the read can fail (InvalidMemoryRead, nothing
@@ -1217,7 +1239,7 @@ void  decode_process (uint32_t  instruction,
             break;
 
         case IN:
-            fprintf (debug, "[decode_process] IN: ioports_get (0x%.3X)\n", port);
+            DPRINTF(debug, "[decode_process] IN: ioports_get (0x%.3X)\n", port);
             port            = port & 0x7FF;
             value           = ((fixed_cycles == TRUE) && (port == TIM_CycleCounter)) ? 0 : IPORTGET(port);
             if (sys_error  == ERROR_NONE)          // a failed read leaves the register alone
@@ -1228,7 +1250,7 @@ void  decode_process (uint32_t  instruction,
 
         case OUT:
             value           = (immflag == TRUE)  ? immediate  : SRCREG;
-            fprintf (debug, "[decode_process] OUT: ioports_set (0x%.3X, 0x%.8X)\n",
+            DPRINTF(debug, "[decode_process] OUT: ioports_set (0x%.3X, 0x%.8X)\n",
                             port, value);
             port            = port & 0x7FF;
             switch (port)
