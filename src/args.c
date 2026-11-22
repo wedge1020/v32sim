@@ -42,6 +42,9 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "fast",           no_argument,       0, 24  },
        { "turbo",          optional_argument, 0, 218 },
        { "gpu-eager",      no_argument,       0, 219 },
+       { "kbd-sync",       no_argument,       0, 220 },
+       { "warn-halt",      no_argument,       0, 221 },
+       { "halt-status",    required_argument, 0, 222 },
        { "frame-us",       required_argument, 0, 25  },
        { "max-frames",     required_argument, 0, 26  },
        { "console-color",  required_argument, 0, 29  },
@@ -269,6 +272,23 @@ void  process_args (int32_t  argc, int8_t **argv)
 
             case 219: // gpu-eager: paint every draw at once (the old behaviour, for comparison)
                 gpu_eager          = TRUE;
+                break;
+
+            case 220: // kbd-sync: hold a v32kbd event until the program has read the previous one
+                v32io_kbd_sync (1);
+                break;
+
+            case 221: // warn-halt
+                warn_halt          = TRUE;
+                break;
+
+            case 222: // halt-status=N
+                halt_status        = atoi (optarg);
+                if ((halt_status < 1) || (halt_status > 255))
+                {
+                    fprintf (stderr, "[ERROR] --halt-status: N must be 1-255 (0 is the status of a clean end)\n");
+                    exit (1);
+                }
                 break;
 
             case 218: // turbo: --fast, and the shortcuts of turbo.c / gpu.c

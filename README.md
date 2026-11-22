@@ -206,6 +206,9 @@ Mandatory arguments to long options are mandatory for short options too.
  -V, --version             display version information and exit
  --v32kbd[=PORT]           emulate a v32kbd keyboard on gamepad PORT (default 0)
  --kbd-input=SOURCE        host key source: stdin, fd:N, FIFO/pipe/file (implies --v32kbd)
+ --kbd-sync                v32kbd: deliver the next key event only after the program has read the last one
+ --warn-halt               say on stderr when the program executes HLT (the emulator then stops)
+ --halt-status=N           exit status N (1-255) when the run ends at HLT (nothing else wrong)
  --v32mouse[=PORT]         emulate a v32mouse on gamepad PORT (default 1); drive it with `mouse`
  --screenshot-at=FRAMES    write the screen after these cartridge frames: N, A-B, A-B/STEP, comma separated (frame 0 = the
                            cartridge's first frame, as for --input); with --screenshot-file=PATTERN (%d = the frame,
@@ -668,7 +671,7 @@ Left/Right as a strobe, Up/Down for press/release, and Start A B X Y L R as a
     v32sim --kbd-input=/tmp/keys cart.v32            (a FIFO, pipe or file)
 
 or from the prompt: `kbd attach 1`, `kbd type "ls -l\n"`, `kbd key ctrl+c`,
-`kbd key f1 down`, `kbd input FILE`, `kbd` (status), `kbd clear`.
+`kbd key f1 down`, `kbd input FILE`, `kbd sync on|off`, `kbd` (status), `kbd clear`.
 
 Text becomes key events the way a US keyboard produces them (shift is held
 across consecutive characters that need it); UTF-8 characters the BIOS font
@@ -677,6 +680,27 @@ used as input is put in raw mode while the program runs: arrow keys, Delete,
 F1-F12, Ctrl and Alt combinations are translated, and **Ctrl-]** returns to the
 debugger prompt (which gets the terminal back). Text that arrives faster than
 one event per frame waits, nothing is lost.
+
+**What the program sees (and when it loses a key).** As on the real adapter and in the DesktopEmulator, one key event is
+delivered per frame, *at the start of the frame, whether or not the program looks at the gamepad*. The controls keep only the
+last event: the strobe (Left/Right) flips at every event, so a program that has not read the gamepad between two events never
+sees the first one, and with an even number of events in between it sees no change at all. Typing `cat` into a program that
+is busy for a few frames (a v32dev round trip, a long computation, a program that polls less often than once per frame) gives
+`at`, `t` or nothing: each key is a press event and a release event, two frames. v32sim does not queue for the program on its
+own, because the real console does not either. A guest must read its v32kbd **every frame** (the `v32kbd_probe()` of the
+library does), also while it waits for something else, or the script must not type until the program is ready (`until` its
+prompt). Two aids:
+
+  * `kbd` shows `replaced before the program read them: N` (events delivered while the previous one had not been read: those
+    are lost), so a test can tell a lost key from a typing mistake. It only observes.
+  * `--kbd-sync` / `kbd sync on|off` (off by default): the simulator holds each event until the program has executed an `IN` on
+    a control of the keyboard's gamepad since the previous one, so nothing is replaced; a program that reads every frame gets the
+    same one event per frame as before. A program that never reads gets no more events (they wait in the queue; `kbd` shows the
+    frames held). The run is no longer what the real keyboard would do while the program is busy, so use it to find out whether
+    a lost key is the cause, or in scripts, not in timing-sensitive differential runs.
+
+`tests/kbd_probe.py` writes the probe cartridge (busy for N frames, then logs the events it sees) and
+`tests/run_kbd_sync_tests.sh` checks all of this without a toolchain.
 
 ## The Text Console
 
@@ -894,7 +918,8 @@ Exit status (always, `-x` adds the frame-limit and system-error codes): 0 succes
 1 an `expect` failed or an `until` timed out; 2 the frame limit was reached (`-x`);
 3 a system error (`-x`); 4 a command line could not be parsed (batch mode); 5 `--dump` could not print what
 was asked (bad spec, unknown symbol, unreadable memory; only when nothing else set a status); `quit N`
-overrides all of them. Without `--batch` nothing about the interactive output changes
+overrides all of them. A run that ends because the program executed `HLT` is a plain 0 (a clean end) unless
+`--halt-status=N` says otherwise; `--warn-halt` prints `[HLT] ...` on stderr when it happens. Without `--batch` nothing about the interactive output changes
 (scripts that filter the prompt and instruction lines keep working).
 
 ### Symbols
@@ -923,7 +948,11 @@ then as a label of the loaded debug files, each as given and then as `global_NAM
     triggers first stops it earlier; a `continue` afterwards is not limited.
   * `until "TEXT" [timeout N] [rows N]`: continue until the text console shows TEXT
     (anywhere in a row; `^` and `$` anchor to the start and end of a row), looking at
-    the last N rows only when `rows` is given. The screen is checked at the end of every
+    the last N rows only when `rows` is given. TEXT is literal: `.`, `*`, `[`, `(`, `\`
+    mean themselves, and `^` / `$` count only as the first / last character. With the
+    prefix `regex:` it is a POSIX extended regular expression, tried on each row (so
+    `until "regex:^(ok|done)$"`); an invalid one is reported once and never matches.
+    `expect console` takes the same patterns. The screen is checked at the end of every
     frame and has to have changed since the command (so what is already there does not
     end the wait). Default timeout: 3600 frames.
   * `expect LOC OP VALUE` (as `watch`, evaluated now; `expect print R0 == 5` also
@@ -974,6 +1003,9 @@ interactive prompt is unchanged.
 `tests/run_src_tests.sh [V32AS_DIR]` checks the source-level commands (54 checks) on
 `tests/src/bench.asm`, assembly written the way `v32lua -g` writes it, with `v32as` only: the
 cartridge is made by `tests/mkcart.py`, and the BIOS is `tests/gaps/bios.asm`.
+
+`tests/run_kbd_sync_tests.sh` (`make test`; 22 checks, no toolchain: v32kbd delivery with a busy program, `--kbd-sync`, `--warn-halt`,
+`--halt-status`, `regex:`).
 
 `tests/run_turbo_tests.sh TOOLCHAIN` (stock `compile`, `assemble`, `packrom` and `StandardBios.v32` only; 45 checks) covers `--turbo`, `--turbo=report`
 and `--gpu-eager`: equal results with and without turbo on a polling cartridge, nothing skipped when the loop stores, identical

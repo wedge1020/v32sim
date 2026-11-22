@@ -135,6 +135,10 @@ check: $(BIN)
 	@test -n "$(TC)" || { echo "make check TC=<toolchain dir> [V32IO=<v32io project>] [SRCMARK=v32srcmark.py]"; exit 2; }
 	tools/v32sim-check.sh "$(TC)" $(if $(V32IO),--v32io "$(V32IO)") $(if $(SRCMARK),--srcmark "$(SRCMARK)")
 
+# tests that need no toolchain (the cartridges are written by tests/kbd_probe.py): v32kbd delivery and --kbd-sync, --warn-halt, regex: patterns
+test: $(BIN)
+	tests/run_kbd_sync_tests.sh
+
 # tests of the consolidated tools (needs V32TC, V32BIOS; ORACLE for the comparisons with the stock console logic)
 test-harness: $(BIN)
 	tests/run_harness_tests.sh
@@ -200,7 +204,7 @@ clean:
 	@rm -vf $(DEPS) $(GENSRC) $(GENHDR) $(BINDIR)/$(TARGET)
 	@rm -rf $(OBJDIR)
 
-.PHONY: all debug asan gen oracle check test-harness version install uninstall sysinstall sysuninstall clean archive
+.PHONY: all debug asan gen oracle check test test-harness version install uninstall sysinstall sysuninstall clean archive
 
 -include $(DEPS)
 

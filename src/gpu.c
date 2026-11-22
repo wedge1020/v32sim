@@ -13,6 +13,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 #include "defines.h"
+#include <regex.h>
 #include "globals.h"
 #include "ioports.h"
 #include "vtex.h"
@@ -961,7 +962,38 @@ char *gpu_console_snapshot (void)
 // gpu_console_match(): is PATTERN on the screen? The pattern is looked for inside each of
 // the last `lastrows` rows (0 = all of them) in turn: a pattern that starts with '^' must
 // match from the start of a row, one that ends with '$' up to its end (so "A:\>$" is a
-// row that ends with the DOS prompt and "^Ready" a row that starts with Ready).
+// row that ends with the DOS prompt and "^Ready" a row that starts with Ready). Nothing
+// else is special: '.', '*', '[', '\\' and so on are plain characters. A pattern that
+// starts with "regex:" is a POSIX extended regular expression (regcomp) tried on each row.
+//
+static int  console_regex_match (const char *re, char **text, int first, int used)
+{
+    static char  bad[512]  = "";
+    regex_t      rx;
+    char         msg[160];
+    int          row       = 0;
+    int          code      = 0;
+    int          found     = FALSE;
+
+    code  = regcomp (&rx, re, REG_EXTENDED | REG_NOSUB);
+    if (code != 0)
+    {
+        if (strcmp (bad, re) != 0)                    // say it once, not at every frame
+        {
+            regerror (code, &rx, msg, sizeof (msg));
+            fprintf (stderr, "[ERROR] bad regular expression \"%s\": %s\n", re, msg);
+            snprintf (bad, sizeof (bad), "%s", re);
+        }
+        return (FALSE);
+    }
+    for (row = first; (row < used) && (found == FALSE); row = row + 1)
+    {
+        found  = (0 == regexec (&rx, text[row], 0, NULL, 0));
+    }
+    regfree (&rx);
+    return (found);
+}
+
 //
 int  gpu_console_match (const char *pattern, uint32_t lastrows)
 {
@@ -977,12 +1009,18 @@ int  gpu_console_match (const char *pattern, uint32_t lastrows)
     char       want[512];
     const char *hit    = NULL;
 
+    if ((lastrows > 0) && ((int) lastrows < used))  first = used - (int) lastrows;
+    if (0 == strncmp (pattern, "regex:", 6))
+    {
+        found  = console_regex_match (pattern + 6, text, first, used);
+        console_rows_free (text, console_row_count ());
+        return (found);
+    }
     if ((plen > 0) && (pattern[0] == '^'))                    { head = TRUE;  pattern = pattern + 1;  plen = plen - 1; }
     if ((plen > 0) && (pattern[plen - 1] == '$'))             { tail = TRUE;  plen = plen - 1; }
     snprintf (want, sizeof (want), "%.*s", (int) plen, pattern);
     plen  = strlen (want);
 
-    if ((lastrows > 0) && ((int) lastrows < used))  first = used - (int) lastrows;
     for (row = first; (row < used) && (found == FALSE); row = row + 1)
     {
         rlen = strlen (text[row]);

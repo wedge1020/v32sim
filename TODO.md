@@ -4,6 +4,14 @@ Status as of version `20261122-dev`.
 
 ## DONE (removed from this list)
 
+  * **20261122 (v32nix message of 2026-11-22)**: a key lost after a v32dev round trip (`cat` typed as `at`) is **not a v32sim bug**: one
+    key event per frame replaces the previous one in the gamepad controls whether or not the program reads them (`v32io.c: v32io_frame`,
+    as the DesktopEmulator); the guest must read its v32kbd every frame (README "The v32io Keyboard"). Reproduced by
+    `tests/kbd_probe.py`; added `--kbd-sync` / `kbd sync on|off` (events wait for the program), `kbd` shows events replaced unread,
+    `--warn-halt` and `--halt-status=N` (HLT is no longer silent on request), `regex:` patterns for `until` / `expect console`
+    (POSIX ERE), and the plain-text rules of `until` written down. Test: `tests/run_kbd_sync_tests.sh` (22 checks, no toolchain).
+    Status of v32nix's P-E1 / P-E2 / P-E3 / P-E5 / P-E6 / P-I2 recorded in `docs/PROPOSALS-STATUS.md`.
+
   * **20261122 (performance)**: v32sim is 5-100x faster on the workloads measured (`docs/PERFORMANCE.md`, README "Speed and Turbo Mode"):
     `--debug`/`--verbose` text is no longer formatted when nobody reads it (the main cost: it was built for every instruction and
     written to /dev/null), memory checks build their error text only on an error, short paths for memory / port / fetch / cycle

@@ -1,4 +1,4 @@
-# Proposals across the Vircon32 projects: status (2026-11-08; rows checked 2026-11-03 unless they say a later date)
+# Proposals across the Vircon32 projects: status (2026-11-22; rows checked 2026-11-03 unless they say a later date)
 
 Every proposal, request list and spec found in v32sim, v32cxx, v32nix (20261102-dev), V32DOS, v32cc (20261102-dev), v32as
 (20261101-dev), v32opt (20261030-dev), v32lua (20261030-dev), v32io (20261014-dev), GBtoV32 (20261101-dev) and the current
@@ -21,11 +21,14 @@ and the text was read, not exercised. Request IDs collide between documents (thr
 | | section 4, locals and values | **done today** for what the producers write; open items are mostly the producers' |
 | v32nix `docs/PROPOSALS.md` | P-E6 headless runner with scripted v32io + v32dev serial | **met by v32sim** (`--batch`, `kbd`, `--kbd-input`, v32dev mailbox with a real `v32dev.py serve`; v32nix's own `tools/simtest.sh` and `docs/STORAGE.md` use it) |
 | | P-I2 a `v32mouse` event queue | **done in v32sim (20261106, VS-11)**: `--v32mouse[=PORT]`, the `mouse` command, counters and Gray/trit encoding as the v32io protocol (`src/v32mouse.c`) |
-| | P-E1 optional timer interrupt ("v32irq") | **declined by v32nix 2026-11-06** (D30/D37 preemption works on stock hardware, the kernel is not preemptible by design, safe points work on real hardware, sub-frame timers are not wanted); deferred indefinitely, reopen only for code with no safe points |
+| | P-E1 optional timer interrupt ("v32irq") | **declined by v32nix 2026-11-06, confirmed in their 2026-11-22 message** (D30/D37 preemption works on stock hardware, the kernel is not preemptible by design, safe points work on real hardware, sub-frame timers are not wanted); deferred indefinitely, reopen only for code with no safe points |
 | | (VS-19) native v32dev host | **done in v32sim (20261106, leftovers 20261108)**: `--v32dev-host=N=SPEC`, storage + serial, behaviour of `v32dev.py`; with `--v32dev-doorbell` a ring is answered at T = 0; the `dev` command (format / info / attach / detach / swap) and savestates that keep the host (20261108) |
-| | P-E2 v32dev completion doorbell | **done in v32sim (20261106)**: `--v32dev-doorbell[=MS]`, interface by v32nix (header word 8 bit 1, counters at header words 10..13, c2h_head store = the bell); the kernel side (wait loop checking the counter) is v32nix's |
-| | P-E5 the clock ports on both emulators | v32sim: leap years and `--fixed-clock` (checked by the differential suites) |
-| v32nix `docs/HANDOFF.md` | "`until` patterns are not full regex", "a user program that executes `HLT` ends the emulator silently" | still true (documented in TESTING.md "Gotchas") |
+| | P-E2 v32dev completion doorbell | **done in v32sim (20261106), adopted by v32nix 2026-11-22**: `--v32dev-doorbell[=MS]`, interface by v32nix (header word 8 bit 1, counters at header words 10..13, c2h_head store = the bell); the kernel side (wait loop checking the counter) is v32nix's |
+| | P-E3 v32dev console channel | v32nix 2026-11-22: nothing more needed from v32sim for now |
+| | P-E5 the clock ports on both emulators | v32sim: leap years and `--fixed-clock` (checked by the differential suites); v32nix 2026-11-22: nothing more needed from v32sim for now |
+| v32nix `docs/HANDOFF.md` | "`until` patterns are not full regex" | **opt-in fix 20261122**: a pattern that starts with `regex:` is a POSIX extended regular expression (`until "regex:^\$ ?$"`, also `expect console`); without the prefix the old rules (literal text, `^` / `$` anchors only) are unchanged and now written down (README "Waiting and checking", TESTING.md) |
+| | "a user program that executes `HLT` ends the emulator silently" | **opt-in fix 20261122**: `--warn-halt` prints `[HLT] ...` on stderr; `--halt-status=N` makes the exit status N (1-255) when the run ends at HLT. Both off by default (exit statuses are an interface) |
+| v32nix 2026-11-22 message to v32sim | keypress lost after a v32dev round trip (`sim/home-v32dev`, `kbd type "cat"` arrives as `at`) | **not a v32sim bug**: the v32kbd delivers one event per frame and the controls keep only the last one, so a program that does not read the gamepad for a few frames loses the events delivered meanwhile (exactly as the DesktopEmulator does). Reproduced with `tests/kbd_probe.py`; new opt-in `--kbd-sync` / `kbd sync on` holds each event until the program has read the previous one; `kbd` status shows how many events were replaced unread. Details: README "The v32io Keyboard" |
 
 ## Aimed at the compilers and the assembler (documented by their owners)
 

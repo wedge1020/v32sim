@@ -67,7 +67,9 @@ void      v32io_kbd_clear     (void);                     // forget queued event
 int       v32io_kbd_type      (const char *);             // text with C escapes
 int       v32io_kbd_key       (const char *, const char *); // "ctrl+c", "down|up|tap"
 void      v32io_kbd_text      (const uint8_t *, size_t, int); // raw bytes (UTF-8, ESC seqs)
-void      v32io_frame         (void);                     // once per frame, before it runs
+void      v32io_frame         (void);
+void      v32io_note_read     (uint16_t);                 // the program did IN on a port
+void      v32io_kbd_sync      (int);                      // hold events until the program reads them                     // once per frame, before it runs
 void      v32io_term_resume   (void);                     // execution continues
 void      v32io_term_suspend  (void);                     // the prompt takes the terminal
 void      v32io_show          (void);                     // 'kbd' command

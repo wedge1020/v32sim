@@ -58,6 +58,9 @@ uint8_t   haltflag;
 uint8_t   exitstatus;      // process exit status: 0 HLT, 2 frame limit, 3 system error (-x)
 uint8_t   consoleflag;     // --console: print the text screen when the run ends
 int8_t   *dumpspec;        // --dump=N[@ADDR|@LABEL]: print N RAM words after the run
+uint8_t   warn_halt;
+int32_t   halt_status = -1;
+uint8_t   halted_by_hlt;
 uint8_t   exitflag;        // -x: the exit status reports how the program ended
 int8_t   *symbolfile;      // --symbol-file=FILE: data symbols (v32cc NAME.asm.sym format)
 int8_t   *kbdinput;        // --kbd-input: host source of v32kbd keys
@@ -1190,6 +1193,10 @@ int32_t   main (int32_t  argc, char **argv)
     if ((script_errors > 0) && (exitstatus == 0) && (batchflag == TRUE))
     {
         exitstatus                  = 4;     // a command of the script could not be understood
+    }
+    if ((halted_by_hlt == TRUE) && (halt_status >= 0) && (exitstatus == 0))
+    {
+        exitstatus                  = (uint8_t) halt_status;   // --halt-status: HLT is told apart from a clean 0
     }
     if (quit_status_set              == TRUE)
     {

@@ -212,6 +212,9 @@ extern uint8_t    profile_by_function;         // --profile-by=function
 extern int8_t    *symbolfile;                  // --symbol-file=FILE
 extern uint8_t    exitstatus;
 extern uint8_t    exitflag;
+extern uint8_t    warn_halt;                   // --warn-halt: say on stderr when the program executes HLT
+extern int32_t    halt_status;                 // --halt-status=N: exit status when the run ends at HLT (-1 = off)
+extern uint8_t    halted_by_hlt;               // the run ended because the program executed HLT
 extern int8_t    *dumpspec;
 extern uint8_t    consoleflag;
 extern int8_t    *kbdinput;

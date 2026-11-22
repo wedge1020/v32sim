@@ -931,6 +931,12 @@ void  decode_process (uint32_t  instruction,
     {
         case HLT:
             haltflag        = TRUE;
+            halted_by_hlt   = TRUE;
+            if (warn_halt  == TRUE)
+            {
+                fprintf (stderr, "[HLT] the program executed HLT at 0x%08X after %u frames: the emulator stops here\n",
+                                 (unsigned) REG(IP), (unsigned) frames_run);
+            }
             break;
 
         case WAIT:
@@ -1244,6 +1250,7 @@ void  decode_process (uint32_t  instruction,
             value           = ((fixed_cycles == TRUE) && (port == TIM_CycleCounter)) ? 0 : IPORTGET(port);
             if (sys_error  == ERROR_NONE)          // a failed read leaves the register alone
             {
+                v32io_note_read ((uint16_t) port);
                 DSTREG      = value;
             }
             break;

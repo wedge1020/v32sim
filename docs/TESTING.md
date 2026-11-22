@@ -110,5 +110,14 @@ Always use `-x` in tests.
 - `v32sim` finds `NAME.asm.sym`, `NAME.vbin.debug`, `NAME.asm` next to the `.v32`; `-n` turns all that off (so `--dump=1@x`
   fails with it).
 - A program that ends with `HLT` ends the run: later commands in the script never execute. Put `x`/`print`
-  before it, use `--dump`, or keep the program in a loop.
-- `until` patterns are not full regular expressions (`^`, `$` anchors only).
+  before it, use `--dump`, or keep the program in a loop. `--warn-halt` says so on stderr (`[HLT] the program executed HLT at
+  ADDR after N frames`) and `--halt-status=N` gives the run its own exit status (default: still silent, status 0 with `-x`).
+- `until` / `expect console` patterns are plain text: only a leading `^` and a trailing `$` mean anything (start / end of a
+  screen row); `.` `*` `[` `\` `(` are ordinary characters (so `MEM:\>$` is the DOS prompt, literally). A pattern that starts with
+  `regex:` is a POSIX extended regular expression tried on each row (`until "regex:^[a-z]+@[a-z]+:.*[$#] $"`); a bad one is reported
+  once on stderr and never matches.
+- Typed keys are not queued for the program: `kbd type` feeds one key event per frame into the gamepad controls whether or not the
+  program looks, and the controls hold only the last event. A program that does not read its v32kbd for a few frames (waiting
+  for a v32dev reply, a long computation) loses the keys delivered meanwhile: `cat` arrives as `at`. Wait (`until`) for the
+  program to be back at its prompt before typing, or run with `--kbd-sync` (README "The v32io Keyboard"); `kbd` shows
+  "replaced before the program read them".

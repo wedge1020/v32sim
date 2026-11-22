@@ -968,6 +968,12 @@ static void  exec_kbd (cmd_t *c)
     {
         v32io_show ();
     }
+    else if (0 == strcasecmp (verb, "sync"))
+    {
+        if      ((0 == strcasecmp (rest, "on")) || (*rest == '\0'))  v32io_kbd_sync (1);
+        else if  (0 == strcasecmp (rest, "off"))                     v32io_kbd_sync (0);
+        else    fprintf (stderr, "[ERROR] kbd sync: on or off\n");
+    }
     else
     {
         fprintf (stderr, "[ERROR] kbd: unknown subcommand '%s' (try 'help kbd')\n", verb);

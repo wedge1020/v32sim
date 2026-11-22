@@ -64,7 +64,12 @@ static struct
     uint32_t        dropped;              // events lost because the queue was full
     uint32_t        unmapped;             // characters the BIOS font does not have
     uint32_t        chars;                // characters typed
-} kbd = { .port = -1, .fd = -1 };
+
+    int             sync;                 // 'kbd sync': hold an event until the program has read the last one
+    int             sampled;              // the program has read the gamepad since the last event was delivered
+    uint32_t        missed;               // events replaced by the next one before the program read them
+    uint32_t        held;                 // frames an event was held back by sync
+} kbd = { .port = -1, .fd = -1, .sampled = 1 };
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -778,7 +783,8 @@ int  v32io_kbd_attach (int port)
         fprintf (stderr, "[ERROR] kbd: gamepad %d has the mouse on it\n", port);
         return (-1);
     }
-    kbd.port  = port;
+    kbd.port     = port;
+    kbd.sampled  = 1;
     gamepad_connect ((uint8_t) port, TRUE);
     v32io_kbd_clear ();
     return (0);
@@ -850,11 +856,46 @@ void  v32io_frame (void)
     v32io_tty_frame ();
     if (kbd.qcount > 0)
     {
+        //
+        // The controls keep only the LAST event: the strobe flips at every one, so a program
+        // that does not read the gamepad between two events never sees the first (and with
+        // an even number of events in between it sees no change at all). 'kbd sync' makes
+        // the simulator wait for the program instead of overwriting the event
+        //
+        if ((kbd.sync != 0) && (kbd.sampled == 0))
+        {
+            kbd.held  = kbd.held + 1;
+            return;
+        }
+        if (kbd.sampled == 0)
+        {
+            kbd.missed  = kbd.missed + 1;
+        }
         ev  = kbd.q[kbd.qhead];
         q_pop ();
         deliver (&ev);
         kbd.delivered  = kbd.delivered + 1;
+        kbd.sampled    = 0;
     }
+}
+
+//
+// v32io_note_read(): the program executed IN on a port. Reading a control of the
+// gamepad that carries the keyboard means it has seen the last event (observation only:
+// this changes nothing unless 'kbd sync' is on)
+//
+void  v32io_note_read (uint16_t port)
+{
+    if ((kbd.port >= 0) && (port >= INP_GamepadLeft) && (port <= INP_GamepadButtonR) &&
+        (ioports_get (INP_SelectedGamepad, TRUE) . i32 == kbd.port))
+    {
+        kbd.sampled  = 1;
+    }
+}
+
+void  v32io_kbd_sync (int on)
+{
+    kbd.sync  = (on != 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -1094,6 +1135,8 @@ void  v32io_show (void)
                      kbd.shift ? "shift " : "", kbd.ctrl ? "ctrl " : "", (kbd.shift || kbd.ctrl || kbd.alt) ? (kbd.alt ? "alt" : "") : "none");
     fprintf (stdout, "  delivered: %u events   dropped: %u   characters typed: %u   not in the BIOS font: %u\n",
                      kbd.delivered, kbd.dropped, kbd.chars, kbd.unmapped);
+    fprintf (stdout, "  replaced before the program read them: %u   sync: %s (%u frames held)\n",
+                     kbd.missed, kbd.sync ? "on" : "off", kbd.held);
     if (kbd.fd >= 0)
     {
         fprintf (stdout, "  host input: %s%s\n", kbd.spec, kbd.istty ? " (terminal; Ctrl-] returns to the debugger)" : "");

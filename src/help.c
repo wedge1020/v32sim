@@ -32,6 +32,9 @@ void  usage (int8_t *program)
     fprintf (stdout, " -V, --version             display version information and exit\n");
     fprintf (stdout, "     --v32kbd[=PORT]       emulate a v32kbd keyboard on gamepad PORT (default 0)\n");
     fprintf (stdout, "     --kbd-input=SOURCE    host key source: stdin, fd:N, FIFO/pipe/file (implies --v32kbd)\n");
+    fprintf (stdout, "     --kbd-sync            v32kbd: deliver the next key event only after the program has read the gamepad\n                           since the last one (the default replaces it, as the real keyboard does)\n");
+    fprintf (stdout, "     --warn-halt           say on stderr when the program executes HLT (the emulator then stops)\n");
+    fprintf (stdout, "     --halt-status=N       exit status N (1-255) when the run ends at HLT (and nothing else went wrong)\n");
     fprintf (stdout, "     --v32mouse[=PORT]     emulate a v32mouse on gamepad PORT (default 1); drive it with the\n                           'mouse' command\n");
     fprintf (stdout, "     --fast                do not throttle to real time (frames run as fast as possible)\n");
     fprintf (stdout, "     --turbo[=report]      --fast, plus: spin loops that cannot change anything are fast-forwarded and a full GPU\n                           pixel queue is dropped instead of painted (screenshots may then be incomplete; README \"Turbo mode\");\n                           =report prints what was skipped to stderr at exit\n");
@@ -211,7 +214,8 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    kbd key KEY [MODE]       KEY: a, f1, enter, esc, up, ctrl+c, shift+tab, 0x41 ...\n");
             fprintf (stdout, "                             MODE: tap (default), down, up\n");
             fprintf (stdout, "    kbd input SOURCE|off     host input: stdin, fd:N, a FIFO/pipe/file path\n");
-            fprintf (stdout, "    kbd clear                forget queued keys and text\n\n");
+            fprintf (stdout, "    kbd clear                forget queued keys and text\n");
+            fprintf (stdout, "    kbd sync [on|off]        hold each key event until the program has read the last one\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    The v32io keyboard looks like a gamepad to the program: Left/Right is a\n");
             fprintf (stdout, "    strobe, Up/Down says press/release and Start A B X Y L R carry a 7-bit key\n");
