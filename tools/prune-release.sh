@@ -48,6 +48,7 @@ prune proposals "older copy of docs/proposals/; every differing file is supersed
 prune docs/proposals/PROPOSAL-v32cc.md   "SC-1..SC-5 and both questions done (v32cc 20261105-dev..20261109; docs/V32DBG-STATUS.md)"
 prune docs/proposals/PROPOSAL-v32as.md   "SA-1 done, SA-2/SA-3 done (loc= symbols, NAME.vbin.sym), SA-4 closed by decision (extension decides)"
 prune docs/proposals/PROPOSAL-v32opt.md  "SO-1..SO-4 done (loc= rewrite, ;@home, --check-vars, optimized-out; V32DBG-STATUS.md)"
+prune docs/proposals/PROPOSAL-V32DOS.md "SD-1..SD-4 done in V32DOS 20261123-dev (bootstrap uses tools/oracle/build.sh and tools/build-nogen.sh; no v32c++); question answered: no shared Host helper, dev.py uses the native host"
 prune docs/proposals/PROPOSAL-v32lua.md  "SL-1..SL-4 done (upvalues, chunk locals, v32orun replaces the headless runner); file's own header says Done"
 prune docs/proposals/PROPOSAL-ComputerSoftware.md "SE-1 and SE-2 declined by the author; SE-3/SE-4 moot (upstream unchanged, v32sim tools/oracle covers them)"
 prune docs/proposals/PROPOSAL-v32sim.md  "backlog VS-10..VS-19 all done (TODO.md DONE entries); open leftovers are in TODO.md STILL LACKING"
@@ -56,7 +57,7 @@ prune docs/proposals/PROPOSAL-v32sim.md  "backlog VS-10..VS-19 all done (TODO.md
 # 3. Stale docs
 # ---------------------------------------------------------------------------------------------------------------------
 # None is safe to delete outright. Review (see /home/claude/work/prune-report.md):
-# prune docs/CONSOLIDATION.md "review: a 2026-11-03 log, open items 3-4 are done, but items 5-7 and the 'Left where it is' table are not recorded elsewhere; move them to TODO.md first (AGENTS.md lines 8 and 46 link it)"
+prune docs/CONSOLIDATION.md "2026-11-03 consolidation log; open items moved to TODO.md, the 'Left where it is' table to docs/TOOLS.md"
 # prune docs/PERFORMANCE.md   "review: point-in-time report, but the only place with the measured numbers; README and TODO.md link it; keep unless the numbers move into README 'Speed and Turbo Mode'"
 # prune docs/proposals/v32sim-proposal-perf-metrics-20261030.md "review: every feature is implemented; only an overhead measurement (<2%) and a host-drawing replay build are left, which are not in TODO.md yet"
 # (kept: TODO.md, docs/PROPOSALS-STATUS.md (only record of v32nix P-E* answers; needs two stale rows edited), docs/V32DBG-STATUS.md, docs/AGENTS-SNIPPET.md, docs/BUGS.md)
@@ -64,7 +65,7 @@ prune docs/proposals/PROPOSAL-v32sim.md  "backlog VS-10..VS-19 all done (TODO.md
 # ---------------------------------------------------------------------------------------------------------------------
 # 4. Orphans (nothing references them)
 # ---------------------------------------------------------------------------------------------------------------------
-# prune screenshots "review: v32cat_*.jpg/png show a hex view of a cartridge from a tool (v32cat) that is not in this repo; only the README layout tree mentions the directory (3.3 MB)"
+prune screenshots "v32cat images, unrelated to v32sim; referenced only by the README layout tree"
 # prune cart       "review: 09_hello, flappy, hello_bitwise are not used by any test or script (flappy only named as a benchmark in PERFORMANCE.md); README layout line only"
 # prune bios       "review: debuggerBIOS.v32 and its .vbin.debug are not used by any script; input.c only quotes its name in a comment; README layout line only"
 # (kept: gen/ (build-nogen.sh and the Makefile fallback need it), bin/.filler (harmless; zip -r stores bin/ anyway), CLAUDE.md, docs/repro/ (cited by docs/agents/V32OPT.md, V32DBG-STATUS.md, tests/examples/vars_opt.c), tests/ref/build.sh (wrapper, cited by run_gaps.sh and TOOLS.md))

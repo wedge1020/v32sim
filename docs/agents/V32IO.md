@@ -1,6 +1,6 @@
 # v32io and v32dev -- keyboard, mouse, host files and a terminal (agent card)
 
-Two independent libraries (C headers you include in a cartridge or BIOS), version 20261014-dev. Docs: `README.md`,
+Two independent libraries (C headers you include in a cartridge or BIOS), version 20261105-dev. Docs: `README.md`,
 `lib/v32io/README.md`, `lib/v32dev/README.md`, `docs/v32io/PROTOCOLS.md`, `docs/v32dev/PROTOCOL.md`, `man v32io`, `man v32dev`.
 
 | | v32io | v32dev |
@@ -36,7 +36,8 @@ tools/v32dev.py serve game.memc --ch0 storage:disk.img --ch1 serial:stdio      #
 
 - **v32sim** emulates a `v32kbd` on any port (`--v32kbd=N`; `kbd type "ls\n"`, `kbd key`, `--kbd-input=stdin|FIFO|file`, `--tty`) and
   plays the emulator's part of the v32dev mailbox, so a real `v32dev.py serve` talks to a cartridge in v32sim (the v32io suite
-  `tests/v32dev/dev_rom_test.py` passes 41/41 through v32sim's `tests/v32sim_runner.sh`). It emulates a `v32mouse` too
+  `tests/v32dev/dev_rom_test.py` passes 98/98 through v32sim's `tests/v32sim_runner.sh`, the embedded-server scenarios included:
+  v32sim reads `V32DEV_SERVER` and `V32DEV_CH0..3` like the patched DesktopEmulator (mailbox in memory only, `serial:tcp=PORT`, `serial:stdio`); `--v32dev-host=N=SPEC` is the same host, with the mailbox in the card file unless `V32DEV_SERVER` is set). It emulates a `v32mouse` too
   (`--v32mouse[=PORT]`, default port 1; the `mouse` command: `move DX DY`, `click|down|up [left|right|middle]`, `wait N`); `tests/vectors/mouse_*.vec`
   from this project are checked against it. v32sim's `tools/v32io-script.py` and `tools/vprof2cmd.py` turn actions into gamepad presses.
 - The v32io project's own tests: `tests/run.sh`, `tests/v32dev/run.sh` (unit, order, stress, end-to-end with the host),

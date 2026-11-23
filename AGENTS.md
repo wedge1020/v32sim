@@ -5,7 +5,7 @@
 v32sim is the **central tool repository for debugging, profiling, testing and simulating Vircon32 software**: a headless
 simulator with an interactive single-step debugger (C, flex/bison), plus the scripts, oracle tools and test harnesses that
 the other Vircon32 projects (v32cxx, v32nix, V32DOS, v32cc, NEStoV32...) grew on their own and that now live here.
-Other projects keep thin wrappers; the tools themselves are here. `docs/CONSOLIDATION.md` says what came from where.
+Other projects keep thin wrappers; the tools themselves are here. `docs/TOOLS.md` says which tool answers which question, and what stays in the other projects.
 
 **If you are new to the ecosystem**, `docs/agents/` has one short card per machine, language and tool.
 **If you are using v32sim from another project**, read `docs/AGENTS-SNIPPET.md` (a drop-in section for that project's own
@@ -46,22 +46,23 @@ tools/               scripts for people who test other projects with v32sim (doc
   oracle/              C++ tools on the stock ConsoleLogic: v32orun (the one runner; refrun v32run vrun v32prof v32peek v32shot are wrappers) sysprof (+ build.sh)
 tests/               the suites; run_harness_tests.sh covers tools/ (examples/ holds its cartridges)
 man/                 v32sim.1 and its Spanish / French translations (v32sim.es.1, v32sim.fr.1)
-docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TOOLS TESTING PROFILING PERFORMANCE AGENTS-SNIPPET CONSOLIDATION
+docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TOOLS TESTING PROFILING PERFORMANCE AGENTS-SNIPPET
                      V32DBG-STATUS PROPOSALS-STATUS TRACE-FORMAT, the specs (V32DBG-SPEC, V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS),
                      docs/repro/ (cases for other projects), agents/ (one card per tool),
-                     docs/proposals/ (open requests to v32c++, v32io, GBtoV32, V32DOS and v32nix, IDs S*-n;
+                     docs/proposals/ (open requests to v32c++, v32io, GBtoV32 and v32nix, IDs S*-n;
                      resolved ones were removed before the first release)
 ```
 
 ## Working on it
 
 - Build: `make` (needs flex + bison + readline) or `tools/build-nogen.sh` (readline only). After editing `src/*.l` /
-  `src/*.y`: `make gen` and commit `gen/`, because v32nix and V32DOS build v32sim from it.
+  `src/*.y`: `make gen` and commit `gen/`, because v32nix and V32DOS build v32sim from it (V32DOS's bootstrap runs `tools/build-nogen.sh` and `tools/oracle/build.sh`).
 - Tests (most need the toolchain; see the headers): `tests/run_batch_tests.sh` (scripting), `run_src_tests.sh` (source
-  level), `run_stack_tests.sh` (C / C++ / Lua debug stack), `run_gaps.sh`, `run_romcheck.sh`, `run_fuzz.sh` (differential
-  against `refrun`), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU),
-  `run_harness_tests.sh` (the tools/ scripts and their agreement with the oracle). `make test` runs
-  `run_kbd_sync_tests.sh`, which needs no toolchain; `make check TC=DIR` runs them all.
+  level), `run_stack_tests.sh` (C / C++ / Lua debug stack), `run_gaps.sh` (56 checks), `run_romcheck.sh`, `run_fuzz.sh` (differential
+  against `refrun`), `run_clock.sh` (start-up clock vs the oracle across time zones/DST, `LD_PRELOAD` time shim, 37 checks),
+  `run_memcard.sh` (memory card + v32dev mailbox vs the oracle via `vrun`, 14 checks), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU),
+  `run_harness_tests.sh` (the tools/ scripts and their agreement with the oracle; 98 checks with ORACLE and V32IO set). `make test` runs
+  `run_kbd_sync_tests.sh` and `run_cli_tests.sh` (command line, help texts, exit statuses; 128 checks), which need no toolchain; `make check TC=DIR` runs them all.
   Passing one suite proves little: a CPU/GPU change needs the differential ones, a scripting change the batch one.
 - Add an option: `src/args.c` (long option number), `src/help.c`, `inc/globals.h`, README "Usage", `docs/USAGE.md`, `man/v32sim.1`
   (and the translations, see Docs), and a test. A new prompt command goes in `src/lexer.l`, `src/parser.y`, `src/command.c`
@@ -76,3 +77,9 @@ docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TO
   `docs/USAGE.es.md`, `docs/USAGE.fr.md`, `man/v32sim.es.1`, `man/v32sim.fr.1`): when you change an English one, update the
   translations or say they are stale. `make version` stamps the man pages' `.TH` lines. The other docs are English only. When a
   limitation is lifted or an option added, update README "Known Limitations", TODO.md and this file.
+- Releases: `.github/workflows/release-builds.yml` ("Generate Global Binaries", run by hand) builds Linux and macOS (x86_64
+  and arm64, natively, from `gen/` with `HAVE_GEN_TOOLS=no`; macOS uses Homebrew readline through `READLINE_PREFIX`), runs
+  `make test` and packs `make dist`; a `release` run then makes the GitHub release `v<VERSION>` from `.github/release-notes.md`
+  (`@VERSION@` is replaced), a draft unless `publish_release` is ticked, and refuses man pages not stamped by `make version`.
+  Keep the release text's feature list in step with the README. Windows is left out: termios (`src/v32io.c`), SIGBUS
+  (`src/main.c`, `src/signal.c`) and POSIX `<regex.h>` (`src/gpu.c`) would need a portability layer first.

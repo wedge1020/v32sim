@@ -124,6 +124,14 @@ if [ -f "$W/loc/locals.vbin.vars" ]; then
     out=$(printf 'break locals.c:23\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x -B "$V32BIOS" -L C "$W/loc/locals.v32" 2>/dev/null)
     echo "$out" | grep -q "^arr = {[-0-9]*, [-0-9]*, [-0-9]*, [-0-9]*} .*int\[4\]" && echo "$out" | grep -qE "^p = (\{0x00000003, 0x00000005\} .*struct:pt:2|\{x = 3, y = 5\} .*struct:pt:2)" && echo "$out" | grep -q "^q = 0x.*ptr" \
         && ! echo "$out" | grep -q "^f = " && ok "array, struct, pointer; another function's variables stay out" || bad "work's locals: $(echo "$out" | tr '\n' '|' | cut -c1-250)"
+    echo "$out" | grep -q "^p = {x = 3, y = 5} .*struct:pt:2{x:int@0;y:int@1}" \
+        && ok "struct members by name (type=struct:TAG:WORDS{x:int@0;...})" || bad "struct members: $(echo "$out" | grep '^p = ')"
+    echo "$out" | grep -q "^g_total = .*(int, @0x" \
+        && ok "a global with type= (loc=@ADDR) is listed with its type" || bad "global with type: $(echo "$out" | head -2)"
+    # `up` selects the caller's frame; the next stop (continue) must show the new frame 0 again, not the caller
+    out=$(printf 'break locals.c:9\nbreak locals.c:23\ncontinue\nup\ncontinue\nlocals\nquit\n' | "$SIM" --batch --fast -x -B "$V32BIOS" -L C "$W/loc/locals.v32" 2>/dev/null)
+    echo "$out" | grep -q "^sum = " && ! echo "$out" | grep -q "^r = 221 " \
+        && ok "a stop after up/continue shows frame 0's locals again" || bad "frame selection survived a continue: $(echo "$out" | tail -3 | tr '\n' '|')"
 else skipt "locals (C)" "this v32as writes no .vbin.vars"; fi
 # the values must stay true after v32opt promotes the slots into registers (v32opt 20261105+), and a char shows its character
 if [ -x "$V32TC/v32opt" ] && [ -f "$W/loc/locals.vbin.vars" ]; then

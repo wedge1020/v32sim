@@ -18,6 +18,12 @@
 //   emulator-owned and memory-only, like words 8 and 9. With an external host (v32dev.py serve) the wait is wall-clock,
 //   so cycle-exact repeatability is lost whenever a host answers early: do not use it in differential tests.
 //
+// V32DEV_SERVER (the DesktopEmulator's built-in v32dev server of the v32io project): the host is in here, so the card file
+// is not part of the conversation. The card needs no formatting: if the last 64 KiB hold nothing the mailbox header is put
+// there in memory only, and the whole 16384-word region is left out of every save (phase 2 does not exist), so the file
+// never has a trace of the mailbox; a card that holds data there is left alone and not served; a card that was formatted
+// works too (the server takes the host's place, and the host area of the file is not read).
+//
 // This follows the DesktopEmulator (V32Console::RunNextFrame) and the v32dev emulator
 // patch of the v32io project:
 //
@@ -58,6 +64,7 @@ static struct
     uint8_t    dirty[MEMC_NUM_PAGES];
     uint8_t    mailbox;                      // header valid and not disabled
     uint8_t    disabled;                     // V32DEV_DISABLE
+    uint8_t    server;                       // V32DEV_SERVER is serving this card: the mailbox is memory only (never in the file)
     uint32_t   beat;                         // emulator heartbeat
     uint32_t   host_beat[DEV_CHANNELS];      // last host heartbeat seen
     uint32_t   host_still[DEV_CHANNELS];     // syncs in a row without a change
@@ -231,8 +238,57 @@ static void  mailbox_activate (void)
     {
         devhost_start ();
     }
+    if (mc.server == TRUE)                                               // a host that is not here: whatever a formatted card said
+    {
+        int  chan  = 0;
+
+        for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)
+        {
+            if (devhost_serves (chan) == FALSE)
+            {
+                cw_set (DEV_HOST_START + chan * DEV_PART_WORDS + DEV_HP_FLAGS,  0);
+                cw_set (DEV_HOST_START + chan * DEV_PART_WORDS + DEV_HP_STATUS, 0);
+            }
+        }
+    }
     bell_reset ();
     DPRINTF(verbose, "[MEMC] v32dev mailbox active\n");
+}
+
+//
+// server_attach(): V32DEV_SERVER. The mailbox exists in memory only. A card that is not formatted for v32dev gets its
+// header there if its last 64 KiB are all zero; data there (the program's own save) keeps the card ordinary, with a
+// warning; V32DEV_DISABLE keeps it ordinary too
+//
+static void  server_attach (void)
+{
+    int32_t  i  = 0;
+
+    if (mc.disabled == TRUE)
+    {
+        fprintf (stderr, "[WARNING:DEVHOST] V32DEV_DISABLE is set: the v32dev server is not started\n");
+        return;
+    }
+    if (header_valid () == 0)
+    {
+        for (i = 0; i < DEV_REGION_WORDS; i = i + 1)
+        {
+            if (cw (DEV_REGION_START + i) != 0)
+            {
+                fprintf (stderr, "[WARNING:DEVHOST] the last 64 KiB of '%s' hold data: the v32dev server does not serve this card\n", mc.path);
+                return;
+            }
+        }
+        cw_set (DEV_REGION_START + DEV_H_MAGIC,         DEV_MAGIC);
+        cw_set (DEV_REGION_START + DEV_H_VERSION,       DEV_VERSION);
+        cw_set (DEV_REGION_START + DEV_H_REGION_WORDS,  DEV_REGION_WORDS);
+        cw_set (DEV_REGION_START + DEV_H_CHANNELS,      DEV_CHANNELS);
+        cw_set (DEV_REGION_START + DEV_H_PART_WORDS,    DEV_PART_WORDS);
+        cw_set (DEV_REGION_START + DEV_H_CONTROL_WORDS, DEV_CONTROL_WORDS);
+    }
+    mc.server  = TRUE;
+    mailbox_activate ();
+    DPRINTF(verbose, "[MEMC] v32dev server active (the mailbox is not written to the card file)\n");
 }
 
 void  memc_attach (const char *path)
@@ -270,7 +326,13 @@ void  memc_attach (const char *path)
     mc.tracking  = TRUE;
     mc.disabled  = ((env != NULL) && (0 != strcmp (env, "0")));
     mc.mailbox   = FALSE;
+    mc.server    = FALSE;
 
+    if (devhost_server () == TRUE)
+    {
+        server_attach ();
+        return;
+    }
     if ((devhost_configured () == TRUE) && (mc.disabled == FALSE))
     {
         if (native_format () == FALSE)
@@ -311,6 +373,11 @@ uint8_t  memc_format (uint8_t force)
     if (mc.disabled == TRUE)
     {
         fprintf (stderr, "[ERROR] dev format: V32DEV_DISABLE is set\n");
+        return (FALSE);
+    }
+    if ((mc.server == TRUE) || (devhost_server () == TRUE))
+    {
+        fprintf (stderr, "[ERROR] dev format: V32DEV_SERVER keeps the mailbox out of the card file: there is nothing to format\n");
         return (FALSE);
     }
     if ((mc.mailbox == TRUE) && (force == FALSE))
@@ -358,6 +425,7 @@ void  memc_detach (void)
     mc.attached  = FALSE;
     mc.tracking  = FALSE;
     mc.mailbox   = FALSE;
+    mc.server    = FALSE;
     mc.pending   = FALSE;
     memset (mc.dirty, 0, sizeof (mc.dirty));
 }
@@ -416,7 +484,14 @@ static int  plan_save (void)
     int32_t   p1      = 0;
     int       touched = 0;
 
-    if (mc.mailbox == TRUE)
+    if (mc.server == TRUE)
+    {
+        // the host is in here: the whole mailbox region is volatile, none of it belongs in the file
+        ex_first[nex]  = DEV_REGION_START;
+        ex_end[nex]    = MEMC_WORDS;
+        nex            = nex + 1;
+    }
+    else if (mc.mailbox == TRUE)
     {
         // the header and the host-owned area are contiguous, and not ours to write
         ex_first[nex]  = DEV_REGION_START;
@@ -478,8 +553,8 @@ static int  plan_save (void)
         }
     }
 
-    // phase 2: the commit words of every cart-owned part that was touched
-    if (mc.mailbox == TRUE)
+    // phase 2: the commit words of every cart-owned part that was touched (an in-process host has no reader to order them for)
+    if ((mc.mailbox == TRUE) && (mc.server == FALSE))
     {
         for (chan = 0; chan < DEV_CHANNELS; chan = chan + 1)
         {
@@ -657,7 +732,7 @@ static void  sync_host (void)
     cw_set (DEV_REGION_START + DEV_H_EMU_FLAGS, (memc_doorbell == TRUE) ? 3 : 1);
     cw_set (DEV_REGION_START + DEV_H_EMU_BEAT,  mc.beat);
 
-    n  = pread (mc.fd, iobuf, bytes, (off_t) (2 * wordsize) + (off_t) DEV_HOST_START * 4);
+    n  = (mc.server == TRUE) ? (ssize_t) -1 : pread (mc.fd, iobuf, bytes, (off_t) (2 * wordsize) + (off_t) DEV_HOST_START * 4);   // (server: no file to read)
     if (n == (ssize_t) bytes)
     {
         if (memc_doorbell == TRUE)
@@ -755,6 +830,10 @@ void  memc_bell (uint32_t word)
         return;
     }
 
+    if (mc.server == TRUE)                         // nobody else can answer, and the file has no mailbox
+    {
+        return;
+    }
     memc_flush ();                                 // data first, then the commit words
 
     hp    = DEV_HOST_START + (uint32_t) chan * DEV_PART_WORDS;
@@ -970,11 +1049,19 @@ void  memc_show (int channel)
     if (mc.mailbox == FALSE)
     {
         fprintf (stdout, "  mailbox : %s\n", (mc.disabled == TRUE) ? "disabled (V32DEV_DISABLE)" :
+                                             (devhost_server () == TRUE) ? "none (V32DEV_SERVER: the last 64 KiB of the card hold data)" :
                                              (header_valid () == 0) ? "none (no v32dev header on the card)" : "off");
         return;
     }
-    fprintf (stdout, "  mailbox : LIVE  emulator heartbeat %u, host area read %u times, host changed it %u times\n",
-                     mc.beat, mc.syncs, mc.changes);
+    if (mc.server == TRUE)
+    {
+        fprintf (stdout, "  mailbox : LIVE, v32dev server (V32DEV_SERVER: in memory only, never written to the card file)  emulator heartbeat %u\n", mc.beat);
+    }
+    else
+    {
+        fprintf (stdout, "  mailbox : LIVE  emulator heartbeat %u, host area read %u times, host changed it %u times\n",
+                         mc.beat, mc.syncs, mc.changes);
+    }
     if (memc_doorbell == TRUE)
     {
         fprintf (stdout, "  doorbell: on (a host gets %u ms): %u rings, %u waited for a live host, %u answered at once; counters %u %u %u %u\n",

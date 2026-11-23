@@ -85,8 +85,10 @@ compare. From GBtoV32's Homebrew Hub harness, without the Game Boy parts.
 
 ## 5. Host devices
 
-`tests/v32sim_runner.sh` makes v32sim a drop-in for the v32io project's `dev_rom_runner`, so its `dev_rom_test.py` (41 checks:
-storage, serial, host crash and recovery) runs against v32sim unchanged. For tests that must act on the host between two
+`tests/v32sim_runner.sh` makes v32sim a drop-in for the v32io project's `dev_rom_runner`, so its `dev_rom_test.py` (98 checks:
+storage, serial, host crash and recovery, and, since v32io 20261105, the scenarios against the emulator's built-in v32dev server: `V32DEV_SERVER` /
+`V32DEV_CH0..3`, `serial:stdio`, `serial:tcp`, a mailbox that never reaches the card file; v32sim has that server too, and the runner passes standard input and
+output through when a channel is `serial:stdio`). `tests/run_v32dev_server_tests.sh` (84 checks, no toolchain, no v32io) tests the server's environment, `serial:tcp`, SPEC parsing and `dev format` types. For tests that must act on the host between two
 commands (stop `v32dev.py serve`, serve another image, start again), see V32DOS `tests/dev.py`: v32sim at 2.5 ms per frame
 as the emulator, `v32dev.py serve` as a separate process on the card *file*. The same cartridges run against the in-process host with
 `tests/native_host_test.py` (no second process; compares the report and image with the Python host).
@@ -94,10 +96,15 @@ as the emulator, `v32dev.py serve` as a separate process on the card *file*. The
 ## 6. Differential tests (is v32sim right?)
 
 `tests/run_gaps.sh TOOLS [filter]` runs each `tests/gaps/*.asm` on v32sim and on `refrun` and requires identical RAM dumps;
-`run_fuzz.sh` does it with generated programs; `run_romcheck.sh` for ROM validation. Add a case when you find a divergence:
+`run_fuzz.sh` does it with generated programs; `run_romcheck.sh` for ROM validation. The gaps are 56 checks.
+`tests/run_clock.sh TOOLS` (37 checks) compares the start-up clock (no `--fixed-clock`) with the oracle across time zones and daylight-saving changes:
+it preloads `tests/ref/faketime.c` (`LD_PRELOAD`, `V32_FAKE_TIME`) so `time()` returns a chosen instant, and `TZ` picks the zone.
+`tests/run_memcard.sh TOOLS` (14 checks; TOOLS needs `vrun`) compares memory cards and v32dev mailboxes with the oracle via `vrun`:
+words read, writes made, the card file left behind, and the size/signature checks. Add a case when you find a divergence:
 a short `.asm`, the `;@ frames=N dump=...` header, and it fails until v32sim is fixed. `make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]`
-(`tools/v32sim-check.sh`) runs every suite of `tests/` from one toolchain directory and prints one summary line; `make test` runs the
-one that needs no toolchain (`tests/run_kbd_sync_tests.sh`).
+(`tools/v32sim-check.sh`) runs every suite of `tests/` from one toolchain directory and prints one summary line; `make check` runs clock and memcard too
+(memcard is skipped without `vrun`; the harness, `tests/run_harness_tests.sh`, is 98 checks with `ORACLE` and `V32IO` set, 95 without; 2 more need `V32SRCMARK` and a GBtoV32 tree). `make test` runs the
+ones that need no toolchain: `tests/run_kbd_sync_tests.sh` and `tests/run_cli_tests.sh` (command line, help texts, exit statuses; 128 checks).
 
 ## 7. What exit statuses mean
 

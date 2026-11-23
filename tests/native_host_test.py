@@ -198,8 +198,10 @@ def test_states():
     # a bad spec
     p = subprocess.run([SIM, "-r", "-n", "--v32dev-host=1=floppy:x"], capture_output=True, text=True, stdin=subprocess.DEVNULL)
     check(p.returncode == 1 and "unknown device" in p.stderr, "a bad spec is refused")
-    p = subprocess.run([SIM, "-r", "-n", "--v32dev-host=1=storage:%s,wat" % img], capture_output=True, text=True, stdin=subprocess.DEVNULL)
-    check(p.returncode == 1 and "unknown storage option" in p.stderr, "a bad storage option is refused")
+    # (options are read from the right, as the DesktopEmulator's server does: "wat" is part of a file name that is not there)
+    card = plain_card("badopt.memc", 5)
+    code, err = run(card, "storage_test", ["1=storage:%s,wat" % img], frames=3000)
+    check(code == 1 and "cannot open" in err and "read from the right" in err, "a bad storage option is refused (it is part of a file name that is not there)")
 
 
 def test_create():

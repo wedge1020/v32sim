@@ -8,6 +8,14 @@
 ;@ frames=70 dump=140@40 date=1900,364 time=86399 name=1900-not-leap
 ;@ frames=70 dump=140@40 date=2100,364 time=86399 name=2100-not-leap
 ;@ frames=70 dump=140@40 date=2026,363 time=86399 name=ordinary-day
+;@ frames=70 dump=140@40 date=2023,365 time=86399 name=day-366-of-a-common-year
+;@ frames=70 dump=140@40 date=2100,365 time=86399 name=2100-day-366
+;@ frames=70 dump=140@40 date=2026,400 time=86399 name=day-clamped-to-365
+;@ frames=70 dump=140@40 date=40000,10 time=86399 name=year-clamped-to-32767
+;@ frames=70 dump=140@40 date=0,364 time=86399 name=year-0
+;@ frames=70 dump=140@40 date=32767,364 time=86399 name=year-32767
+;@ frames=70 dump=140@40 date=2028,59 time=86399 name=leap-day-29-feb
+;@ frames=70 dump=140@40 date=2100,58 time=86399 name=2100-28-feb
   mov R1, 0x40
   mov R5, 70
 __frame:

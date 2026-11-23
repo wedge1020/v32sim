@@ -1,0 +1,271 @@
+name: Generate Global Binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Purpose of this build run'
+        type: choice
+        required: true
+        default: 'test'
+        options:
+          - 'test'
+          - 'release'
+      publish_release:
+        description: 'Release runs only: publish the GitHub release at once, instead of leaving it as a draft to review'
+        type: boolean
+        required: false
+        default: false
+
+# Read-only by default; only the release job below can write (create the
+# release and attach the zips).
+permissions:
+  contents: read
+
+# =========================================================================
+# CHANGE THIS SINGLE VARIABLE TO DEPLOY THIS WORKFLOW TO ANOTHER REPOSITORY
+# =========================================================================
+env:
+  PROJECT_NAME: v32sim
+
+jobs:
+  # Reads the version once, for every build job and the release. The
+  # '#define VERSION "..."' line itself is parsed (anchored, as the
+  # Makefile does): a plain `grep -i VERSION | head -1` takes the first line
+  # that merely mentions the word -- a comment, say. It also checks that
+  # `make version` has stamped that version into the .TH line of the man
+  # pages (man/v32sim.1, .es.1, .fr.1): a mismatch is a warning on test
+  # builds and an error on release builds.
+  version:
+    name: Read Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Parse and Check Version
+        id: parse
+        shell: bash
+        run: |
+          HEADER_FILE="inc/version.h"
+          VERSION=$(sed -n 's/^#define[[:space:]]*VERSION[[:space:]]*"\(.*\)".*/\1/p' "$HEADER_FILE" | head -n 1)
+          if [ -z "$VERSION" ]; then
+            echo "::error file=$HEADER_FILE::could not read VERSION from $HEADER_FILE"
+            exit 1
+          fi
+          case "$VERSION" in
+            *[!A-Za-z0-9._+-]*)
+              echo "::error file=$HEADER_FILE::VERSION '$VERSION' has characters unsafe for file names and tags"
+              exit 1 ;;
+          esac
+          echo "Version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ inputs.build_type }}" = "release" ]; then LEVEL=error; else LEVEL=warning; fi
+          STALE=0
+          for page in man/${{ env.PROJECT_NAME }}*.1; do
+            [ -f "$page" ] || continue
+            if ! grep -q "^\.TH .*\"${{ env.PROJECT_NAME }} $VERSION\"" "$page"; then
+              echo "::$LEVEL file=$page::$page is not stamped with $VERSION (run 'make version')"
+              STALE=1
+            fi
+          done
+          if [ "$STALE" = 1 ] && [ "$LEVEL" = error ]; then exit 1; fi
+
+      # A release run needs the release text; stop here, before the build
+      # matrix starts, rather than when the release job looks for it.
+      - name: Check the Release Text
+        if: inputs.build_type == 'release'
+        shell: bash
+        run: |
+          [ -f .github/release-notes.md ] || { echo "::error file=.github/release-notes.md::the release text is missing (is it committed?)"; exit 1; }
+
+  build:
+    name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    needs: version
+    runs-on: ${{ matrix.os-runner }}
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every job builds natively (no cross-compiling), so every job can
+        # run `make test` and the --version check on the binary it built.
+        #
+        # Linux uses the oldest ubuntu runners, so the binaries need only an
+        # older glibc. readline is linked dynamically (a static libreadline
+        # also drags in ncurses/tinfo): the machine running v32sim needs the
+        # libreadline package (libreadline8 / readline).
+        include:
+          - os: linux
+            arch: x86_64
+            os-runner: ubuntu-22.04
+          - os: linux
+            arch: arm64
+            os-runner: ubuntu-22.04-arm
+
+          # macOS: the system "readline" is libedit; GNU readline from
+          # Homebrew is used instead (READLINE_PREFIX, see the Makefile).
+          # macos-latest is Apple silicon; macos-15-intel is the Intel runner.
+          - os: macos
+            arch: arm64
+            os-runner: macos-latest
+          - os: macos
+            arch: x86_64
+            os-runner: macos-15-intel
+
+          # Windows (MSYS2) is NOT built: v32sim uses termios (src/v32io.c),
+          # SIGBUS (src/main.c, src/signal.c) and POSIX <regex.h> (src/gpu.c),
+          # and ioctl-style tty handling, none of which MinGW provides. See
+          # AGENTS.md ("Releases") for what would have to change first.
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- ENVIRONMENT SETUP ---
+      - name: Install Dependencies (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreadline-dev zip python3
+      - name: Install Dependencies (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          brew install readline
+          echo "READLINE_PREFIX=$(brew --prefix readline)" >> "$GITHUB_ENV"
+
+      # --- BUILD ---
+      # HAVE_GEN_TOOLS=no builds from the checked-in flex/bison output in
+      # gen/ (the same files tools/build-nogen.sh uses), so the result does
+      # not depend on which flex/bison the runner happens to have (macOS has
+      # an old bison). `make gen` refreshes gen/ after a .l or .y edit.
+      - name: Build
+        run: |
+          make HAVE_GEN_TOOLS=no READLINE_PREFIX="$READLINE_PREFIX"
+          strip bin/${{ env.PROJECT_NAME }}
+          ls -l bin/
+
+      - name: Check the Version
+        run: |
+          OUT=$(./bin/${{ env.PROJECT_NAME }} --version)
+          echo "$OUT"
+          case "$OUT" in
+            *"${VERSION}"*) ;;
+            *) echo "::error::--version printed '$OUT', expected it to contain $VERSION"; exit 1 ;;
+          esac
+
+      # make test needs only python3 (tests/kbd_probe.py writes its own
+      # cartridges); the suites that need the Vircon32 toolchain are not run.
+      - name: Test
+        run: make test HAVE_GEN_TOOLS=no READLINE_PREFIX="$READLINE_PREFIX"
+
+      # --- PACKAGING ---
+      # `make dist` builds the zip: bin/v32sim, README*.md, LICENSE,
+      # docs/USAGE*.md, man/*.1 and the tools/ helpers, laid out like the
+      # checkout so the helpers find ../bin/v32sim.
+      - name: Create Zip Archive
+        run: |
+          if [ "${{ inputs.build_type }}" = "test" ]; then
+            ZIP_NAME="${{ env.PROJECT_NAME }}-${VERSION}-test-${{ matrix.os }}-${{ matrix.arch }}.zip"
+            echo "RETENTION_DAYS=2" >> $GITHUB_ENV
+          else
+            ZIP_NAME="${{ env.PROJECT_NAME }}-${VERSION}-${{ matrix.os }}-${{ matrix.arch }}.zip"
+            echo "RETENTION_DAYS=0" >> $GITHUB_ENV
+          fi
+          echo "Packaging: $ZIP_NAME"
+          make dist HAVE_GEN_TOOLS=no READLINE_PREFIX="$READLINE_PREFIX" DISTZIP="$ZIP_NAME"
+          unzip -l "$ZIP_NAME"
+          echo "FINAL_ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+      # --- STAGE ZIP INTERNALLY ---
+      - name: Upload Compressed Target Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # Modified to avoid naming collisions across jobs
+          name: ${{ env.PROJECT_NAME }}-package-${{ matrix.os }}-${{ matrix.arch }}
+          path: ${{ env.FINAL_ZIP_NAME }}
+          retention-days: ${{ fromJson(env.RETENTION_DAYS) }}
+
+  # The release page. For a `release` run this attaches every platform's zip
+  # to a GitHub release "v<VERSION>", together with a SHA256SUMS.txt and the
+  # text of .github/release-notes.md (its @VERSION@ becomes the version).
+  #
+  #   - The release is created as a DRAFT, visible only to people who can
+  #     write to the repository, so the text and the zips can be reviewed
+  #     before anyone sees them: press "Publish release" on the Releases
+  #     page. Start the run with `publish_release` ticked to publish at once.
+  #   - It is created for the commit that was built (target_commitish), not
+  #     for whatever the default branch holds when the draft is published:
+  #     the tag v<VERSION> is made at that commit.
+  #   - A -dev version is marked a pre-release (never "Latest").
+  #   - Running it again for the same version updates that release and
+  #     replaces the zips of the same names.
+  #   - This is the only job that can write to the repository (the other
+  #     jobs get the read-only default above). A release made with the
+  #     built-in GITHUB_TOKEN does not itself start other workflows (an
+  #     `on: release` workflow would not fire); GitHub does this on purpose.
+  release:
+    name: ${{ inputs.publish_release && 'Publish Release' || 'Create Draft Release' }}
+    needs: [version, build]
+    if: inputs.build_type == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      # Only .github/ (the release text) is needed from the repository.
+      - name: Checkout the release text
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+
+      - name: Download all zip packages from build jobs
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: ${{ env.PROJECT_NAME }}-package-*
+          merge-multiple: true
+
+      # Every target must be here, or the release would silently go out
+      # missing a platform.
+      - name: Check the Packages
+        shell: bash
+        run: |
+          MISSING=0
+          for target in macos-x86_64 macos-arm64 linux-x86_64 linux-arm64; do
+            zip="artifacts/${{ env.PROJECT_NAME }}-${VERSION}-${target}.zip"
+            [ -f "$zip" ] || { echo "::error::$zip is missing"; MISSING=1; }
+          done
+          [ "$MISSING" = 0 ]
+          ls -l artifacts
+
+      - name: Write the Checksums and the Release Text
+        shell: bash
+        run: |
+          [ -f .github/release-notes.md ] || { echo "::error file=.github/release-notes.md::the release text is missing"; exit 1; }
+          (cd artifacts && sha256sum -- *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          sed "s|@VERSION@|${VERSION}|g" .github/release-notes.md > release-notes.md
+
+      - name: Create the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: "${{ env.PROJECT_NAME }} Release v${{ needs.version.outputs.version }}"
+          body_path: release-notes.md
+          draft: ${{ !inputs.publish_release }}
+          prerelease: ${{ contains(needs.version.outputs.version, '-dev') }}
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt

@@ -1,5 +1,6 @@
 #include "defines.h"
 #include "devhost.h"
+#include "command.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -57,6 +58,8 @@ uint8_t   errorcheck;
 uint8_t   haltflag;
 uint8_t   exitstatus;      // process exit status: 0 HLT, 2 frame limit, 3 system error (-x)
 uint8_t   consoleflag;     // --console: print the text screen when the run ends
+int8_t   *break_specs[MAX_BREAK_SPECS];  // -b arguments, resolved once the labels are loaded
+int32_t   nbreak_specs;
 int8_t   *dumpspec;        // --dump=N[@ADDR|@LABEL]: print N RAM words after the run
 uint8_t   warn_halt;
 int32_t   halt_status = -1;
@@ -86,7 +89,7 @@ linked_l *lpoint; // label list
 linked_l *mpoint; // tracking allocated memory
 linked_l *ppoint; // subroutine profiling list
 linked_l *csub;   // current subroutine
-linked_l *tpoint; // breakpoint waitlist, then backtrace list
+linked_l *tpoint; // backtrace list
 linked_l *next_tpoint;  // position for next (when nexting over subroutine)
 wpoint_t *wpoint; // watchpoint list
 
@@ -208,7 +211,6 @@ int32_t   main (int32_t  argc, char **argv)
     // declare and initialize variables
     //
     linked_l *btmp                  = NULL;
-    linked_l *tmp                   = NULL;
     size_t    len                   = 0;
     uint8_t   chk                   = FALSE;
     uint8_t   errorflag             = FLAG_NONE;
@@ -486,13 +488,14 @@ int32_t   main (int32_t  argc, char **argv)
     //
     // Initialize MEMC (load contents into memory)
     //
+    devhost_env ();                 // V32DEV_SERVER and V32DEV_CH0..3 (a --v32dev-host option wins for its channel)
     chk                             = load_memory (V32_PAGE_MEMC, memcfile);
     if ((memcfile                  != NULL) &&
         (chk                       == FALSE))
     {
         exit (FILE_POSITION_ERROR);
     }
-    if ((devhost_configured () == TRUE) && ((memcfile == NULL) || (devhost_ok () == FALSE) || (memc_mailbox () == FALSE)))
+    if ((devhost_configured () == TRUE) && (devhost_strict () == TRUE) && ((memcfile == NULL) || (devhost_ok () == FALSE) || (memc_mailbox () == FALSE)))
     {
         fprintf (stderr, "[ERROR:DEVHOST] --v32dev-host needs a memory card (-M FILE) that can be a v32dev mailbox\n");
         exit (1);
@@ -538,58 +541,13 @@ int32_t   main (int32_t  argc, char **argv)
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
-    // Process breakpoint waitlist (tpoint), if any
+    // Breakpoints from -b: the labels are loaded now, so each one can be told apart
     //
-    if (tpoint                     != NULL)
+    for (value = 0; value < (uint32_t) nbreak_specs; value = value + 1)
     {
-        linked_l *nxt               = NULL;
-        tmp                         = tpoint;
-        while (tmp                 != NULL)
-        {
-            nxt                     = tmp -> next;
-            if (tmp -> label       == NULL) // not a label: offset
-            {
-                value               = tmp -> RAW;
-                btmp                = find_value (bpoint, value);
-                if (btmp           == NULL) // not an existing breakpoint
-                {
-                    btmp            = list_grab (&tpoint, tmp);
-                    DPRINTF(debug, "[main] BREAKing at offset 0x%.8X\n", value);
-                    bpoint          = list_add (bpoint, btmp);
-                }
-            }
-            else // label
-            {
-                btmp                = find_label (lpoint, tmp  -> label);
-                if (btmp           != NULL) // yes, match for label in label list
-                {
-                    value           = btmp -> RAW;
-                    btmp            = find_value (bpoint, value); // check offset in breaklist
-                    if (btmp       == NULL) // not an existing breakpoint in breaklist
-                    {
-                        btmp        = list_grab (&tpoint, tmp);
-                        btmp -> RAW = value;
-                        DPRINTF(debug, "[main] BREAKing at label: '%s'\n", btmp -> label);
-                        DPRINTF(debug, "[main] BREAKing at offset 0x%.8X\n", btmp -> RAW);
-                        bpoint      = list_add (bpoint, btmp);
-                    }
-                }
-            }
-
-            tmp                     = nxt;
-        }
-
-        while (tpoint             != NULL)
-        {
-            tmp                     = tpoint;
-            tpoint                 = tpoint -> next;
-            if (tmp -> label       != NULL)
-            {
-                rfree (tmp -> label);
-            }
-            rfree (tmp);
-        }
+        cmd_break_spec ((const char *) break_specs[value]);
     }
+    nbreak_specs                    = 0;
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
@@ -1207,6 +1165,7 @@ int32_t   main (int32_t  argc, char **argv)
         fprintf (stderr, "[turbo] fast-forwarded %llu spin-loop cycles, dropped %llu queued GPU draws\n",
                  (unsigned long long) spin_skipped, (unsigned long long) gpu_skipped);
     }
+    shots_report ();
     gputrace_close ();
     ft_write ();
     addrprof_write ();

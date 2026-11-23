@@ -51,6 +51,13 @@ ifneq ($(OS),Darwin)
     LIBS += -lhistory
 endif
 
+# a readline outside the compiler's default search path (macOS: the system "readline" is libedit; Homebrew's keg-only GNU
+# readline is the one to use): make READLINE_PREFIX=$(brew --prefix readline)
+ifneq ($(strip $(READLINE_PREFIX)),)
+    INC  += -I$(READLINE_PREFIX)/include
+    LIBS := -L$(READLINE_PREFIX)/lib $(LIBS)
+endif
+
 ####################################################################################
 #
 # file sets
@@ -135,9 +142,13 @@ check: $(BIN)
 	@test -n "$(TC)" || { echo "make check TC=<toolchain dir> [V32IO=<v32io project>] [SRCMARK=v32srcmark.py]"; exit 2; }
 	tools/v32sim-check.sh "$(TC)" $(if $(V32IO),--v32io "$(V32IO)") $(if $(SRCMARK),--srcmark "$(SRCMARK)")
 
-# tests that need no toolchain (the cartridges are written by tests/kbd_probe.py): v32kbd delivery and --kbd-sync, --warn-halt, regex: patterns
+# tests that need no toolchain (the cartridges are written by tests/kbd_probe.py): v32kbd delivery and --kbd-sync, --warn-halt, regex: patterns;
+# the command line, help texts and exit statuses (run_cli_tests.sh); the built-in v32dev server: V32DEV_SERVER/V32DEV_CHn, serial:tcp,
+# SPEC parsing, `dev format` types (run_v32dev_server_tests.sh)
 test: $(BIN)
 	tests/run_kbd_sync_tests.sh
+	tests/run_cli_tests.sh
+	tests/run_v32dev_server_tests.sh
 
 # tests of the consolidated tools (needs V32TC, V32BIOS; ORACLE for the comparisons with the stock console logic)
 test-harness: $(BIN)
@@ -241,19 +252,40 @@ sysuninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET) $(DESTDIR)$(MANDIR)/$(TARGET).1 $(DESTDIR)$(MANDIR)/$(TARGET).1.gz; rm -rf $(DESTDIR)$(VROOT)/v32sim $(DESTDIR)$(PREFIX)/share/v32sim
 
 # the archive carries the date of the version: ../v32sim-project-YYYYMMDD.zip; it holds everything in the project directory
-# (src, inc, docs, man, tools, tests, ...)
+# (src, inc, docs, man, tools, tests, ..., and .github, which `*` would skip)
 ARCHIVE = ../v32sim-project-$(shell echo $(VERSION_STRING) | cut -c1-8).zip
 
 archive: clean
 	@rm -f $(ARCHIVE)
-	@zip -r $(ARCHIVE) *
+	@zip -r $(ARCHIVE) * $(wildcard .github)
+
+# make dist [DIST_OS=linux DIST_ARCH=x86_64]: a release zip, v32sim-<version>-<os>-<arch>.zip, laid out like the checkout so the
+# tools/ scripts find the binary at ../bin/v32sim: bin/v32sim, README*.md, LICENSE, docs/USAGE*.md, man/*.1 and tools/. It
+# packages what is built (run `make` first; the release workflow also strips the binary); needs zip. The staging directory is dist/.
+DIST_OS   ?= $(shell uname -s | tr 'A-Z' 'a-z' | sed 's/^darwin$$/macos/')
+DIST_ARCH ?= $(shell uname -m | sed 's/^aarch64$$/arm64/;s/^amd64$$/x86_64/')
+DISTZIP    = $(TARGET)-$(VERSION_STRING)-$(DIST_OS)-$(DIST_ARCH).zip
+
+dist: $(BIN)
+	@test -n "$(VERSION_STRING)" || { echo "dist: no VERSION in inc/version.h"; exit 1; }
+	rm -rf dist $(DISTZIP)
+	mkdir -p dist/bin dist/docs dist/man
+	cp $(BIN) dist/bin/
+	cp README*.md dist/
+	if [ -f LICENSE ]; then cp LICENSE dist/; fi
+	cp docs/USAGE*.md dist/docs/
+	cp man/*.1 dist/man/
+	cp -R tools dist/ && find dist/tools -type f -name '*.o' -delete
+	cd dist && zip -qr ../$(DISTZIP) .
+	rm -rf dist
+	@echo "built $(DISTZIP)"
 
 clean:
 	@rm -vf .*.sw[op] *.save* *~ core errors *.patch *.zip ../v32sim-project.zip ../v32sim-project-[0-9]*.zip
 	@rm -vf $(DEPS) $(GENSRC) $(GENHDR) $(BINDIR)/$(TARGET)
-	@rm -rf $(OBJDIR)
+	@rm -rf $(OBJDIR) dist
 
-.PHONY: all debug asan gen oracle check test test-harness version install uninstall sysinstall sysuninstall clean archive
+.PHONY: all debug asan gen oracle check test test-harness version dist install uninstall sysinstall sysuninstall clean archive
 
 -include $(DEPS)
 

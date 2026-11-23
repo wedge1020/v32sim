@@ -22,12 +22,12 @@ cartouches.
 
 - Les 64 instructions du CPU sont implémentées et vérifiées en exécutant les
   mêmes cartouches sur v32sim et sur la logique de console d'origine
-  (`tests/run_gaps.sh`, `run_fuzz.sh`, `run_romcheck.sh` ; voir
+  (`tests/run_gaps.sh`, `run_fuzz.sh`, `run_romcheck.sh`, `run_clock.sh`, `run_memcard.sh` ; voir
   [docs/V32SIMGAPS.md](docs/V32SIMGAPS.md)) : le timer et le RNG, la pile, le
   bus mémoire, le moment des erreurs, un mot par cycle pour `MOVS`/`SETS`/`CMPS`,
   l'écrêtage des ports du GPU et la validation de la ROM correspondent à la
-  console. Seuls diffèrent le comportement indéfini côté hôte (décalages >= 32,
-  `INT_MIN / -1`) et le rendu au niveau du pixel
+  console. Seuls diffèrent le comportement indéfini côté hôte (`INT_MIN / -1`, et les
+  décalages >= 32 sur les hôtes autres que x86-64) et le rendu au niveau du pixel
 - Les registres (R0-R15 avec leurs alias, plus les registres système IP/IR/IV)
   et les quatre pages mémoire (RAM, BIOS, CART, MEMCARD) se comportent comme le
   matériel
@@ -161,8 +161,7 @@ cartouches.
 │                         agents/ (une fiche par outil), proposals/ (demandes ouvertes aux autres projets)
 ├── man/                  pages de manuel : v32sim.1 (v32sim.es.1, v32sim.fr.1)
 ├── AGENTS.md CLAUDE.md   notes pour les agents (CLAUDE.md importe AGENTS.md)
-├── cart/                 fichiers de données de cartouches
-└── screenshots/          captures d'écran de référence
+└── cart/                 fichiers de données de cartouches
 ```
 
 ## Prérequis
@@ -189,7 +188,7 @@ make debug      # compilation -DDEBUG -g -O0   -> bin/v32sim
 make asan       # compilation AddressSanitizer + UBSan, pour traquer les erreurs mémoire
 make gen        # rafraîchit gen/ (la sortie de flex/bison) après modification d'un fichier .l ou .y
 make version    # affiche la chaîne de version (make version VERSION=X estampille inc/version.h, TODO.md et la ligne .TH des pages de manuel)
-make test       # tests/run_kbd_sync_tests.sh : n'a besoin d'aucune chaîne d'outils
+make test       # tests/run_kbd_sync_tests.sh, run_cli_tests.sh, run_v32dev_server_tests.sh : n'ont besoin d'aucune chaîne d'outils
 make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]   # chaque suite à partir d'un répertoire de chaîne d'outils (tools/v32sim-check.sh)
 make test-harness                              # tests/run_harness_tests.sh (V32TC, V32BIOS, ORACLE dans l'environnement)
 make oracle COMPUTERSOFTWARE=DIR               # compile les outils de la logique de console d'origine (tools/oracle/build.sh)
@@ -233,7 +232,9 @@ Debugger/Simulator for Vircon32 Fantasy Console (version VERSION)
 Mandatory arguments to long options are mandatory for short options too.
 
  -B, --biosfile=FILE       load this BIOS V32 file as BIOS
- -b, --break=OFFSET|LABEL  set breakpoint at OFFSET/LABEL
+ -b, --break=OFFSET|LABEL|FILE:LINE
+                           set a breakpoint (repeatable); a name that is a known label is that label even when
+                           it is also hex (add, face), otherwise a hex OFFSET; FILE:LINE as 'break' does
  -C, --command-file=FILE   load this file with sim commands
  -c, --colors              enable colorized output
  -d, --deref-addr          output address of dereference
@@ -252,7 +253,7 @@ Mandatory arguments to long options are mandatory for short options too.
  -n, --no-debug            do not process any debug files
  -p, --profile             enable instruction profiling
  -r, --run                 do not enable single-step mode
- -S, --bios-start          break at BIOS code start
+ -S, --bios-start          start at the BIOS code start (the default)
  -w, --watch-for=OPCODE    run until OPCODE is encountered
  -v, --verbose             enable more verbose output
  -V, --version             display version information and exit
@@ -287,11 +288,13 @@ Mandatory arguments to long options are mandatory for short options too.
      --profile-format=FMT  text (default) or bin (V32PROF1 header, then LE32 address,count pairs)
      --profile-top=N       print the N hottest addresses to stderr when the run ends
      --profile-event=KIND  what the profile counts: instr (default), gpu-draw, gpu-portwrite, spu-write, cycles
-     --time-breakdown      at exit, where v32sim's own wall-clock time goes per frame (cpu / gpu / spu / output); --frame-log=FILE: every frame
+     --time-breakdown      at exit, where v32sim's own wall-clock time goes per frame (cpu / gpu / spu / output)
+     --frame-log=FILE      write that breakdown for every frame to FILE (also without --time-breakdown)
      --v32dev-doorbell[=MS] v32dev mailbox: header flag bit 1, per-channel reply counters at header words 10..13, and a store to
                            a cart part's c2h_head rings: flush, give the host MS ms (2) to answer, import its reply, go on
      --v32dev-host=N=SPEC  serve channel N of the card's v32dev mailbox natively: storage:FILE[,bytes][,ro][,sector=N][,create=S],
-                           serial:stdio|echo[,hup=N][,in=FILE][,out=FILE][,hangup]; --v32dev-host-force formats over other data
+                           serial:stdio|echo[,hup=N]|tcp=PORT[,in=FILE][,out=FILE][,hangup]; --v32dev-host-force formats over other data.
+                           Environment: V32DEV_SERVER=1 serves V32DEV_CH0..3 (a SPEC each; the option wins) with the mailbox in memory only
      --gpu-trace=FILE      record the program's GPU port writes by frame (binary, docs/TRACE-FORMAT.md); --spu-trace=FILE: SPU
      --trace-dump=FILE     print a trace file as text and exit
      --profile-by=KIND     address (default) or function: with function, --profile-top and the text
@@ -299,17 +302,21 @@ Mandatory arguments to long options are mandatory for short options too.
      --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... or @FILE (V32_INPUT
                            syntax, frame 0 = the cart's first; V32TRACE input=); --input-port=N (default 0)
      --input2=SCRIPT       the same for gamepad 2 (port 1; V32TRACE input2=, @FILE reads its V32_INPUT2= line)
-     --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma separated)
+     --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma
+                           separated); frame 0 is the first one the cartridge runs, after the BIOS hands over
+                           (the BIOS logo takes ~250 frames, and --max-frames counts them too)
      --screenshot-file=PAT   file name for those; %d = the frame (default v32sim-shot-%05d.png)
      --screengrid[=SPEC]     grid over screenshots: DX[xDY],color=C,alpha=N,labels|nolabels (default 40x40)
      --highlight=T:R[:COLOR] outline texture T region R (or bios:R) in screenshots; comma separated
      --noextra             no grid and no outlines in screenshots
      --frame-stats=FILE    write one CSV row per frame (cycles, CPU %, GPU pixels, GPU %) and print a summary
                            (mean, p95, max, frames at 100%) to stderr when the run ends
-     --stats-format=json   --frame-stats FILE as JSON Lines (stable dotted names, a summary line at the end); --stats=FILE,
-                           --stats-skip=N and --stats-top=N are the same options as --frame-stats...
+     --stats=FILE          the same as --frame-stats
+     --stats-format=json   --frame-stats FILE as JSON Lines (stable dotted names, a summary line at the end)
      --frame-stats-top=N   list the N regions charged the most GPU pixels in that summary (default 8, 0 = none)
+     --stats-top=N         the same as --frame-stats-top
      --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary
+     --stats-skip=N        the same as --frame-stats-skip
      --v32trace=PREFIX     V32TRACE (spec 2.1): read the translator's <cart>.v32trace.meta and labels, watch its trap
                            routines and events, write PREFIX.traps.txt, .blocks.txt and the .trace.txt report; after a trap the
                            cartridge restarts (--v32trace-norestart: stay in the trap); --v32trace-meta=FILE and
@@ -317,17 +324,18 @@ Mandatory arguments to long options are mandatory for short options too.
      --fixed-cycles        reads of TIM_CycleCounter return 0 (programs seeding from it repeat)
      --symbol-file=FILE    also read data symbols from FILE (v32cc's NAME.asm.sym format); the ones
                            next to the V32 file are read automatically
- -q, --batch               for scripts: commands from stdin or -C without prompt or echo; no banner,
+ -q, --batch, --quiet     for scripts: commands from stdin or -C without prompt or echo; no banner,
                            instruction line, display list or register summary; stdout holds only what
                            print, console, ... print; acknowledgements and stop reasons go to stderr;
                            a failed expect or timed-out until ends the run with status 1
  -x, --exit-status         exit status tells how the program ended: 0 HLT, 2 frame limit,
                            3 system error (stops instead of entering the BIOS handler)
-                           (always: 1 a check failed, 4 --batch could not parse a command, N 'quit N')
+                           (always: 1 a check failed or a bad option, 4 --batch could not parse a command, 5 --dump failed,
+                           N 'quit N'; at startup 11 a file cannot be opened, 12 not read, 21 not a V32 file)
  -h, --help                display this information
 
 FILE   is any path plus the filename desired
-OFFSET is the full 32-bit/4-byte memory addres (hex)
+OFFSET is the full 32-bit/4-byte memory address (hex)
 OPCODE is the full 32-bit/4-byte instruction hex
 ```
 
@@ -336,6 +344,15 @@ d'environnement, les fichiers et les codes de sortie. Les options qui prennent u
 facultatives (`--v32kbd`, `--v32mouse`, `--turbo`, `--fixed-clock`, `--screengrid`, `--v32dev-doorbell`) seulement sous la forme `--opt=VALEUR`.
 `--quiet` est un autre nom de `--batch`, et `--stats`, `--stats-skip` et `--stats-top` ceux des options `--frame-stats`. `-w OPCODE` implique `-r`,
 `--tty` implique `-r`, et `--kbd-input` implique `--v32kbd`. Un CARTFILE valant `-` signifie aucune cartouche : le BIOS s'exécute seul.
+`-b OFFSET|LABEL|FILE:LINE` accepte ce qu'accepte la commande `break` et s'exécute une fois les fichiers de débogage chargés : un nom qui est
+une étiquette (ou une fonction) connue désigne cette étiquette même s'il est aussi un nombre hexadécimal (`add`, `face`, `dead` ; écrivez
+`0xdead` pour l'adresse), sinon c'est un OFFSET hexadécimal, avec ou sans `0x` ; une valeur qui n'est rien de tout cela est signalée sur
+stderr. `-L MODE` doit être `C`, `lua` ou `src` ; toute autre valeur est une erreur (message sur stderr, code de sortie 1). `-S` démarre au
+début du code du BIOS, ce qui est le comportement par défaut (`-E` démarre ailleurs).
+`--screenshot-at` compte les images de la cartouche : l'image 0 est la première image qui se termine avec le compteur de programme dans la
+cartouche, c'est-à-dire une fois que le BIOS a passé la main (le logo du BIOS standard dure environ 250 images) ; `--max-frames` compte toutes
+les images depuis la mise sous tension, logo compris, donnez-lui donc assez d'images (`--max-frames=400` pour l'image 120 de la cartouche).
+Les images que l'exécution n'a jamais atteintes sont signalées sur stderr à la fin (`[WARNING] --screenshot-at: ...`).
 
 `v32sim --version` affiche `v32sim ` et la version (`YYYYMMDD`, `-dev` sur une compilation de développement). La version est la
 définition `VERSION` de `inc/version.h` ; elle apparaît dans la bannière, le texte d'utilisation,
@@ -397,12 +414,15 @@ script.
 Les commandes ne sont pas sensibles à la casse et peuvent être abrégées en un préfixe d'une longueur minimale que
 `src/command.c` fixe pour chacune (`s` = step, `n` = next, `c` = continue,
 `b` = break, `p` = print, `x` = x, `se` = set, `bt` = backtrace, `pro` = profile, `in` = inventory,
-`lo` = load, ...). Une ligne vide répète le dernier step/next/continue.
+`lo` = load, ...). Une ligne vide répète le dernier step/next/continue. Les lettres seules sont `b` break, `c` continue,
+`d` display, `g` gamepad, `h` help, `i` ignore, `l` label, `n` next, `p` print, `q` quit, `r` replace, `s` step, `w` watch,
+`x` x et `?` help. Quand plusieurs commandes commencent par les mêmes lettres, la première de la table de `src/command.c` l'emporte : `r` est
+donc `replace`, pas `run` (`ru` est `run`) ; en cas de doute, tapez le nom entier dans les scripts.
 
 | Commande   | Description |
 | ---------- | ----------- |
 | `break [0xMEM\|LABEL\|FILE:LINE\|LINE]` | pose un point d'arrêt d'exécution (adresse, étiquette, fonction ou ligne source ; sans argument : les liste) |
-| `tbreak ...` | pareil, supprimé quand il est atteint |
+| `tbreak ...` | pareil, supprimé quand il est atteint (sans argument : liste les points d'arrêt, comme `break`) |
 | `unbreak #` | supprime un point d'arrêt par son indice |
 | `continue` | reprend l'exécution jusqu'au prochain déclencheur |
 | `step` | exécute l'instruction courante, s'arrête à la suivante ; dans les modes source (`set mode = src\|C\|lua`) exécute jusqu'à la ligne source suivante, en entrant dans les appels |
@@ -432,7 +452,7 @@ Les commandes ne sont pas sensibles à la casse et peuvent être abrégées en u
 | `kbd [attach [PORT]\|detach\|type TEXT\|key KEY [MODE]\|input SOURCE\|off\|clear\|sync [on\|off]]` | le clavier v32kbd (voir *Le Clavier v32io*) |
 | `mouse [attach [PORT]\|detach\|move DX DY\|click\|down\|up [BUTTON]\|wait N\|clear]` | la souris v32mouse (voir *La Souris v32io*) |
 | `mailbox [CHANNEL]` | la boîte aux lettres v32dev de la carte mémoire : activité, anneaux, descripteurs, données en attente |
-| `dev [info\|format [force]\|attach N SPEC\|detach N\|swap N SPEC]` | l'hôte v32dev natif (voir *Carte Mémoire et v32dev*) |
+| `dev [info\|format [force] [N=TYPE ...]\|attach N SPEC\|detach N\|swap N SPEC]` | l'hôte v32dev natif (voir *Carte Mémoire et v32dev*) |
 | `mark [NOTE]` | avec `--v32trace` : dépose un marqueur dans le rapport de session |
 | `load cart:path` / `load memc:path` | charge un composant à l'exécution |
 | `unload bios\|cart\|memc` | décharge une page mémoire |
@@ -665,7 +685,7 @@ q = 0x003FFFE2    (ptr, BP-9)
 i = 99    (int, BP-10)
 ```
 
-Types : `int uint float bool ptr`, tableaux `T[N]` (16 éléments affichés), `struct:`/`union:` en mots bruts, `lua` (valeurs
+Types : `int uint float bool ptr`, tableaux `T[N]` (16 éléments affichés), `struct:`/`union:` (membres par nom, `p = {x = 3, y = 5}`, quand le compilateur les écrit dans `type=` ; sinon en mots bruts), `lua` (valeurs
 NaN-boxées : nombres, chaînes, nil/true/false, tables, fonctions ; une variable locale `boxed`, capturée par une fermeture, est lue à travers sa
 boîte). Une variable locale que l'optimiseur a déplacée dans un registre (`loc=R5`) n'est affichée que dans le cadre 0 ; `-`/`optimized-out` l'indiquent. De deux
 variables de même nom, celle du bloc le plus interne l'emporte. Une variable n'est affichée que dans la fonction où le fichier de débogage place
@@ -727,11 +747,13 @@ comportement de `tools/v32dev.py` du projet v32io (la référence ; l'hôte Pyth
 troisième implémentation). Il travaille directement sur la mémoire de la carte : pas d'aller-retour par le fichier de la carte, pas de second processus, pas d'horloge murale. Le canal N (0..3) est servi
 dès la première image ; la carte (`-M FILE`) doit être une carte v32dev accessible en écriture, ou une dont les 64 derniers Kio sont tous à zéro (elle est alors formatée, comme le fait
 `v32dev.py format`, l'en-tête étant écrit en dernier) ; d'autres données à cet endroit le font refuser, sauf si `--v32dev-host-force` est donné. Avec `V32DEV_DISABLE` défini
-(à autre chose que `0`) la carte reste une carte ordinaire et l'hôte natif n'est pas démarré, avec un avertissement. SPEC, même syntaxe que `v32dev.py serve` :
+(à autre chose que `0`) la carte reste une carte ordinaire et l'hôte natif n'est pas démarré, avec un avertissement. SPEC, même syntaxe que `v32dev.py serve` (les options de
+`storage:` sont lues de droite à gauche, comme dans le serveur du DesktopEmulator, de sorte qu'un nom de fichier peut contenir des virgules) :
 
   * `storage:FILE[,bytes][,ro][,sector=N][,create=SECTORS]` un fichier comme périphérique bloc (mode mot : 4 octets par mot, secteurs de 128 mots ; `bytes` : un octet
     par mot, secteurs de 512 mots ; opérations READ/WRITE/FLUSH, statut OK/EINVAL/ERANGE/EROFS/EIO, descripteur `[sector_words, sectors, flags, max_sectors]`)
   * `serial:stdio` sortie du programme vers la sortie standard (8 bits de poids faible) ; entrée depuis l'entrée standard en exécution sans invite (`-r` ; fin de l'entrée = raccrochage)
+  * `serial:tcp=PORT` un port TCP de cet ordinateur seulement (127.0.0.1) : un client à la fois (un nouveau remplace l'ancien), la sortie tant que personne n'est connecté est abandonnée, et le programme voit un raccrochage quand le client s'en va, jusqu'à la connexion du suivant (il n'accepte pas d'autre option que `out=FILE`)
   * `serial:echo[,hup=N]` ce que le programme écrit lui revient ; raccroche après N mots
   * extensions de v32sim pour le série : `in=FILE` (fourni au départ et à chaque réouverture du canal), `out=FILE` (sortie du programme, 8 bits de poids faible), `hangup` (raccroche quand
     les données de `in=` ont été livrées) ; elles se combinent avec les autres
@@ -748,6 +770,22 @@ différent est signalé). **Commande `dev`** (`help dev`) : `dev [info]` (les li
 (le programme voit l'hôte disparaître, puis une nouvelle session quand il revient, comme un support changé) ; en `--batch` une commande `dev` qui échoue termine l'exécution avec le
 code 4. Test : `tests/native_host_test.py` (lancé par `tests/run_tests.sh`) exécute les cartouches réelles de v32io (`storage_test`, `serial_test`) contre lui et contre `v32dev.py serve` : même rapport,
 même image.
+
+**`V32DEV_SERVER` et `V32DEV_CH0`..`V32DEV_CH3`** (le serveur v32dev intégré du DesktopEmulator du projet v32io, `emulator/v32dev-server` : les mêmes
+variables avec le même sens, de sorte qu'une même ligne de commande et un même environnement servent les deux émulateurs) : avec `V32DEV_SERVER` définie à autre chose que `0`, v32sim sert la
+carte chargée avec les périphériques de `V32DEV_CH0` à `V32DEV_CH3` (une SPEC chacune, comme ci-dessus ; une variable vide ou non définie laisse son canal non servi, une mauvaise
+est signalée et laissée de côté). Non définies ou à `0`, les variables ne sont pas regardées. La carte **n'a pas besoin d'être formatée** et **aucune boîte aux lettres n'arrive jamais dans le fichier de la carte** : si les
+64 derniers Kio ne contiennent rien, l'en-tête y est placé en mémoire seulement (le programme voit une boîte aux lettres active), toute la région est exclue de chaque sauvegarde, et un programme
+qui plante ne laisse rien derrière lui. Une carte qui contient des données dans ces 64 Kio est laissée telle quelle et n'est pas servie (un avertissement le dit) ; `V32DEV_DISABLE` garde la carte
+ordinaire ; une carte formatée par `v32dev.py format` fonctionne aussi (le serveur prend la place de l'hôte, et la zone hôte du fichier n'est pas lue). Une carte absente n'est pas une
+erreur : il n'y a rien à servir. `--v32dev-host=N=SPEC` continue de fonctionner et l'emporte sur `V32DEV_CHN` pour son canal ; avec `V32DEV_SERVER` active, il garde lui aussi la
+boîte aux lettres hors du fichier, et sans elle (ou avec `V32DEV_SERVER=0`) il formate le fichier de la carte comme avant. En mode serveur rien n'est fatal (un périphérique qui ne peut pas être
+ouvert, un port pris : le canal reste non servi, avec un message), `dev format` n'a rien à faire, et `dev attach|detach|swap` changent les canaux pendant l'exécution.
+Non repris de l'émulateur, car v32sim n'a ni menu ni fichier de réglages : les entrées de menu (mode octet, lecture seule, nouvelle image), le fichier de réglages, le
+port TCP par défaut `3200 + N` (donnez `serial:tcp=PORT`), et `serial:echo` par son nom seulement. **`dev format [force] [N=TYPE ...]`** accepte aussi les types de canal de `v32dev.py format --chN`
+(`none storage block serial char pipe tcp udp netplay socket`, ou un nombre), et `dev info` nomme chaque type comme le fait `v32dev.py info`. Test : `tests/run_v32dev_server_tests.sh`
+(sans chaîne d'outils ; 84 vérifications) et, avec le projet v32io, ses scénarios intégrés de `dev_rom_test.py` via `tests/v32sim_runner.sh`.
+
 
 ## La Souris v32io
 
@@ -850,7 +888,7 @@ source de touches par défaut de v32term ne verra pas vos touches.
 ## Exécution Sans Surveillance
 
   * `--fast` / `--frame-us=N` : ne pas dormir pour tenir 60 images par seconde (ou
-    attendre N microsecondes par image). `--max-frames=N` s'arrête après N images.
+    attendre N microsecondes par image). `--max-frames=N` s'arrête après N images, comptées depuis la mise sous tension (le logo du BIOS, environ 250 images, compris).
   * `-x` / `--exit-status` : le code de sortie dit comment l'exécution s'est terminée : 0 le
     programme s'est arrêté, 2 la limite d'images a été atteinte, 3 une erreur système (l'exécution
     s'arrête là au lieu d'entrer dans le gestionnaire d'erreurs du BIOS).
@@ -1023,7 +1061,9 @@ Code de sortie (toujours ; `-x` ajoute les codes de limite d'images et d'erreur 
 était demandé (spécification erronée, symbole inconnu, mémoire illisible ; seulement quand rien d'autre n'a fixé un code) ; `quit N`
 les remplace tous. Une exécution qui se termine parce que le programme a exécuté `HLT` donne un simple 0 (une fin propre) sauf si
 `--halt-status=N` en dispose autrement ; `--warn-halt` affiche `[HLT] ...` sur stderr quand cela arrive. Une exécution qui ne peut pas démarrer sort plus tôt
-avec 1 (une mauvaise option ou valeur d'option), 11 (un fichier de BIOS, de cartouche ou de carte ne peut pas être ouvert), 12 (il ne peut pas être lu) ou 21 (ce n'est pas un fichier V32 valide). Sans `--batch` rien ne change dans la sortie interactive
+avec 1 (une mauvaise option ou valeur d'option, un fichier `-C` qui ne peut pas être ouvert, `--tty` sans terminal, un `--v32dev-host` erroné), 11 (un fichier de BIOS, de cartouche ou de carte ne peut pas être ouvert), 12 (il ne peut pas être lu) ou 21 (ce n'est pas un fichier V32 valide).
+Les défaillances internes (mémoire insuffisante, accès invalide à un IOPort) affichent `[ERROR]` sur stderr et sortent avec 4, 5, 7, 13, 14 ou 15 (4 et 5 sont aussi les codes ci-dessus ;
+2 est aussi le code quand `/dev/null` ne peut pas être ouvert) ; elles ne devraient pas arriver. Sans `--batch` rien ne change dans la sortie interactive
 (les scripts qui filtrent l'invite et les lignes d'instruction continuent de fonctionner).
 
 ### Symboles
@@ -1093,8 +1133,8 @@ $ v32sim --batch --fast -B StandardBios.v32 --v32kbd dos.v32 < session.cmd; echo
 
 `tests/run_tests.sh TOOLCHAIN V32IO_PROJECT` compile les cartouches de test avec
 les DevTools Vircon32 et exécute : la suite v32dev via
-`tests/v32sim_runner.sh` (un sosie de `dev_rom_runner` : 41 vérifications de périphériques de stockage
-et série, plantage et reprise de l'hôte, cartes ordinaires et non formatées), les
+`tests/v32sim_runner.sh` (un sosie de `dev_rom_runner` : 98 vérifications de périphériques de stockage
+et série, plantage et reprise de l'hôte, cartes ordinaires et non formatées, et les scénarios du serveur v32dev : `V32DEV_SERVER`, `serial:stdio`, `serial:tcp`), les
 vérifications v32kbd (commandes, entrée de l'hôte avec séquences d'échappement, caractères saisis,
 ordre des événements), l'aller-retour de désassemblage des immédiats flottants, `load bios:`, et
 la persistance de la carte quand le simulateur est tué par `kill -9`.
@@ -1110,7 +1150,9 @@ invite interactive est inchangée.
 cartouche est faite par `tests/mkcart.py`, et le BIOS est `tests/gaps/bios.asm`.
 
 `tests/run_kbd_sync_tests.sh` (`make test` ; 22 vérifications, sans chaîne d'outils : livraison v32kbd avec un programme occupé, `--kbd-sync`, `--warn-halt`,
-`--halt-status`, `regex:`).
+`--halt-status`, `regex:`) et `tests/run_cli_tests.sh` (aussi `make test` ; 128 vérifications, sans chaîne d'outils : la ligne de
+commande, les textes d'aide et les codes de sortie) et `tests/run_v32dev_server_tests.sh` (aussi `make test` ; 84 vérifications, sans chaîne d'outils ni
+v32io : `V32DEV_SERVER`/`V32DEV_CHn`, `serial:tcp`, l'analyse de SPEC, les types de `dev format`).
 
 `tests/run_turbo_tests.sh TOOLCHAIN` (`compile`, `assemble`, `packrom` d'origine et `StandardBios.v32` seulement ; 45 vérifications) couvre `--turbo`, `--turbo=report`
 et `--gpu-eager` : résultats égaux avec et sans turbo sur une cartouche qui interroge, rien de sauté quand la boucle écrit, captures
@@ -1120,10 +1162,10 @@ d'écran identiques différé / immédiat / turbo, et l'avertissement de file ab
 accord avec la logique de console d'origine : réussite/échec de l'auto-vérification sur les deux moteurs, symboles d'un `.asm` du compilateur d'origine,
 `--frame-stats` contre `v32prof`, rejeu de manette contre `v32peek`, `bt` de niveau source sur une cartouche compilée par le compilateur d'origine,
 sessions d'écran de référence, `v32sim-peek.sh`, `v32sim-addrprof.py`, `locals` sur des cartouches C et Lua, `--input`, et l'exécuteur de
-corpus (23 vérifications). `make oracle COMPUTERSOFTWARE=DIR` compile
+corpus (98 vérifications en tout avec `ORACLE` et `V32IO` définis ; 2 de plus demandent `V32SRCMARK` et une arborescence GBtoV32). `make oracle COMPUTERSOFTWARE=DIR` compile
 les outils oracle.
 
-`tests/run_gaps.sh TOOLS`, `run_romcheck.sh TOOLS` et `run_fuzz.sh TOOLS` sont les suites différentielles contre la logique de console d'origine
+`tests/run_gaps.sh TOOLS`, `run_romcheck.sh TOOLS`, `run_fuzz.sh TOOLS`, `run_clock.sh TOOLS` (l'horloge de démarrage dans plusieurs fuseaux horaires autour des changements d'heure) et `run_memcard.sh TOOLS` (cartes mémoire et boîtes aux lettres v32dev) sont les suites différentielles contre la logique de console d'origine
 (TOOLS : le répertoire de sortie de `tools/oracle/build.sh` ; voir `docs/V32SIMGAPS.md`), et `tests/run_stack_tests.sh TOOLCHAIN` vérifie la pile
 de débogage (C, C++ et Lua, chacun à -O0, -O2 et -O3). `make check TC=DIR` exécute chaque suite à partir d'un répertoire de chaîne d'outils et affiche une ligne
 de synthèse ; une suite dont les entrées manquent est signalée comme SKIP, jamais comme une réussite. Les recettes sont dans [docs/TESTING.md](docs/TESTING.md).
@@ -1132,7 +1174,7 @@ de synthèse ; une suite dont les entrées manquent est signalée comme SKIP, ja
 
 Tous les IOPorts existent et suivent l'implémentation du DesktopEmulator :
 
-- **TIM** : date/heure (les années bissextiles sont gérées), compteurs d'images/de cycles
+- **TIM** : date/heure (les années bissextiles sont gérées ; l'horloge de démarrage est l'heure locale de l'hôte, comme sur la console, y compris lors des changements d'heure), compteurs d'images/de cycles
 - **RNG, INP, CAR, MEM** : se comportent comme attendu
 - **GPU** : `GPU_ClearColor`, `GPU_SelectedTexture`, `GPU_SelectedRegion`,
   `GPU_Command` (ClearScreen, DrawRegion, DrawRegionZoomed, DrawRegionRotated,
@@ -1155,15 +1197,16 @@ liste. Depuis l'invite, les ports peuvent être manipulés avec `set` et inspect
 
 - **SPU** : pas de sortie audio (pas de capture WAV non plus)
 - **Rendu** : la rastérisation par le moteur de rendu logiciel des quads pivotés et mis à l'échelle n'a pas été comparée à la sortie OpenGL
-  (`docs/V32SIMGAPS.md` G14) ; les décalages de 32 ou plus et `INT_MIN / -1` sont indéfinis côté hôte et diffèrent de la console (G12)
+  (`docs/V32SIMGAPS.md` G14) ; `INT_MIN / -1` est indéfini côté hôte et diffère de la console (G12) ; les décalages de 32 ou plus sont aussi indéfinis côté hôte mais concordent avec la console sur x86-64
 - **Console texte** : seuls les dessins de la texture du BIOS sont capturés, comme des caractères ; l'alpha, le clignotement et la couleur d'effacement de l'invité sont ignorés, et
   le texte dessiné avec la police propre d'un programme n'est pas capturé. `until` et `expect console` comparent du texte, pas des couleurs
-- **Symboles** : seules les variables ayant une adresse numérique (globales v32cc) sont des symboles de données ; les variables locales à une fonction et les membres de
-  struct n'y ont pas de noms (les variables locales ont leur propre table, `locals`), et une entrée `.asm.sym` sans taille compte pour un mot
-- Les modes d'affichage Lua et C (`-L`) sont expérimentaux. Les variables locales (`locals`, section 4 de V32DBG) montrent des scalaires, des tableaux et des valeurs Lua ;
-  les membres de struct sont montrés par nom quand le compilateur les écrit dans `type=` (`struct:TAG:WORDS{x:int@0;...}`), sinon comme des mots
-  bruts ; les globales n'ont pas encore de `type=`, et les upvalues Lua à l'intérieur d'une fermeture ne sont pas listées (pas de `;@var` pour elles) ; `display NAME` garde
-  l'adresse qu'avait le nom au lieu de suivre le cadre
+- **Symboles** : seules les variables ayant une adresse numérique (globales v32cc et v32lua) sont des symboles de données ; les variables locales à une fonction et
+  les membres de struct ne sont pas des symboles (les variables locales ont leur propre table, `locals` ; un membre n'est nommé que dans le `type=` de sa variable),
+  et une entrée `.asm.sym` sans taille compte pour un mot
+- Les modes d'affichage Lua et C (`-L`) sont expérimentaux. Les variables locales (`locals`, section 4 de V32DBG) montrent des scalaires, des tableaux, des struct
+  par nom de membre, les globales avec leur `type=`, des valeurs Lua, les globales Lua et les upvalues des fermetures ; un membre de struct ne peut pas être nommé
+  dans une expression (`print p.x` ; `x p` montre les mots), un membre qui est lui-même un agrégat est montré en mots bruts, les tables Lua imbriquées ne montrent
+  que leur adresse, et `display NAME` garde l'adresse qu'avait le nom au lieu de suivre le cadre
 - Le lecteur de fichiers de débogage est écrit à la main (il pourrait passer sur flex)
 - Le démarrage par défaut se fait au BIOS (`0x10000004`), pas à la cartouche
 

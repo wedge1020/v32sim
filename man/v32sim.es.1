@@ -65,7 +65,7 @@ Empieza a ejecutar en
 en lugar de en el inicio de la BIOS.
 .TP
 .BR \-S ", " \-\-bios\-start
-El punto de entrada es el inicio del c\('odigo de la BIOS.
+Empieza en el inicio del c\('odigo de la BIOS (lo predeterminado).
 .TP
 .BR \-V ", " \-\-version
 Imprime la versi\('on y termina.
@@ -135,6 +135,7 @@ activan tambi\('en
 y
 .B next
 avanzan entonces por l\('inea de c\('odigo.
+Cualquier otro valor es un error (mensaje por la salida de error est\('andar, estado de salida 1).
 .TP
 .BR \-d ", " \-\-deref\-addr
 Muestra la direcci\('on de una desreferencia.
@@ -143,13 +144,18 @@ Muestra la direcci\('on de una desreferencia.
 Salida en color en el indicador.
 .SS Puntos de ruptura, entrada y vigilancia
 .TP
-.BI \-b ", " \-\-break= OFFSET | ETIQUETA
-Pone un punto de ruptura; puede repetirse.
-Un valor que se lee como hexadecimal 0 se toma como etiqueta.
-Usa la orden
+.BI \-b ", " \-\-break= OFFSET | ETIQUETA | ARCHIVO:L\('INEA
+Pone un punto de ruptura, como hace la orden
 .B break
-para
-.IR ARCHIVO:L\('INEA .
+una vez cargados los archivos de depuraci\('on; puede repetirse.
+Un nombre que es una etiqueta (o funci\('on) conocida es esa etiqueta aunque
+tambi\('en sea un n\('umero hexadecimal (add, face, dead; escriba 0xdead para la
+direcci\('on); si no, el valor es un
+.I OFFSET
+hexadecimal, con o sin 0x.
+.I ARCHIVO:L\('INEA
+necesita informaci\('on de l\('ineas.
+Un valor que no es nada de eso se notifica por la salida de error est\('andar.
 .TP
 .BI \-w ", " \-\-watch\-for= OPCODE
 Ejecuta (como
@@ -183,7 +189,8 @@ No empieza en modo paso a paso.
 .BI \-\-max\-frames= N
 Se detiene tras
 .I N
-cuadros.
+cuadros, contados desde el encendido (el logotipo de la BIOS, unos 250
+cuadros, incluido).
 .TP
 .B \-\-fast
 No limita la velocidad al tiempo real.
@@ -364,7 +371,9 @@ y
 .BI ,create= S \fR;
 o
 .BR serial:stdio ", " serial:echo
-con los opcionales
+o
+.BI serial:tcp= PUERTO
+(solo 127.0.0.1, un cliente a la vez) con los opcionales
 .BI ,hup= N ,
 .BI ,in= ARCHIVO ,
 .BI ,out= ARCHIVO
@@ -382,6 +391,13 @@ Escribe la pantalla como PNG tras estos cuadros del cartucho:
 o
 .IR A\-B/PASO ,
 separados por comas.
+El cuadro 0 es el primer cuadro que termina con el contador de programa en el
+cartucho, es decir, despu\('es de que la BIOS ha cedido el control (el logotipo
+de la BIOS est\('andar dura unos 250 cuadros, que
+.B \-\-max\-frames
+tambi\('en cuenta).
+Los cuadros que la ejecuci\('on no lleg\('o a alcanzar se notifican por la salida de
+errores al salir.
 .TP
 .BI \-\-screenshot\-file= PATR\('ON
 Nombre de archivo para ellas;
@@ -542,6 +558,11 @@ o en la entrada est\('andar en modo por lotes.
 Las \('ordenes pueden abreviarse (s es step, n next, c continue, p print,
 se set, pro profile, in inventory, lo load); una l\('inea en blanco repite el
 \('ultimo step, next o continue; una l\('inea que empieza por # es un comentario.
+Las letras sueltas son b break, c continue, d display, g gamepad, h help,
+i ignore, l label, n next, p print, q quit, r replace, s step, w watch, x x y
+? help.
+Cuando varias \('ordenes empiezan por las mismas letras gana la primera de la
+tabla de \('ordenes, as\('i que r es replace, no run (ru es run).
 Los formatos (\fB/b /B /d /D /f /o /u /x /X\fR) siguen a
 .BR print ,
 .BR x ,
@@ -597,8 +618,10 @@ Sale del simulador con el estado de salida
 .BR break " [\fI0xADDR\fP|\fIETIQUETA\fP|\fIARCHIVO:L\('INEA\fP]"
 Pone un punto de ruptura, o los lista.
 .TP
-.BR tbreak " \fIARCHIVO:L\('INEA\fP|\fIL\('INEA\fP|\fI0xADDR\fP|\fIETIQUETA\fP"
-Punto de ruptura de un solo uso.
+.BR tbreak " [\fIARCHIVO:L\('INEA\fP|\fIL\('INEA\fP|\fI0xADDR\fP|\fIETIQUETA\fP]"
+Punto de ruptura de un solo uso; sin argumento lista los puntos de ruptura,
+como lo hace
+.BR break .
 .TP
 .BR unbreak " \fI#\fP"
 Quita el punto de ruptura
@@ -760,6 +783,24 @@ Definida con cualquier valor salvo
 .BR 0 :
 la tarjeta de memoria es una tarjeta ordinaria sin buz\('on v32dev.
 .TP
+.B V32DEV_SERVER
+Definida con cualquier valor salvo
+.BR 0 :
+el servidor v32dev integrado del parche del DesktopEmulator del proyecto v32io.
+La tarjeta no necesita formato, el buz\('on vive solo en la memoria y nunca llega
+al archivo de la tarjeta, y los canales vienen de
+.BR V32DEV_CH0 " a " V32DEV_CH3 .
+Sin definir o con
+.BR 0 :
+esas variables no se miran.
+.TP
+.BR V32DEV_CH0 " a " V32DEV_CH3
+Con
+.BR V32DEV_SERVER :
+lo que atiende el canal N, una SPEC como para
+.BR \-\-v32dev\-host ,
+que gana en su canal.
+.TP
 .BR NO_COLOR ", " COLORTERM ", " TERM
 Eligen el nivel de
 .BR \-\-console\-color=auto :
@@ -815,11 +856,22 @@ Fall\('o un
 .B expect
 o un
 .B until
-agot\('o su tiempo; tambi\('en un valor de opci\('on incorrecto.
+agot\('o su tiempo.
+Al arrancar tambi\('en: una opci\('on o un valor de opci\('on incorrectos (tambi\('en un
+modo desconocido de
+.BR \-L ),
+un archivo de
+.B \-C
+que no se puede abrir,
+.B \-\-tty
+sin terminal, un
+.B \-\-v32dev\-host
+incorrecto.
 .TP
 .B 2
 Se alcanz\('o el l\('imite de cuadros
 .RB ( \-x ).
+Tambi\('en es el estado cuando no se puede abrir /dev/null al arrancar.
 .TP
 .B 3
 Un error de sistema
@@ -835,14 +887,26 @@ no pudo analizar una orden.
 .B \-\-dump
 no pudo imprimir lo pedido.
 .TP
+.B 11
+Arranque: no se puede abrir un archivo de BIOS, cartucho o tarjeta de memoria.
+.TP
+.B 12
+Arranque: no se puede leer ese archivo.
+.TP
+.B 21
+Arranque: ese archivo no es un archivo V32 v\('alido.
+.TP
+.BR 4 ", " 5 ", " 7 ", " 13 ", " 14 ", " 15
+Fallos internos (memoria agotada, un modo de acceso a IOPort no v\('alido) con un
+mensaje [ERROR] en la salida de error est\('andar; no deber\('ian ocurrir.
+4 y 5 son tambi\('en los estados anteriores.
+.TP
 .I N
 .B quit
 .I N
 prevalece sobre lo anterior;
 .BI \-\-halt\-status= N
 fija el estado de un HLT.
-Otros errores de arranque (una BIOS o un cartucho ilegibles, ...) salen con
-su propio estado distinto de cero.
 .SH EJEMPLOS
 Depurar un cartucho, deteni\('endose en una etiqueta:
 .PP
@@ -867,7 +931,7 @@ pulsado:
 .PP
 .RS
 .EX
-v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=130 \e
+v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=400 \e
     \-\-input=A@40\-44 \-\-screenshot\-at=60,120 cart.v32 </dev/null
 .EE
 .RE

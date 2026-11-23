@@ -123,9 +123,10 @@ void  init_ioports  (void)
         switch (TIM_CurrentDate | index)
         {
             case TIM_CurrentDate:
-                value                      = current_time_tm -> tm_year + 1900;
+                // the console's own limits (V32Console::SetCurrentDate: year 0-32767, day 0-365)
+                value                      = clamp_i32 (current_time_tm -> tm_year + 1900, 0, 32767);
                 value                      = value << 16;
-                value                     |= current_time_tm -> tm_yday;      // days count from 0
+                value                     |= clamp_i32 (current_time_tm -> tm_yday, 0, 365);   // days count from 0
                 if (fixed_clock           == TRUE)
                 {
                     value                  = (fixed_year << 16) | (fixed_day & 0xFFFF);
@@ -136,9 +137,10 @@ void  init_ioports  (void)
                 break;
 
             case TIM_CurrentTime:
-                value                      = current_time_tm -> tm_hour * 3600;
-                value                     += current_time_tm -> tm_min  * 60;
-                value                     += current_time_tm -> tm_sec;
+                // V32Console::SetCurrentTime clamps each part: a leap second (tm_sec = 60) reads as 59
+                value                      = clamp_i32 (current_time_tm -> tm_hour, 0, 23) * 3600;
+                value                     += clamp_i32 (current_time_tm -> tm_min,  0, 59) * 60;
+                value                     += clamp_i32 (current_time_tm -> tm_sec,  0, 59);
                 if (fixed_clock           == TRUE)
                 {
                     value                  = fixed_secs;

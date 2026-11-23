@@ -42,10 +42,10 @@ Recipes:
 
 ```
 # screenshot after cartridge frames 60 and 120 (v32sim-shot-00060.png, ...)
-v32sim -B B.v32 -r -q --fast --max-frames=130 --screenshot-at=60,120 cart.v32 </dev/null
+v32sim -B B.v32 -r -q --fast --max-frames=400 --screenshot-at=60,120 cart.v32 </dev/null
 
 # play a gamepad script (A held on cart frames 40-44, Start on frame 100), then take a screenshot
-v32sim -B B.v32 -r -q --fast --max-frames=200 --input='A@40-44,START@100' --screenshot-at=150 cart.v32 </dev/null
+v32sim -B B.v32 -r -q --fast --max-frames=450 --input='A@40-44,START@100' --screenshot-at=150 cart.v32 </dev/null
 
 # frame statistics: one CSV row per frame, summary (mean, p95, max, regions) on stderr
 v32sim -B B.v32 -r -q --fast --max-frames=1800 --frame-stats=load.csv --frame-stats-skip=250 cart.v32 </dev/null
@@ -80,7 +80,7 @@ Options marked (short form) have one: `-B`, etc. "Default" is what applies when 
 | `-B, --biosfile=FILE` | BIOS V32 file. Default: `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32` (the DesktopEmulator's install). |
 | `-M, --memcfile=FILE` | Memory card file (`V32-MEMC` + 262144 words). Changes are written back at the end of each frame. See *Memory card* below. |
 | `-E, --entry-point=OFFSET` | Start executing at OFFSET (hex) instead of the BIOS start. |
-| `-S, --bios-start` | Entry point = BIOS code start (break there). |
+| `-S, --bios-start` | Start at the BIOS code start (the default; kept for compatibility, and `-E` overrides it). |
 | `CARTFILE.v32` or `-` | The cartridge; `-` = none. |
 | `-V, --version` | Print `v32sim VERSION` and exit. |
 | `-h, --help` | Print the usage text and exit (status 0). |
@@ -95,7 +95,7 @@ Options marked (short form) have one: `-B`, etc. "Default" is what applies when 
 | `--symbol-file=FILE` | Data symbols (v32cc's `NAME.asm.sym`). `NAME.asm.sym` / `NAME.vbin.sym` beside the cartridge are read automatically. |
 | `-n, --no-debug` | Process no debug files (labels, lines, symbols). |
 | `--source` | Show the source line of each stop (assembly; C or Lua with `-L`). |
-| `-L, --langmode=MODE` | `C`, `lua` or `src`: the source language of the overlay. `C` and `src` also turn `--source` on; `lua` shows Lua values in memory dumps. `step`/`next` then go by source line. A value that is none of these is ignored. |
+| `-L, --langmode=MODE` | `C`, `lua` or `src`: the source language of the overlay. `C` and `src` also turn `--source` on; `lua` shows Lua values in memory dumps. `step`/`next` then go by source line. Any other value is an error (message on stderr, exit status 1). |
 | `-d, --deref-addr` | Show the address of a dereference. |
 | `-c, --colors` | Colorized output at the prompt. |
 
@@ -103,7 +103,7 @@ Options marked (short form) have one: `-B`, etc. "Default" is what applies when 
 
 | Option | Meaning |
 |---|---|
-| `-b, --break=OFFSET\|LABEL` | Set a breakpoint (repeatable). The value is read as hex; if that gives 0 it is taken as a label. For `FILE:LINE` use the `break` command (e.g. in a `-C` file). |
+| `-b, --break=OFFSET\|LABEL\|FILE:LINE` | Set a breakpoint (repeatable), as the `break` command does once the debug files are loaded. A name that is a known label (or function) is that label even when it is also a hex number (`add`, `face`, `dead`; write `0xdead` for the address); otherwise the value is a hex OFFSET, with or without `0x`. `FILE:LINE` needs line information. A value that is none of these is reported on stderr. |
 | `-w, --watch-for=OPCODE` | Run (`-r`) until this 32-bit instruction word is executed. |
 | `-C, --command-file=FILE` | Run the debugger commands in FILE. They are read by the prompt after the first instruction is fetched (so `step`, `next`, `continue` act); with `-r` they run once at start. |
 | `-e, --errorcheck` | Runtime error checking. |
@@ -114,7 +114,7 @@ Options marked (short form) have one: `-B`, etc. "Default" is what applies when 
 | Option | Meaning |
 |---|---|
 | `-r, --run` | Do not start in single-step mode: run until a breakpoint, watchpoint, HLT or the frame limit. |
-| `--max-frames=N` | Stop after N frames (exit status 2 with `-x`). |
+| `--max-frames=N` | Stop after N frames, counted from power-on (the BIOS logo, about 250 frames, included; exit status 2 with `-x`). |
 | `--fast` | Do not throttle to real time. |
 | `--frame-us=N` | Wall-clock microseconds per frame. Default 16666; 0 = `--fast`. |
 | `--turbo[=report]` | `--fast`, plus spin-loop fast-forwarding and dropping a full GPU pixel queue instead of painting it (screenshots may be incomplete). `=report` prints what was skipped to stderr at exit. README "Speed and Turbo Mode". Off while anything watches single instructions. |
@@ -158,14 +158,14 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 | Option | Meaning |
 |---|---|
 | `--v32dev-doorbell[=MS]` | Header flag bit 1, per-channel reply counters (header words 10..13); a store to a cart part's `c2h_head` rings: flush, give the host MS ms (default 2; 0 = no wait) to answer, import the reply, go on. Off by default. |
-| `--v32dev-host=N=SPEC` | Serve channel N (0-3) natively. Repeatable. Needs `-M FILE` holding a writable v32dev card (or last 64 KiB all zero: it is formatted). SPEC: `storage:FILE[,bytes][,ro][,sector=N][,create=S]` or `serial:stdio\|echo[,hup=N][,in=FILE][,out=FILE][,hangup]`. |
+| `--v32dev-host=N=SPEC` | Serve channel N (0-3) natively. Repeatable. Needs `-M FILE` holding a writable v32dev card (or last 64 KiB all zero: it is formatted). SPEC: `storage:FILE[,bytes][,ro][,sector=N][,create=S]` or `serial:stdio\|echo[,hup=N]\|tcp=PORT[,in=FILE][,out=FILE][,hangup]` (`tcp=PORT`: 127.0.0.1 only, one client at a time; `storage:` options are read from the right, so FILE may hold commas). Wins over `V32DEV_CHN` for its channel. |
 | `--v32dev-host-force` | Format the card over other data in its last 64 KiB. |
 
 ### Output, screenshots and the text console
 
 | Option | Meaning |
 |---|---|
-| `--screenshot-at=FRAMES` | Write the screen (PNG) after these cartridge frames: `N`, `A-B`, `A-B/STEP`, comma separated. Cartridge frames start when the BIOS hands over to the cartridge. |
+| `--screenshot-at=FRAMES` | Write the screen (PNG) after these cartridge frames: `N`, `A-B`, `A-B/STEP`, comma separated. Frame 0 is the first frame that ends with the program counter in the cartridge, that is after the BIOS has handed over (the stock BIOS's logo takes about 250 frames, which `--max-frames` also counts). Frames the run never reached are reported on stderr at exit. |
 | `--screenshot-file=PAT` | File name for those; `%d` = the frame (printf-style, e.g. `%05d`). Default `v32sim-shot-%05d.png`. |
 | `--screengrid[=SPEC]` | Grid over screenshots: `DX[xDY]`, `color=C`, `alpha=N`, `labels`/`nolabels`, comma separated. Default 40x40. |
 | `--highlight=T:R[:COLOR]` | Outline texture T region R (`bios:R` for the BIOS texture); comma separated. |
@@ -201,7 +201,9 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 | Variable | Used for |
 |---|---|
 | `V32_INPUT`, `V32_INPUT2` | Gamepad scripts used when `--input` / `--input2` are not given (a note goes to stderr). |
-| `V32DEV_DISABLE` | Any value but `0`: a card is an ordinary card, no v32dev mailbox; with `--v32dev-host` a warning, the host does not start. |
+| `V32DEV_DISABLE` | Any value but `0`: a card is an ordinary card, no v32dev mailbox; with `--v32dev-host` or `V32DEV_SERVER` a warning, the host does not start. |
+| `V32DEV_SERVER` | Set (and not `0`): the built-in v32dev server, as in the DesktopEmulator patch of the v32io project: the card needs no formatting, the mailbox lives in memory only and never reaches the card file, and the channels come from `V32DEV_CH0`..`V32DEV_CH3`. Unset or `0`: those variables are not looked at. |
+| `V32DEV_CH0` ... `V32DEV_CH3` | With `V32DEV_SERVER`: what channel N serves, a SPEC as for `--v32dev-host` (`storage:FILE[,bytes][,ro][,sector=N][,create=S]`, `serial:echo[,hup=N]`, `serial:stdio`, `serial:tcp=PORT`). Empty or unset: nothing. A wrong one is reported and its channel left out. |
 | `NO_COLOR`, `COLORTERM`, `TERM` | What `--console-color=auto` (and `--tty`) chooses: none if `NO_COLOR` is set non-empty; true color for `truecolor`/`24bit`; 256 for `*256color`; 16 for other terminals except `dumb`. |
 | `HOME`, `INPUTRC`, `TERM` | Read by GNU readline for the prompt (line editing, history in memory only). |
 
@@ -238,11 +240,15 @@ Written:
 | Status | Meaning |
 |---|---|
 | 0 | Normal end: the program executed HLT (unless `--halt-status`), or `quit`, or end of input. |
-| 1 | A check failed: `expect` failed or `until` timed out. A bad option value also exits 1; other startup errors (unreadable BIOS or cartridge, ...) exit with their own nonzero status. |
-| 2 | Frame limit reached (`-x` only). |
+| 1 | A check failed: `expect` failed or `until` timed out. Startup problems that exit 1: a bad option or option value (`-L` with an unknown mode too), a `-C` file that cannot be opened, `--tty` without a terminal, a bad `--v32dev-host`. |
+| 2 | Frame limit reached (`-x` only). Also the status when `/dev/null` cannot be opened at startup. |
 | 3 | System error (`-x` only; the run stops instead of entering the BIOS error handler). |
 | 4 | `--batch` could not parse a command (or a `dev` command failed). |
 | 5 | `--dump` could not print what was asked (bad spec, unknown symbol, unreadable memory), when nothing else set a status. |
+| 11 | Startup: a BIOS, cartridge or memory card file cannot be opened. |
+| 12 | Startup: such a file cannot be read (truncated, bad position). |
+| 21 | Startup: such a file is not a valid V32 file. |
+| 4, 5, 7, 13, 14, 15 | Internal failures (out of memory, an invalid IOPort access mode), with an `[ERROR]` message on stderr; they should not happen. 4 and 5 are also the statuses above. |
 | N | `quit N` overrides all of the above; `--halt-status=N` sets the status of an HLT. |
 
 ## See also

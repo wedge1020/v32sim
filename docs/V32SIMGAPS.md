@@ -10,12 +10,31 @@ reset, blending `default:`, `PlayChannel` target channel) and the 400-year leap 
 Everything else in `ConsoleLogic` is unchanged from the revision first reviewed
 (`ea62bc7`), so the other findings below stand.
 
-**Status (this revision).** Every item except G12 and G14 is closed, and the closures
+**Re-checked against the current tree (2026-11-23).** There is no git history in the
+checkout used for this check (`DesktopEmulator/ConsoleLogic`, file dates 2026-10-17), so it is
+identified by its contents instead: `V32Timer::ChangeFrame` (`Days >= DaysThisYear`, 400-year
+rule), `V32GPU::Reset` (clears `MinY`), `WriteGPUActiveBlending` (`default: return true`),
+`V32SPU::PlayChannel` (`GetChannelSound(&TargetChannel)`), and the v32dev mailbox in
+`V32MemoryCardController` / `V32Console::SyncMemoryCardMailbox` / `V32DevServer.cpp`. Every
+G item below was re-read against these files and re-run (`run_gaps.sh` 56, `run_romcheck.sh` 28,
+`run_fuzz.sh`, `run_clock.sh` 37, `run_memcard.sh` 14, all against an oracle built from this
+tree): **no behavioural difference was left except one**, the clamping of the start-up clock
+(see G4). The date and time ports in particular: `V32Timer` and the front end
+(`EmulatorControl::Initialize`) read `time()` once, convert it with `localtime()` and use
+`tm_year + 1900`, `tm_yday` (0-based), `tm_hour`, `tm_min`, `tm_sec`; `tm_isdst`, `mktime`,
+`timegm` and `gmtime` are not used anywhere, so a daylight-saving change only moves the
+local hour that `localtime()` reports and the clock then runs 1 s per 60 frames with no
+adjustment. v32sim does exactly that, and `tests/run_clock.sh` shows it at 37 instants and
+zones around DST changes (America/New_York, Europe/Berlin, Sao_Paulo, Lord_Howe), midnights,
+year ends, leap days and 2100. If the author's DST fix was on the console side, it is the
+code above and v32sim already equals it.
+
+**Status (this revision).** Every item except G12 and G14 is closed (G12 is now measured, see there), and the closures
 were verified by running the same cartridges on v32sim and on the stock ConsoleLogic
-(compiled headless as `tests/ref/refrun`, see *Verification* at the end). The entries
+(compiled headless as `tests/ref/refrun`, see *Verification* at the end) and re-confirmed on 2026-11-23 against the tree described above. The entries
 below are kept as the original findings; each starts with a **Status** line. Four gaps
 that the review missed were found by the differential runs (G15-G18, at the end), and a
-fifth by the fuzzer (G19).
+fifth by the fuzzer (G19). G20-G22 are new differential cases (clock, SPU, memory card) that found nothing.
 
 **Method and confidence (original review).** Both sources were read side by side. Nothing
 in the entries was confirmed by running a cartridge on both at that point: the
@@ -118,7 +137,7 @@ differs.
 
 ## G4. `TIM_CurrentDate` day numbering (and leap years)
 
-**Status: closed.** 0-based `tm_yday`, rollover on `Days >= DaysThisYear` with the 400-year rule, `--fixed-clock` day 0-based (default 0, clamped to 365). Test `g04_date_rollover` (7 dates).
+**Status: closed.** 0-based `tm_yday`, rollover on `Days >= DaysThisYear` with the 400-year rule, `--fixed-clock` day 0-based (default 0, clamped to 365). Test `g04_date_rollover` (15 dates, including day 366 of a common year, clamps, years 0 and 32767), `run_clock.sh`. **Re-checked 2026-11-23:** upstream `V32Timer` unchanged; the start-up clock now also takes the console's clamps (`SetCurrentDate`: year 0-32767, day 0-365; `SetCurrentTime`: hour 0-23, minute 0-59, second 0-59), so a leap second (`tm_sec == 60`, only with a `right/` time zone) reads 59 as on the console; `--fixed-clock` already did.
 
 **DesktopEmulator** (`V32Timer.cpp`): the lower half-word is `tm_yday`, which is
 **0-based** (January 1st = 0). At midnight the date is incremented and when
@@ -320,7 +339,7 @@ consistency and the BIOS/cartridge signature distinction.
 
 ## G12. `IDIV`/`IMOD` of `INT_MIN` by -1
 
-**Status: unchanged by policy** (host-undefined). Shift counts >= 32 and `INT_MIN / -1` stay defined as before; the fuzzer avoids them.
+**Status: unchanged by policy** (host-undefined). Shift counts >= 32 and `INT_MIN / -1` stay defined as before; the fuzzer avoids them. **Re-checked 2026-11-23:** `ProcessSHL` and `ProcessIDIV`/`ProcessIMOD` are still plain C++ shifts and divisions. On an x86-64 host the shift hardware masks the count to 5 bits, which v32sim does, so shift counts of 32 or more (and negative ones) *do* agree with the stock core built here: case `g12_shift_counts`. `INT_MIN / -1` still raises SIGFPE in the stock core on x86 and is not testable.
 
 **DesktopEmulator** performs a host `int32_t` division; `-2147483648 / -1` is undefined
 in C++ and traps (SIGFPE) on x86 hosts. **v32sim** defines the result (negation wraps,
@@ -344,7 +363,7 @@ assembler warns about. Suggested change: mask `portaddr` to `0x7FF` at the start
 
 ## G14. Rendering fidelity (not verified)
 
-**Status: still unverified.** The reference renders through OpenGL, which the headless runner stubs, so pixels were not compared.
+**Status: still unverified.** The reference renders through OpenGL, which the headless runner stubs, so pixels were not compared. **Re-read 2026-11-23:** `V32GPU::DrawRegion` (pixel budget, quad construction) and the blend functions in `Emulator/VideoOutput.cpp` are as described below; the budget accounting is differential-tested (`GPU_RemainingPixels`).
 
 The console renders through OpenGL (`Emulator/VideoOutput.cpp`): textured quads with
 `GL_NEAREST` sampling, a fragment shader computing `MultiplyColor * texel` in floating
@@ -392,15 +411,35 @@ the addressable range (`memory_texel()`). Tests `g08f`, `g08g`.
 **G19. `IMIN`/`IMAX` with an immediate compared unsigned** (a negative immediate was
 "larger" than any positive register). Found by the fuzzer; now signed as on the console.
 
+**G20. The start-up clock and daylight saving time** (no difference). Both programs start the clock from
+`localtime(time(NULL))`; `tests/run_clock.sh` preloads `tests/ref/faketime.c` (time() returns `$V32_FAKE_TIME`) and sets
+`TZ` so that the same instant, in the same zone, is seen by v32sim and by the stock core: 37 instants around DST changes
+(spring forward and fall back in New York and Berlin, a midnight change in Sao Paulo, a half-hour change in Lord Howe),
+midnight, year ends, 29 February, 2100 and 1970. Cartridge `tests/clock/g20_clock.asm` reads the date, time and frame
+counter for 130 frames. Only the clamps in G4 were missing in v32sim.
+
+**G21. SPU ports and channels** (no difference). `g21_spu` drives the clamps and ignored writes, loop points, position,
+and the play/pause/resume/stop/retrigger commands over many frames on the BIOS sound, against the stock SPU.
+
+**G22. Memory card** (no difference). `tests/run_memcard.sh` runs `tests/memcard/g22_card.asm` on cards of 14 kinds (plain,
+with data, v32dev mailbox with and without host/cart data and preset emulator words, wrong header version/magic/channel
+count, `V32DEV_DISABLE`, wrong size, wrong signature, empty file) on v32sim and on the stock core with a card (`vrun`), and
+compares what the cartridge reads and writes (the mailbox's emulator flag and heartbeat words, host-area writes) and the card
+file each leaves behind. Note: the oracle's `v32orun` main mode has its own frame loop that does not call
+`V32Console::SyncMemoryCardMailbox`, so it cannot be used for mailbox checks; `vrun` (`--compat=vrun`) calls `RunNextFrame`.
+Not compared: the embedded `V32DevServer` (off unless the front end enables it; v32sim's own host is `--v32dev-host`).
+
 ---
 
 ## Verification
 
 `tools/oracle/build.sh <ComputerSoftware checkout> <dir>` (or its wrapper `tests/ref/build.sh`) builds `refrun` (the console logic
-at `e75b537` with stubbed video/audio/log callbacks), the assembler and the ROM packer.
+at `e75b537`, and again on 2026-11-23 from the tree described at the top, with stubbed video/audio/log callbacks), the assembler and the ROM packer.
 Then, with that directory as the tools dir:
 
-  * `tests/run_gaps.sh` - the hand-written cartridges (`tests/gaps`): 46 runs
+  * `tests/run_gaps.sh` - the hand-written cartridges (`tests/gaps`): 56 runs
+  * `tests/run_clock.sh` - the start-up clock at 37 instants and zones (DST, midnight, year end, leap days)
+  * `tests/run_memcard.sh` - memory cards, including v32dev mailboxes (needs `vrun`)
   * `tests/run_romcheck.sh` - malformed ROM files
   * `tests/run_fuzz.sh` - random instruction programs (900 over three seeds) and the
     port matrix (3264 programs)
@@ -438,7 +477,9 @@ For reference, these were compared and no difference was found:
 
 ## Upstream quirks
 
-None outstanding. The quirks found in the first review have been fixed in
+None outstanding (re-checked against the current tree on 2026-11-23: the four fixes below are all in place,
+and no new quirk was found; behaviours that are odd but that v32sim reproduces, such as `V32Timer::Reset` leaving the
+date and time alone and day 365 of a common year being readable until midnight, are the console's). The quirks found in the first review have been fixed in
 `ComputerSoftware` `e75b537`, so there is nothing to reproduce, and v32sim should
 **not** copy the old behavior:
 

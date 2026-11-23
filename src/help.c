@@ -7,7 +7,9 @@ void  usage (int8_t *program)
     fprintf (stdout, "Mandatory arguments to long options are mandatory ");
     fprintf (stdout, "for short options too.\n\n");
     fprintf (stdout, " -B, --biosfile=FILE       load this BIOS V32 file as BIOS\n");
-    fprintf (stdout, " -b, --break=OFFSET|LABEL  set breakpoint at OFFSET/LABEL\n");
+    fprintf (stdout, " -b, --break=OFFSET|LABEL|FILE:LINE\n");
+    fprintf (stdout, "                           set a breakpoint (repeatable); a name that is a known label is that label even when\n");
+    fprintf (stdout, "                           it is also hex (add, face), otherwise a hex OFFSET; FILE:LINE as 'break' does\n");
     fprintf (stdout, " -C, --command-file=FILE   load this file with sim commands\n");
     fprintf (stdout, " -c, --colors              enable colorized output\n");
     fprintf (stdout, " -d, --deref-addr          output address of dereference\n");
@@ -26,7 +28,7 @@ void  usage (int8_t *program)
     fprintf (stdout, " -n, --no-debug            do not process any debug files\n");
     fprintf (stdout, " -p, --profile             enable instruction profiling\n");
     fprintf (stdout, " -r, --run                 do not enable single-step mode\n");
-    fprintf (stdout, " -S, --bios-start          break at BIOS code start\n");
+    fprintf (stdout, " -S, --bios-start          start at the BIOS code start (the default)\n");
     fprintf (stdout, " -w, --watch-for=OPCODE    run until OPCODE is encountered\n");
     fprintf (stdout, " -v, --verbose             enable more verbose output\n");
     fprintf (stdout, " -V, --version             display version information and exit\n");
@@ -56,11 +58,13 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --profile-format=FMT  text (default) or bin (V32PROF1 header, then LE32 address,count pairs)\n");
     fprintf (stdout, "     --profile-top=N       print the N hottest addresses to stderr when the run ends\n");
     fprintf (stdout, "     --profile-event=KIND  what the profile counts: instr (default), gpu-draw, gpu-portwrite, spu-write, cycles\n");
-    fprintf (stdout, "     --time-breakdown      at exit, where v32sim's own wall-clock time goes per frame (cpu / gpu / spu / output); --frame-log=FILE: every frame\n");
+    fprintf (stdout, "     --time-breakdown      at exit, where v32sim's own wall-clock time goes per frame (cpu / gpu / spu / output)\n");
+    fprintf (stdout, "     --frame-log=FILE      write that breakdown for every frame to FILE (also without --time-breakdown)\n");
     fprintf (stdout, "     --v32dev-doorbell[=MS] v32dev mailbox: header flag bit 1, per-channel reply counters at header words 10..13, and a store to\n");
     fprintf (stdout, "                           a cart part's c2h_head rings: flush, give the host MS ms (2) to answer, import its reply, go on\n");
     fprintf (stdout, "     --v32dev-host=N=SPEC  serve channel N of the card's v32dev mailbox natively: storage:FILE[,bytes][,ro][,sector=N][,create=S],\n");
-    fprintf (stdout, "                           serial:stdio|echo[,hup=N][,in=FILE][,out=FILE][,hangup]; --v32dev-host-force formats over other data\n");
+    fprintf (stdout, "                           serial:stdio|echo[,hup=N]|tcp=PORT[,in=FILE][,out=FILE][,hangup]; --v32dev-host-force formats over other data.\n");
+    fprintf (stdout, "                           Environment: V32DEV_SERVER=1 serves V32DEV_CH0..3 (a SPEC each; the option wins) with the mailbox in memory only\n");
     fprintf (stdout, "     --gpu-trace=FILE      record the program's GPU port writes by frame (binary, docs/TRACE-FORMAT.md); --spu-trace=FILE: SPU\n");
     fprintf (stdout, "     --trace-dump=FILE     print a trace file as text and exit\n");
     fprintf (stdout, "     --profile-by=KIND     address (default) or function: with function, --profile-top and the text\n");
@@ -68,17 +72,21 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --input=SCRIPT        hold gamepad buttons by cartridge frame: BUTTON[+BUTTON]@FIRST-LAST,... or @FILE (V32_INPUT\n");
     fprintf (stdout, "                           syntax, frame 0 = the cart's first; V32TRACE input=); --input-port=N (default 0)\n");
     fprintf (stdout, "     --input2=SCRIPT       the same for gamepad 2 (port 1; V32TRACE input2=, @FILE reads its V32_INPUT2= line)\n");
-    fprintf (stdout, "     --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma separated)\n");
+    fprintf (stdout, "     --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma\n");
+    fprintf (stdout, "                           separated); frame 0 is the first one the cartridge runs, after the BIOS hands over\n");
+    fprintf (stdout, "                           (the BIOS logo takes ~250 frames, and --max-frames counts them too)\n");
     fprintf (stdout, "     --screenshot-file=PAT   file name for those; %%d = the frame (default v32sim-shot-%%05d.png)\n");
     fprintf (stdout, "     --screengrid[=SPEC]     grid over screenshots: DX[xDY],color=C,alpha=N,labels|nolabels (default 40x40)\n");
     fprintf (stdout, "     --highlight=T:R[:COLOR] outline texture T region R (or bios:R) in screenshots; comma separated\n");
     fprintf (stdout, "     --noextra             no grid and no outlines in screenshots\n");
     fprintf (stdout, "     --frame-stats=FILE    write one CSV row per frame (cycles, CPU %%, GPU pixels, GPU %%) and print a summary\n");
     fprintf (stdout, "                           (mean, p95, max, frames at 100%%) to stderr when the run ends\n");
-    fprintf (stdout, "     --stats-format=json   --frame-stats FILE as JSON Lines (stable dotted names, a summary line at the end); --stats=FILE,\n");
-    fprintf (stdout, "                           --stats-skip=N and --stats-top=N are the same options as --frame-stats...\n");
+    fprintf (stdout, "     --stats=FILE          the same as --frame-stats\n");
+    fprintf (stdout, "     --stats-format=json   --frame-stats FILE as JSON Lines (stable dotted names, a summary line at the end)\n");
     fprintf (stdout, "     --frame-stats-top=N   list the N regions charged the most GPU pixels in that summary (default 8, 0 = none)\n");
+    fprintf (stdout, "     --stats-top=N         the same as --frame-stats-top\n");
     fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
+    fprintf (stdout, "     --stats-skip=N        the same as --frame-stats-skip\n");
     fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2.1): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
     fprintf (stdout, "                           routines and events, write PREFIX.traps.txt, .blocks.txt and the .trace.txt report; after a trap the\n");
     fprintf (stdout, "                           cartridge restarts (--v32trace-norestart: stay in the trap); --v32trace-meta=FILE and\n");
@@ -86,16 +94,17 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --fixed-cycles        reads of TIM_CycleCounter return 0 (programs seeding from it repeat)\n");
     fprintf (stdout, "     --symbol-file=FILE    also read data symbols from FILE (v32cc's NAME.asm.sym format); the ones\n");
     fprintf (stdout, "                           next to the V32 file are read automatically\n");
-    fprintf (stdout, " -q, --batch               for scripts: commands from stdin or -C without prompt or echo; no banner,\n");
+    fprintf (stdout, " -q, --batch, --quiet     for scripts: commands from stdin or -C without prompt or echo; no banner,\n");
     fprintf (stdout, "                           instruction line, display list or register summary; stdout holds only what\n");
     fprintf (stdout, "                           print, console, ... print; acknowledgements and stop reasons go to stderr;\n");
     fprintf (stdout, "                           a failed expect or timed-out until ends the run with status 1\n");
     fprintf (stdout, " -x, --exit-status         exit status tells how the program ended: 0 HLT, 2 frame limit,\n");
     fprintf (stdout, "                           3 system error (stops instead of entering the BIOS handler)\n");
-    fprintf (stdout, "                           (always: 1 a check failed, 4 --batch could not parse a command, N 'quit N')\n");
+    fprintf (stdout, "                           (always: 1 a check failed or a bad option, 4 --batch could not parse a command, 5 --dump failed,\n");
+    fprintf (stdout, "                           N 'quit N'; at startup 11 a file cannot be opened, 12 not read, 21 not a V32 file)\n");
     fprintf (stdout, " -h, --help                display this information\n\n");
     fprintf (stdout, "FILE   is any path plus the filename desired\n");
-    fprintf (stdout, "OFFSET is the full 32-bit/4-byte memory addres (hex)\n");
+    fprintf (stdout, "OFFSET is the full 32-bit/4-byte memory address (hex)\n");
     fprintf (stdout, "OPCODE is the full 32-bit/4-byte instruction hex\n\n");
 
     exit (0);
@@ -119,7 +128,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "                          modes (set mode = src|C|lua) they go by source line instead\n");
             fprintf (stdout, "  finish                  run until the current function returns\n");
             fprintf (stdout, "  until [FILE:LINE]       run to a later line (leave a loop), or to FILE:LINE\n");
-            fprintf (stdout, "  tbreak FILE:LINE        one-shot breakpoint   (break FILE:LINE | LINE | -a: see help break)\n");
+            fprintf (stdout, "  tbreak [FILE:LINE|LINE|0xMEM|LABEL]  one-shot breakpoint (or list them, as break does; see help break)\n");
             fprintf (stdout, "  list [FILE:LINE|FUNC]   show source around the current line, or that line\n");
             fprintf (stdout, "  frame|up|down [N]       select a stack frame (see backtrace)\n");
             fprintf (stdout, "  locals [NAME]           local variables of the selected frame (info locals)\n");
@@ -160,6 +169,10 @@ void  help  (uint8_t  item)
             fprintf (stdout, "Commands may be abbreviated (s = step, n = next, c = continue, p = print,\n");
             fprintf (stdout, "se = set, pro = profile, in = inventory, lo = load, ...). Blank lines repeat\n");
             fprintf (stdout, "the previous step/next/continue. Lines starting with # are comments.\n");
+            fprintf (stdout, "The single letters are: b break, c continue, d display, g gamepad, h help, i ignore,\n");
+            fprintf (stdout, "l label, n next, p print, q quit, r replace (run needs ru), s step, w watch, x x, ? help.\n");
+            fprintf (stdout, "Where several commands start with the same letters the first one of the table wins\n");
+            fprintf (stdout, "(so r is replace, not run); type enough letters, or the whole name, to be sure.\n");
             break;
 
         case INPUT_GAMEPAD:
@@ -253,13 +266,14 @@ void  help  (uint8_t  item)
         case INPUT_DEV:
             fprintf (stdout, "SYNOPSIS:\n");
             fprintf (stdout, "    dev [info]               one line per channel (type, host, program, session, ring positions)\n");
-            fprintf (stdout, "    dev format [force]       format the memory card as a v32dev mailbox (force: even if the\n");
-            fprintf (stdout, "                             last 64 KiB hold other data, or it already is a mailbox)\n");
+            fprintf (stdout, "    dev format [force] [N=TYPE ...]  format the memory card as a v32dev mailbox (force: even if the\n");
+            fprintf (stdout, "                             last 64 KiB hold other data, or it already is a mailbox); N=TYPE types channel N\n");
+            fprintf (stdout, "                             (none storage block serial char pipe tcp udp netplay socket, or a number)\n");
             fprintf (stdout, "    dev attach N SPEC        serve channel N with a native device (SPEC as --v32dev-host)\n");
             fprintf (stdout, "    dev detach N             stop serving channel N (the program sees the host go away)\n");
             fprintf (stdout, "    dev swap N SPEC          detach N and attach SPEC: a new session, as a changed medium\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
-            fprintf (stdout, "    SPEC is storage:FILE[,bytes][,ro][,sector=N][,create=S] or serial:stdio|echo[,hup=N]\n");
+            fprintf (stdout, "    SPEC is storage:FILE[,bytes][,ro][,sector=N][,create=S] or serial:stdio|echo[,hup=N]|tcp=PORT\n");
             fprintf (stdout, "    (+ in=FILE, out=FILE, hangup). The native host works on the card in memory, answers at a\n");
             fprintf (stdout, "    frame boundary (at once with --v32dev-doorbell) and uses no wall clock. 'save'/'restore'\n");
             fprintf (stdout, "    keep the host's state (queues, counters, session); a disk image is a file outside the\n");
@@ -296,7 +310,8 @@ void  help  (uint8_t  item)
             fprintf (stdout, "SYNOPSIS:\n");
             fprintf (stdout, "    break\n");
             fprintf (stdout, "    break 0xMEM_ADDR\n");
-            fprintf (stdout, "    break LABEL\n\n");
+            fprintf (stdout, "    break LABEL | FUNCTION\n");
+            fprintf (stdout, "    break FILE:LINE | LINE      (needs line information; break -a: every address of the line)\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    List or set a breakpoint for the indicated value. A breakpoint\n");
             fprintf (stdout, "    is a trigger to stop execution and present the prompt for input.\n");
@@ -316,9 +331,11 @@ void  help  (uint8_t  item)
 
         case INPUT_TBREAK:
             fprintf (stdout, "SYNOPSIS:\n");
+            fprintf (stdout, "    tbreak\n");
             fprintf (stdout, "    tbreak FILE:LINE | LINE | 0xMEM_ADDR | LABEL\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    A breakpoint that is removed when it is hit. See also: break.\n");
+            fprintf (stdout, "    With no argument it lists the breakpoints, as break does.\n");
             fprintf (stdout, "    break FILE:LINE uses the lowest address of the line (break -a FILE:LINE:\n");
             fprintf (stdout, "    all of them). A line with no code moves to the next line that has some.\n");
             fprintf (stdout, "    A plain decimal number is a line (an address is written in hex).\n");
@@ -417,7 +434,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    errorchk true/false    set simulator error checking\n");
             fprintf (stdout, "    verbose  true/false    set simulator verbosity\n");
             fprintf (stdout, "    source   true/false    show source lines (assembly or C) at the prompt\n");
-            fprintf (stdout, "    mode     asm|c|lua     which source the overlay shows\n");
+            fprintf (stdout, "    mode     asm|src|C|lua which source the overlay shows (step and next go by source line unless asm)\n");
             fprintf (stdout, "    (values: true/false, on/off, yes/no, 1/0)\n\n");
             fprintf (stdout, "NOTE:\n");
             fprintf (stdout, "    Setting system resources is done outside any access-control\n");
@@ -639,6 +656,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    /D    decode value as instruction data\n");
             fprintf (stdout, "    /f    display as floating point decimal\n");
             fprintf (stdout, "    /o    display as octal\n");
+            fprintf (stdout, "    /s    display as string\n");
             fprintf (stdout, "    /u    display as unsigned decimal\n");
             fprintf (stdout, "    /x    display as lowercase hexadecimal\n");
             fprintf (stdout, "    /X    display as uppercase hexadecimal (default)\n\n");
@@ -668,7 +686,8 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    display/fmt [0xMEM_ADDR] LABEL\n");
             fprintf (stdout, "    display/fmt 0xMEMADDR1-0xMEMADDR2\n");
             fprintf (stdout, "    display/fmt [0xMEMADDR1-0xMEMADDR2]\n");
-            fprintf (stdout, "    display/fmt 0xIOP LABEL\n\n");
+            fprintf (stdout, "    display/fmt 0xIOP LABEL\n");
+            fprintf (stdout, "    display/fmt SYMBOL[+N] LABEL     (the forms of 'print' with a symbol: see help print)\n\n");
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    Add a displaylist item (displayed at each showing of the prompt).\n");
             fprintf (stdout, "    An optional LABEL can be provided. If the item is enclosed within\n");
@@ -712,7 +731,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "    Leave the simulator (end of input, ie Ctrl-D, does the same). STATUS is the\n");
             fprintf (stdout, "    exit status of the process (0-255); without it the status says how the run\n");
             fprintf (stdout, "    went: 1 if an expect failed or an until timed out, 4 if --batch could not\n");
-            fprintf (stdout, "    parse a command, otherwise as described by -x.\n\n");
+            fprintf (stdout, "    parse a command, 5 if --dump failed, otherwise as described by -x.\n\n");
             break;
 
         case INPUT_VERSION:
@@ -780,7 +799,8 @@ void  help  (uint8_t  item)
 
 		case INPUT_UNTIL:
 			fprintf (stdout, "SYNOPSIS:\n");
-			fprintf (stdout, "    until \"TEXT\" [timeout FRAMES] [rows N]\n\n");
+			fprintf (stdout, "    until \"TEXT\" [timeout FRAMES] [rows N]\n");
+			fprintf (stdout, "    until [LINE | FILE:LINE]     (source level: run to a later line, or to that line)\n\n");
 			fprintf (stdout, "DESCRIPTION:\n");
 			fprintf (stdout, "    Continue until the text console (see 'help console') shows TEXT, then stop at the\n");
 			fprintf (stdout, "    prompt. TEXT is looked for inside every row; a TEXT starting with ^ must start the\n");

@@ -35,6 +35,10 @@ KBD=$W/roms/carts/t_kbd.v32
 
 echo "== v32dev real-cartridge suite"
 mkdir -p "$W/dev"
+# v32io 20261105 and later also run the scenarios against the emulator's built-in v32dev server (V32DEV_SERVER /
+# V32DEV_CHn, serial:stdio and serial:tcp, a mailbox that never reaches the card file): v32sim has that server too
+# (src/devhost.c, src/memc.c), so they run here as well. An older v32io has no such scenarios (and no --no-embedded):
+# nothing to pass either way.
 out=$(python3 -I "$IOD/tests/v32dev/dev_rom_test.py" "$HERE/v32sim_runner.sh" "$BIOS" "$W/roms/carts" "$W/dev" 2>&1)
 echo "$out" | tail -1
 echo "$out" | grep -q " 0 failures" && ok || { bad "v32dev suite"; echo "$out" | grep FAIL; }
@@ -69,6 +73,11 @@ events() {
         echo "${s% }"
       }
 }
+
+echo "== built-in v32dev server (V32DEV_SERVER, serial:tcp, dev format types; no toolchain)"
+out=$(WORK="$W/server" "$HERE/run_v32dev_server_tests.sh" 2>&1)
+echo "$out" | tail -1
+echo "$out" | grep -q " 0 failures" && ok || { bad "v32dev server suite"; echo "$out" | grep FAIL; }
 
 echo "== v32kbd"
 PRE=('kbd type "Hi!\n"' 'kbd key ctrl+c')

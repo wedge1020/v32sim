@@ -243,6 +243,7 @@ int       cmd_parse    (const char *, cmd_t *);      // line -> cmd_t (0 == succ
 void      cmd_free     (cmd_t *);
 uint8_t   cmd_execute  (cmd_t *);                    // carry out a parsed command
 uint8_t   process_command (const char *);            // parse + execute one line
+void      cmd_break_spec (const char *);             // -b OFFSET|LABEL|FILE:LINE: a label wins over hex
 void      yyerror      (const char *);
 
 ////////////////////////////////////////////////////////////////////////////////////////

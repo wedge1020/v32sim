@@ -12,16 +12,28 @@
 // --v32dev-doorbell, answers a ring at once and without any wall clock: runs are
 // repeatable. The card's file still receives everything the program writes.
 //
-//   SPEC   storage:FILE[,bytes][,ro][,sector=N][,create=SECTORS]
-//          serial:stdio | serial:echo[,hup=N]
+//   SPEC   storage:FILE[,bytes][,ro][,sector=N][,create=SECTORS]     (options are read from the right: FILE may hold commas)
+//          serial:stdio | serial:echo[,hup=N] | serial:tcp=PORT      (PORT on 127.0.0.1 only; one client at a time)
 //          serial: also takes, in any combination (v32sim extensions):
 //                  in=FILE (fed to the program at start and at every reopen of the channel),
 //                  out=FILE (low 8 bits of what the program writes), hangup (hang up once
 //                  all the input has been delivered)
 //
+// The same specs come from the environment, as for the DesktopEmulator's built-in v32dev server of the v32io project:
+// V32DEV_SERVER (anything but 0: the "server" mode, in which the card's mailbox lives in memory only and nothing of it is
+// ever written to the card file, on any card whose last 64 KiB are free) and V32DEV_CH0..V32DEV_CH3 (a SPEC each; the
+// option --v32dev-host=N=SPEC wins over the variable of its channel).
+//
 ////////////////////////////////////////////////////////////////////////////////////////
 
 int       devhost_add         (const char *);              // --v32dev-host=N=SPEC; 0 = accepted
+void      devhost_env         (void);                      // V32DEV_SERVER and V32DEV_CH0..3 (after the options are read)
+uint8_t   devhost_server      (void);                      // V32DEV_SERVER is on: the mailbox stays out of the card file
+uint8_t   devhost_strict      (void);                      // --v32dev-host asked and not the server: a card that cannot be served is an error
+void      devhost_type_set    (int, uint32_t);             // the next format types channel N as this (as v32dev.py format --chN)
+void      devhost_type_clear  (void);
+int       devhost_type_parse  (const char *, uint32_t *);  // a type name (none storage block serial char pipe tcp udp netplay socket) or a number
+void      devhost_type_text   (uint32_t, char *, size_t);  // v32dev.py's describe_type
 uint8_t   devhost_configured  (void);                      // some channel was asked for
 uint8_t   devhost_ok          (void);                      // ...and all of them are being served
 uint8_t   devhost_serves      (int);                       // is channel N served natively?

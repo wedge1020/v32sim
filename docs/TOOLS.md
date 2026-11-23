@@ -79,3 +79,17 @@ Short cards for every tool of the ecosystem, for agents: `docs/agents/`.
 
 The stock `compile` / `assemble` write no enhanced debug info on their own. With the stock chain v32sim still finds data
 globals through the `%define global_NAME ADDRESS` lines the compiler writes into `NAME.asm`.
+
+## Left in their own projects (and why)
+
+Tools that were looked at when the testing and debugging tools were consolidated here (2026-11-03) and stay where they are.
+
+| item | where | reason |
+|---|---|---|
+| `v32srcmark.py`, `v32prof.py` (line profile for `v32opt --profile`) | v32opt `scripts/` | belong to the optimizer; v32sim documents and calls them (`v32mkcart.sh --srcmark`). `v32prof.py` is a consumer of `--profile-out` |
+| `v32sym.py` (nm-style listing with final addresses), `cartrun.py`, `nixcheck.py`, `vrun.cpp` | v32cc `tools/` | compiler-chain tools. `vrun` and `cartrun.py` duplicate `v32run` (see below) |
+| `gapcheck.sh`, `asmcheck.sh`, `inventory.sh`, `stagemeasure/` | v32nix `tools/` | test the compilers / assembler, not the simulator |
+| `tests/sim/*.cmd`, `tools/simtest.sh` | v32nix | v32nix-specific scripts; they are the best worked examples of command scripts and are cited from TESTING.md |
+| `tests/dev.py`, `bios/tests/hostdisk.py` | V32DOS | DOS-specific; since V32DOS 20261123-dev they use v32sim's native host (`--v32dev-host`, `dev detach/attach/swap`) instead of `v32dev.py serve` |
+| `tests/*sample.*`, `check.sh` compile half, `AGENTS.md` language rules | v32cxx | transpiler tests and guidance |
+| `tests/measure_machine.c` | v32nix | measures `MOVS` at 1 cycle/word; v32sim already matches (V32SIMGAPS), but it would make a good differential case in `tests/gaps` |

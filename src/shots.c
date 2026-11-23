@@ -23,6 +23,7 @@ static item_t     items[MAX_ITEMS];
 static int        nitems    = 0;
 static int        nframes   = 0;
 static const char *pattern  = "v32sim-shot-%05d.png";
+static int        ntaken    = 0;                        // screenshots written
 static int32_t    next_cf   = -1;                       // the cart frame that just ended, once the cart runs
 
 static int  wanted (int32_t cf)
@@ -134,10 +135,34 @@ void  shots_frame (void)
     snprintf (name, sizeof (name), fmt, (int) next_cf);       // fmt is checked by the user: one %d at most
     if (gpu_screenshot (name) == TRUE)
     {
+        ntaken  = ntaken + 1;
         status_printf ("[screenshot] frame %d: wrote %s\n", (int) next_cf, name);
     }
     else
     {
         fprintf (stderr, "[ERROR] screenshot: could not write '%s'\n", name);
+    }
+}
+
+//
+// at exit: say so when frames were asked for that the run never reached (the cartridge frames
+// only start when the BIOS hands over to the cartridge, and --max-frames counts from power-on)
+//
+void  shots_report (void)
+{
+    if ((nitems == 0) || (ntaken >= nframes))
+    {
+        return;
+    }
+    if (next_cf < 0)
+    {
+        fprintf (stderr, "[WARNING] --screenshot-at: no screenshot taken: the cartridge never started "
+                         "(the BIOS did not hand over to it before the run ended)\n");
+    }
+    else
+    {
+        fprintf (stderr, "[WARNING] --screenshot-at: %d of %d screenshots taken: the run ended after cartridge frame %d "
+                         "(--max-frames counts frames from power-on, the BIOS logo included)\n",
+                 ntaken, nframes, (int) next_cf);
     }
 }

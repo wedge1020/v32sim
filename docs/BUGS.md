@@ -2,7 +2,14 @@
 
 Three code defects found while comparing v32sim against the DesktopEmulator
 (`ComputerSoftware/DesktopEmulator/ConsoleLogic`). **All three, and the 400-year leap rule mentioned at the end, are fixed in
-`ComputerSoftware` `e75b537`** (see `V32SIMGAPS.md`); the reports are kept as written. Line numbers are for commit
+`ComputerSoftware` `e75b537`** (see `V32SIMGAPS.md`); the reports are kept as written.
+
+**Status on 2026-11-23, re-checked in the current `ConsoleLogic`: all three are fixed, and so is the 400-year leap rule.**
+(1) `V32GPU::Reset` now clears `MinY` in both loops (cartridge textures and the BIOS texture); (2) `WriteGPUActiveBlending`
+ends its `default:` with `return true`, so an unknown mode is neither stored nor sent to the video layer; (3)
+`V32SPU::PlayChannel` takes the loop flag from `GetChannelSound( &TargetChannel )`; `V32Timer::ChangeFrame` tests
+`(Year % 400 == 0)`. v32sim does not reproduce any of the old behaviours (differential cases `g05`, `g21`, `g04`). Nothing is
+left to file. Line numbers are for commit
 `ea62bc7caad34f483945eadb114cf7d9c26cf54c` of `wedge1020/ComputerSoftware`; please
 re-check them against `vircon32/ComputerSoftware` before filing, since the upstream
 tree may have moved.

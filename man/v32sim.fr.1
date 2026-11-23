@@ -64,7 +64,7 @@ Commence l'ex\('ecution \(`a
 au lieu du d\('ebut du BIOS.
 .TP
 .BR \-S ", " \-\-bios\-start
-Le point d'entr\('ee est le d\('ebut du code du BIOS.
+D\('emarre au d\('ebut du code du BIOS (le comportement par d\('efaut).
 .TP
 .BR \-V ", " \-\-version
 Affiche la version et quitte.
@@ -134,6 +134,7 @@ activent aussi
 et
 .B next
 avancent alors par ligne source.
+Toute autre valeur est une erreur (message sur la sortie d'erreur standard, code de sortie 1).
 .TP
 .BR \-d ", " \-\-deref\-addr
 Affiche l'adresse d'un d\('er\('ef\('erencement.
@@ -142,13 +143,18 @@ Affiche l'adresse d'un d\('er\('ef\('erencement.
 Sortie en couleurs \(`a l'invite.
 .SS Points d'arr\(^et, point d'entr\('ee et surveillance
 .TP
-.BI \-b ", " \-\-break= OFFSET | LABEL
-Pose un point d'arr\(^et ; peut \(^etre r\('ep\('et\('e.
-Une valeur qui se lit comme l'hexad\('ecimal 0 est prise pour une \('etiquette.
-Utilisez la commande
+.BI \-b ", " \-\-break= OFFSET | LABEL | FILE:LINE
+Pose un point d'arr\(^et, comme le fait la commande
 .B break
-pour
-.IR FILE:LINE .
+une fois les fichiers de d\('ebogage charg\('es ; peut \(^etre r\('ep\('et\('e.
+Un nom qui est une \('etiquette (ou une fonction) connue d\('esigne cette
+\('etiquette m\(^eme s'il est aussi un nombre hexad\('ecimal (add, face, dead ;
+\('ecrivez 0xdead pour l'adresse) ; sinon la valeur est un
+.I OFFSET
+hexad\('ecimal, avec ou sans 0x.
+.I FILE:LINE
+demande des informations de ligne.
+Une valeur qui n'est rien de tout cela est signal\('ee sur la sortie d'erreur standard.
 .TP
 .BI \-w ", " \-\-watch\-for= OPCODE
 Ex\('ecute (comme
@@ -182,7 +188,7 @@ Ne d\('emarre pas en mode pas \(`a pas.
 .BI \-\-max\-frames= N
 S'arr\(^ete apr\(`es
 .I N
-images.
+images, compt\('ees depuis la mise sous tension (le logo du BIOS, environ 250 images, compris).
 .TP
 .B \-\-fast
 Ne bride pas \(`a la vitesse du temps r\('eel.
@@ -358,7 +364,9 @@ et
 .BI ,create= S \fR;
 ou
 .BR serial:stdio ", " serial:echo
-avec en option
+ou
+.BI serial:tcp= PORT
+(127.0.0.1 seulement, un client \(`a la fois) avec en option
 .BI ,hup= N ,
 .BI ,in= FILE ,
 .BI ,out= FILE
@@ -376,6 +384,13 @@ Formate la carte par-dessus d'autres donn\('ees dans ses 64 derniers Kio.
 ou
 .IR A\-B/STEP ,
 s\('epar\('es par des virgules.
+L'image 0 est la premi\(`ere image qui se termine avec le compteur de programme
+dans la cartouche, c'est-\(`a-dire une fois que le BIOS a pass\('e la main (le logo du
+BIOS standard dure environ 250 images, que
+.B \-\-max\-frames
+compte aussi).
+Les images que l'ex\('ecution n'a jamais atteintes sont signal\('ees sur la sortie
+d'erreur standard \(`a la sortie.
 .TP
 .BI \-\-screenshot\-file= PATTERN
 Nom de fichier de celles-ci ;
@@ -532,6 +547,11 @@ ou sur l'entr\('ee standard en mode par lot.
 Les commandes peuvent \(^etre abr\('eg\('ees (s est step, n next, c continue, p print,
 se set, pro profile, in inventory, lo load) ; une ligne vide r\('ep\(`ete le
 step, next ou continue pr\('ec\('edent ; une ligne commen\(,cant par # est un commentaire.
+Les lettres seules sont b break, c continue, d display, g gamepad, h help,
+i ignore, l label, n next, p print, q quit, r replace, s step, w watch, x x et
+? help.
+Quand plusieurs commandes commencent par les m\(^emes lettres, la premi\(`ere de la
+table des commandes l'emporte, donc r est replace, pas run (ru est run).
 Les formats (\fB/b /B /d /D /f /o /u /x /X\fR) suivent
 .BR print ,
 .BR x ,
@@ -587,8 +607,10 @@ Quitte le simulateur avec le code de sortie
 .BR break " [\fI0xADDR\fP|\fILABEL\fP|\fIFILE:LINE\fP]"
 Pose un point d'arr\(^et, ou les liste.
 .TP
-.BR tbreak " \fIFILE:LINE\fP|\fILINE\fP|\fI0xADDR\fP|\fILABEL\fP"
-Point d'arr\(^et \(`a usage unique.
+.BR tbreak " [\fIFILE:LINE\fP|\fILINE\fP|\fI0xADDR\fP|\fILABEL\fP]"
+Point d'arr\(^et \(`a usage unique ; sans argument, liste les points d'arr\(^et, comme
+.B break
+le fait.
 .TP
 .BR unbreak " \fI#\fP"
 Supprime le point d'arr\(^et
@@ -748,6 +770,24 @@ D\('efini \(`a toute valeur sauf
 .BR 0 "\ :"
 la carte m\('emoire est une carte ordinaire sans bo\(^ite aux lettres v32dev.
 .TP
+.B V32DEV_SERVER
+D\('efini \(`a toute valeur sauf
+.BR 0 "\ :"
+le serveur v32dev int\('egr\('e du patch du DesktopEmulator du projet v32io.
+La carte n'a pas besoin d'\(^etre format\('ee, la bo\(^ite aux lettres vit en m\('emoire seulement et
+n'arrive jamais dans le fichier de la carte, et les canaux viennent de
+.BR V32DEV_CH0 " \(`a " V32DEV_CH3 .
+Non d\('efini ou
+.BR 0 "\ :"
+ces variables ne sont pas regard\('ees.
+.TP
+.BR V32DEV_CH0 " \(`a " V32DEV_CH3
+Avec
+.BR V32DEV_SERVER "\ :"
+ce que sert le canal N, une SPEC comme pour
+.BR \-\-v32dev\-host ,
+qui l'emporte pour son canal.
+.TP
 .BR NO_COLOR ", " COLORTERM ", " TERM
 D\('eterminent le niveau de
 .BR \-\-console\-color=auto "\ :"
@@ -803,11 +843,21 @@ Un
 .B expect
 a \('echou\('e ou un
 .B until
-a expir\('e ; aussi une valeur d'option invalide.
+a expir\('e.
+Au d\('emarrage aussi : une mauvaise option ou valeur d'option (un mode
+.B \-L
+inconnu aussi), un fichier
+.B \-C
+qui ne peut pas \(^etre ouvert,
+.B \-\-tty
+sans terminal, un
+.B \-\-v32dev\-host
+erron\('e.
 .TP
 .B 2
 La limite d'images a \('et\('e atteinte
 .RB ( \-x ).
+C'est aussi le code quand /dev/null ne peut pas \(^etre ouvert au d\('emarrage.
 .TP
 .B 3
 Une erreur syst\(`eme
@@ -822,14 +872,26 @@ n'a pas pu analyser une commande.
 .B \-\-dump
 n'a pas pu afficher ce qui \('etait demand\('e.
 .TP
+.B 11
+D\('emarrage : un fichier de BIOS, de cartouche ou de carte m\('emoire ne peut pas \(^etre ouvert.
+.TP
+.B 12
+D\('emarrage : un tel fichier ne peut pas \(^etre lu.
+.TP
+.B 21
+D\('emarrage : un tel fichier n'est pas un fichier V32 valide.
+.TP
+.BR 4 ", " 5 ", " 7 ", " 13 ", " 14 ", " 15
+D\('efaillances internes (m\('emoire insuffisante, mode d'acc\(`es invalide \(`a un IOPort)
+avec un message [ERROR] sur la sortie d'erreur standard ; elles ne devraient pas arriver.
+4 et 5 sont aussi les codes ci-dessus.
+.TP
 .I N
 .B quit
 .I N
 l'emporte sur ce qui pr\('ec\(`ede ;
 .BI \-\-halt\-status= N
 fixe le code d'un HLT.
-Les autres erreurs de d\('emarrage (un BIOS ou une cartouche illisible, ...) quittent avec
-leur propre code non nul.
 .SH EXEMPLES
 D\('eboguer une cartouche, en s'arr\(^etant \(`a une \('etiquette :
 .PP
@@ -853,7 +915,7 @@ Captures d'\('ecran apr\(`es les images 60 et 120 de la cartouche avec un bouton
 .PP
 .RS
 .EX
-v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=130 \e
+v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=400 \e
     \-\-input=A@40\-44 \-\-screenshot\-at=60,120 cart.v32 </dev/null
 .EE
 .RE

@@ -11,7 +11,13 @@ SIM=${V32SIM:-$HERE/../bin/v32sim}
 [ $# -ge 3 ] || { echo "usage: $0 <bios.v32> <cart.v32> <card.memc> [micros] [max frames]"; exit 2; }
 MICROS=${4:-1000}
 FRAMES=${5:-20000}
-"$SIM" -r -x -n -B "$1" -M "$3" --frame-us="$MICROS" --max-frames="$FRAMES" "$2" </dev/null >"$3.sim.log" 2>&1
+# V32DEV_SERVER with a serial:stdio channel (the v32io embedded-server scenarios): the program's console is this
+# process's standard input and output, so they are passed through; otherwise the run is silent and reads nothing
+if [ -n "${V32DEV_SERVER+x}" ] && [ "${V32DEV_SERVER:-}" != 0 ] && case "${V32DEV_CH0:-}${V32DEV_CH1:-}${V32DEV_CH2:-}${V32DEV_CH3:-}" in *serial:stdio*) true;; *) false;; esac; then
+    "$SIM" -r -x -n -B "$1" -M "$3" --frame-us="$MICROS" --max-frames="$FRAMES" "$2" 2>"$3.sim.log"
+else
+    "$SIM" -r -x -n -B "$1" -M "$3" --frame-us="$MICROS" --max-frames="$FRAMES" "$2" </dev/null >"$3.sim.log" 2>&1
+fi
 rc=$?
 case $rc in
     0) echo "RUNNER: program ended (v32sim)"; exit 0;;

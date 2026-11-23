@@ -182,6 +182,7 @@ break_cmd
                                           CMD -> has_line = TRUE; }
     | T_BREAK '-' T_WORD T_NUM          { if (break_all (&$3)) YYERROR;
                                           CMD -> id = CMD_BREAK; CMD -> line = $4.u; CMD -> has_line = TRUE; }
+    | T_TBREAK                          { CMD -> id = CMD_TBREAK; }
     | T_TBREAK T_NUM                    { CMD -> id = CMD_TBREAK; CMD -> has_num = TRUE; CMD -> num = $2.u;
                                           CMD -> num_dec = ($2.kind == TOK_DEC); }
     | T_TBREAK name                     { CMD -> id = CMD_TBREAK; CMD -> name = $2.text; }
@@ -649,7 +650,7 @@ static int  set_lhs_word (tok_t *t)
         }
     }
 
-    cmd_seterr ("set: unknown setting '%s' (color deref errorchk debug profile verbose)", t -> text);
+    cmd_seterr ("set: unknown setting '%s' (color deref errorchk debug profile verbose source mode)", t -> text);
     return (1);
 }
 

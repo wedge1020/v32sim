@@ -595,7 +595,7 @@ union yyalloc
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  36
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  182
+#define YYNRULES  183
 /* YYNSTATES -- Number of states.  */
 #define YYNSTATES  246
 
@@ -660,18 +660,18 @@ static const yytype_int16 yyrline[] =
      126,   127,   128,   129,   130,   131,   132,   133,   134,   135,
      136,   137,   138,   139,   140,   141,   142,   143,   144,   145,
      146,   147,   148,   149,   150,   151,   152,   153,   154,   166,
-     167,   168,   174,   175,   177,   178,   180,   183,   185,   187,
-     188,   195,   196,   197,   199,   205,   206,   212,   213,   220,
-     221,   225,   229,   230,   231,   235,   236,   237,   238,   239,
-     240,   251,   252,   253,   257,   258,   259,   260,   266,   275,
-     276,   280,   281,   284,   288,   292,   293,   294,   295,   301,
-     305,   306,   310,   331,   332,   337,   347,   348,   349,   350,
-     351,   357,   358,   359,   360,   361,   362,   363,   364,   365,
-     366,   367,   371,   372,   373,   374,   375,   376,   377,   383,
-     384,   394,   395,   396,   398,   403,   404,   410,   414,   419,
-     426,   430,   439,   440,   446,   447,   454,   455,   456,   464,
-     465,   466,   467,   471,   477,   478,   484,   485,   491,   492,
-     493,   494,   495
+     167,   168,   174,   175,   177,   178,   180,   183,   185,   186,
+     188,   189,   196,   197,   198,   200,   206,   207,   213,   214,
+     221,   222,   226,   230,   231,   232,   236,   237,   238,   239,
+     240,   241,   252,   253,   254,   258,   259,   260,   261,   267,
+     276,   277,   281,   282,   285,   289,   293,   294,   295,   296,
+     302,   306,   307,   311,   332,   333,   338,   348,   349,   350,
+     351,   352,   358,   359,   360,   361,   362,   363,   364,   365,
+     366,   367,   368,   372,   373,   374,   375,   376,   377,   378,
+     384,   385,   395,   396,   397,   399,   404,   405,   411,   415,
+     420,   427,   431,   440,   441,   447,   448,   455,   456,   457,
+     465,   466,   467,   468,   472,   478,   479,   485,   486,   492,
+     493,   494,   495,   496
 };
 #endif
 
@@ -721,7 +721,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF (-163)
+#define YYTABLE_NINF (-164)
 
 #define yytable_value_is_error(Yyn) \
   0
@@ -762,31 +762,31 @@ static const yytype_int16 yypact[] =
    means the default is an error.  */
 static const yytype_uint8 yydefact[] =
 {
-       2,     4,    72,     5,    89,   169,   174,    21,    25,    87,
-       0,     6,    89,    24,    22,     0,    33,    35,    37,    39,
-       0,    32,    28,    41,   109,     7,     0,     0,     0,     0,
-       0,    26,    89,    27,    55,    57,    59,    63,    61,   150,
-     151,     0,    89,     8,     9,    10,     0,    81,    11,    13,
-      15,    85,    19,    68,     0,     3,    43,    17,    18,    44,
+       2,     4,    72,     5,    90,   170,   175,    21,    25,    88,
+       0,     6,    90,    24,    22,     0,    33,    35,    37,    39,
+       0,    32,    28,    41,   110,     7,     0,     0,     0,     0,
+       0,    26,    90,    27,    55,    57,    59,    63,    61,   151,
+     152,     0,    90,     8,     9,    10,    78,    82,    11,    13,
+      15,    86,    19,    68,     0,     3,    43,    17,    18,    44,
       45,    46,    47,    48,    49,    50,    51,    52,    53,    54,
       65,    66,    67,    73,    70,    71,    69,    75,     0,    74,
-      90,     0,   170,   173,   171,   175,     0,     0,     0,    23,
-       0,   119,   120,    34,    36,    38,    40,    29,    31,    30,
-      42,   113,   111,   112,   114,     0,   178,   179,   180,   177,
-     181,   182,     0,    56,    58,    60,    64,    62,   149,   152,
-     153,   155,   128,   126,   127,   101,     0,     0,   129,     0,
-       0,    78,    80,    79,    82,    83,    84,    12,    14,    16,
-      86,    20,     1,     0,   107,   104,   106,   101,   105,     0,
-       0,    93,    97,    95,   172,    88,     0,    91,     0,   121,
-       0,     0,   154,   101,     0,     0,     0,     0,     0,     0,
-     143,   144,   147,   148,   142,   145,   146,     0,   168,     0,
-     166,   164,    77,    76,     0,     0,     0,     0,   100,    94,
-     176,   122,   115,   118,     0,     0,   110,     0,     0,   157,
-       0,   103,   102,     0,     0,   130,   131,   134,   135,     0,
-       0,     0,     0,   140,   160,     0,   165,   108,     0,    98,
-      96,   116,   117,   124,   156,     0,     0,   158,   161,   132,
-       0,     0,     0,     0,   141,   133,   167,     0,   125,   163,
-     159,   136,   138,   137,   139,    99
+      91,     0,   171,   174,   172,   176,     0,     0,     0,    23,
+       0,   120,   121,    34,    36,    38,    40,    29,    31,    30,
+      42,   114,   112,   113,   115,     0,   179,   180,   181,   178,
+     182,   183,     0,    56,    58,    60,    64,    62,   150,   153,
+     154,   156,   129,   127,   128,   102,     0,     0,   130,     0,
+       0,    79,    81,    80,    83,    84,    85,    12,    14,    16,
+      87,    20,     1,     0,   108,   105,   107,   102,   106,     0,
+       0,    94,    98,    96,   173,    89,     0,    92,     0,   122,
+       0,     0,   155,   102,     0,     0,     0,     0,     0,     0,
+     144,   145,   148,   149,   143,   146,   147,     0,   169,     0,
+     167,   165,    77,    76,     0,     0,     0,     0,   101,    95,
+     177,   123,   116,   119,     0,     0,   111,     0,     0,   158,
+       0,   104,   103,     0,     0,   131,   132,   135,   136,     0,
+       0,     0,     0,   141,   161,     0,   166,   109,     0,    99,
+      97,   117,   118,   125,   157,     0,     0,   159,   162,   133,
+       0,     0,     0,     0,   142,   134,   168,     0,   126,   164,
+     160,   137,   139,   138,   140,   100
 };
 
 /* YYPGOTO[NTERM-NUM].  */
@@ -812,10 +812,10 @@ static const yytype_uint8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int16 yytable[] =
 {
-      79,   152,    86,  -162,    85,    88,   -92,   178,   152,  -162,
+      79,   152,    86,  -163,    85,    88,   -93,   178,   152,  -163,
      147,   122,   123,   124,   163,    80,    87,   164,   182,   206,
      207,   208,   147,   183,   192,   112,    80,   193,   111,   144,
-     145,   146,   147,   165,    89,   130,   148,   166,   121,  -123,
+     145,   146,   147,   165,    89,   130,   148,   166,   121,  -124,
      122,   123,   124,   125,   133,   136,   126,   169,    80,   140,
      180,   144,   145,   146,   147,    74,    75,    76,   148,   122,
      123,   124,   147,    73,    74,    75,    76,    90,    77,   186,
@@ -914,17 +914,17 @@ static const yytype_int8 yyr1[] =
       80,    80,    80,    80,    80,    80,    80,    80,    80,    80,
       80,    80,    80,    80,    80,    80,    80,    80,    80,    81,
       81,    81,    82,    82,    82,    82,    82,    82,    82,    82,
-      82,    83,    83,    83,    83,    84,    84,    85,    85,    86,
-      86,    87,    88,    88,    88,    89,    89,    89,    89,    89,
-      89,    90,    90,    90,    91,    91,    91,    91,    91,    92,
-      92,    93,    93,    93,    93,    94,    94,    94,    94,    95,
-      96,    96,    97,    98,    98,    98,    99,    99,    99,    99,
-      99,   100,   100,   100,   100,   100,   100,   100,   100,   100,
-     100,   100,   101,   101,   101,   101,   101,   101,   101,   102,
-     102,   103,   103,   103,   103,   104,   104,   105,   105,   105,
-     105,   105,   106,   106,   107,   107,   108,   108,   108,   109,
-     109,   109,   109,   110,   111,   111,   112,   112,   113,   113,
-     113,   113,   113
+      82,    82,    83,    83,    83,    83,    84,    84,    85,    85,
+      86,    86,    87,    88,    88,    88,    89,    89,    89,    89,
+      89,    89,    90,    90,    90,    91,    91,    91,    91,    91,
+      92,    92,    93,    93,    93,    93,    94,    94,    94,    94,
+      95,    96,    96,    97,    98,    98,    98,    99,    99,    99,
+      99,    99,   100,   100,   100,   100,   100,   100,   100,   100,
+     100,   100,   100,   101,   101,   101,   101,   101,   101,   101,
+     102,   102,   103,   103,   103,   103,   104,   104,   105,   105,
+     105,   105,   105,   106,   106,   107,   107,   108,   108,   108,
+     109,   109,   109,   109,   110,   111,   111,   112,   112,   113,
+     113,   113,   113,   113
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -937,18 +937,18 @@ static const yytype_int8 yyr2[] =
        2,     1,     2,     1,     1,     1,     1,     1,     1,     1,
        1,     1,     1,     1,     1,     1,     2,     1,     2,     1,
        2,     1,     2,     1,     2,     1,     1,     1,     1,     1,
-       1,     1,     1,     2,     2,     2,     4,     4,     2,     2,
-       2,     1,     2,     2,     2,     1,     2,     1,     3,     0,
-       1,     3,     1,     3,     4,     1,     3,     1,     3,     5,
-       2,     1,     3,     3,     1,     1,     1,     1,     3,     1,
-       4,     1,     1,     1,     1,     1,     2,     2,     1,     2,
-       1,     2,     3,     1,     5,     6,     1,     1,     1,     1,
-       3,     1,     2,     2,     1,     1,     3,     3,     3,     3,
-       1,     2,     1,     1,     1,     1,     1,     1,     1,     2,
-       1,     1,     2,     2,     3,     0,     3,     4,     5,     6,
-       4,     5,     0,     3,     3,     4,     1,     3,     1,     1,
-       2,     2,     3,     1,     1,     2,     4,     2,     2,     2,
-       2,     2,     2
+       1,     1,     1,     2,     2,     2,     4,     4,     1,     2,
+       2,     2,     1,     2,     2,     2,     1,     2,     1,     3,
+       0,     1,     3,     1,     3,     4,     1,     3,     1,     3,
+       5,     2,     1,     3,     3,     1,     1,     1,     1,     3,
+       1,     4,     1,     1,     1,     1,     1,     2,     2,     1,
+       2,     1,     2,     3,     1,     5,     6,     1,     1,     1,
+       1,     3,     1,     2,     2,     1,     1,     3,     3,     3,
+       3,     1,     2,     1,     1,     1,     1,     1,     1,     1,
+       2,     1,     1,     2,     2,     3,     0,     3,     4,     5,
+       6,     4,     5,     0,     3,     3,     4,     1,     3,     1,
+       1,     2,     2,     3,     1,     1,     2,     4,     2,     2,
+       2,     2,     2,     2
 };
 
 
@@ -1764,272 +1764,278 @@ yyreduce:
 #line 1765 "obj/parser.c"
     break;
 
-  case 78: /* break_cmd: T_TBREAK T_NUM  */
+  case 78: /* break_cmd: T_TBREAK  */
 #line 185 "src/parser.y"
-                                        { CMD -> id = CMD_TBREAK; CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u;
-                                          CMD -> num_dec = ((yyvsp[0].t).kind == TOK_DEC); }
-#line 1772 "obj/parser.c"
+                                        { CMD -> id = CMD_TBREAK; }
+#line 1771 "obj/parser.c"
     break;
 
-  case 79: /* break_cmd: T_TBREAK name  */
-#line 187 "src/parser.y"
-                                        { CMD -> id = CMD_TBREAK; CMD -> name = (yyvsp[0].t).text; }
+  case 79: /* break_cmd: T_TBREAK T_NUM  */
+#line 186 "src/parser.y"
+                                        { CMD -> id = CMD_TBREAK; CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u;
+                                          CMD -> num_dec = ((yyvsp[0].t).kind == TOK_DEC); }
 #line 1778 "obj/parser.c"
     break;
 
-  case 80: /* break_cmd: T_TBREAK T_FILELINE  */
+  case 80: /* break_cmd: T_TBREAK name  */
 #line 188 "src/parser.y"
-                                        { CMD -> id = CMD_TBREAK; CMD -> file = (yyvsp[0].t).text; CMD -> line = (yyvsp[0].t).u;
-                                          CMD -> has_line = TRUE; }
-#line 1785 "obj/parser.c"
+                                        { CMD -> id = CMD_TBREAK; CMD -> name = (yyvsp[0].t).text; }
+#line 1784 "obj/parser.c"
     break;
 
-  case 81: /* list_cmd: T_LIST  */
-#line 195 "src/parser.y"
-                                        { CMD -> id = CMD_LIST; }
+  case 81: /* break_cmd: T_TBREAK T_FILELINE  */
+#line 189 "src/parser.y"
+                                        { CMD -> id = CMD_TBREAK; CMD -> file = (yyvsp[0].t).text; CMD -> line = (yyvsp[0].t).u;
+                                          CMD -> has_line = TRUE; }
 #line 1791 "obj/parser.c"
     break;
 
-  case 82: /* list_cmd: T_LIST T_NUM  */
+  case 82: /* list_cmd: T_LIST  */
 #line 196 "src/parser.y"
-                                        { CMD -> id = CMD_LIST; CMD -> line = (yyvsp[0].t).u; CMD -> has_line = TRUE; }
+                                        { CMD -> id = CMD_LIST; }
 #line 1797 "obj/parser.c"
     break;
 
-  case 83: /* list_cmd: T_LIST T_FILELINE  */
+  case 83: /* list_cmd: T_LIST T_NUM  */
 #line 197 "src/parser.y"
-                                        { CMD -> id = CMD_LIST; CMD -> file = (yyvsp[0].t).text; CMD -> line = (yyvsp[0].t).u;
-                                          CMD -> has_line = TRUE; }
-#line 1804 "obj/parser.c"
+                                        { CMD -> id = CMD_LIST; CMD -> line = (yyvsp[0].t).u; CMD -> has_line = TRUE; }
+#line 1803 "obj/parser.c"
     break;
 
-  case 84: /* list_cmd: T_LIST name  */
-#line 199 "src/parser.y"
-                                        { CMD -> id = CMD_LIST; CMD -> name = (yyvsp[0].t).text; }
+  case 84: /* list_cmd: T_LIST T_FILELINE  */
+#line 198 "src/parser.y"
+                                        { CMD -> id = CMD_LIST; CMD -> file = (yyvsp[0].t).text; CMD -> line = (yyvsp[0].t).u;
+                                          CMD -> has_line = TRUE; }
 #line 1810 "obj/parser.c"
     break;
 
-  case 85: /* locals_cmd: T_LOCALS  */
-#line 205 "src/parser.y"
-                                        { CMD -> id = CMD_LOCALS; }
+  case 85: /* list_cmd: T_LIST name  */
+#line 200 "src/parser.y"
+                                        { CMD -> id = CMD_LIST; CMD -> name = (yyvsp[0].t).text; }
 #line 1816 "obj/parser.c"
     break;
 
-  case 86: /* locals_cmd: T_LOCALS name  */
+  case 86: /* locals_cmd: T_LOCALS  */
 #line 206 "src/parser.y"
-                                        { CMD -> id = CMD_LOCALS; CMD -> name = (yyvsp[0].t).text; }
+                                        { CMD -> id = CMD_LOCALS; }
 #line 1822 "obj/parser.c"
     break;
 
-  case 87: /* label_cmd: T_LABEL  */
-#line 212 "src/parser.y"
-                                        { CMD -> id = CMD_LABEL; }
+  case 87: /* locals_cmd: T_LOCALS name  */
+#line 207 "src/parser.y"
+                                        { CMD -> id = CMD_LOCALS; CMD -> name = (yyvsp[0].t).text; }
 #line 1828 "obj/parser.c"
     break;
 
-  case 88: /* label_cmd: T_LABEL T_NUM name  */
+  case 88: /* label_cmd: T_LABEL  */
 #line 213 "src/parser.y"
-                                        { CMD -> id = CMD_LABEL; CMD -> has_num = TRUE;
-                                          CMD -> num = (yyvsp[-1].t).u; CMD -> name = (yyvsp[0].t).text; }
-#line 1835 "obj/parser.c"
+                                        { CMD -> id = CMD_LABEL; }
+#line 1834 "obj/parser.c"
     break;
 
-  case 90: /* format: T_FMT  */
-#line 221 "src/parser.y"
-                                        { set_fmt ((yyvsp[0].ch)); if (CMD -> errmsg[0]) YYERROR; }
+  case 89: /* label_cmd: T_LABEL T_NUM name  */
+#line 214 "src/parser.y"
+                                        { CMD -> id = CMD_LABEL; CMD -> has_num = TRUE;
+                                          CMD -> num = (yyvsp[-1].t).u; CMD -> name = (yyvsp[0].t).text; }
 #line 1841 "obj/parser.c"
     break;
 
-  case 91: /* print_cmd: T_PRINT format operand  */
-#line 225 "src/parser.y"
-                                        { CMD -> id = CMD_PRINT; }
+  case 91: /* format: T_FMT  */
+#line 222 "src/parser.y"
+                                        { set_fmt ((yyvsp[0].ch)); if (CMD -> errmsg[0]) YYERROR; }
 #line 1847 "obj/parser.c"
     break;
 
-  case 92: /* display_cmd: T_DISPLAY  */
-#line 229 "src/parser.y"
-                                        { CMD -> id = CMD_DISPLAY; }
+  case 92: /* print_cmd: T_PRINT format operand  */
+#line 226 "src/parser.y"
+                                        { CMD -> id = CMD_PRINT; }
 #line 1853 "obj/parser.c"
     break;
 
-  case 93: /* display_cmd: T_DISPLAY format operand  */
+  case 93: /* display_cmd: T_DISPLAY  */
 #line 230 "src/parser.y"
                                         { CMD -> id = CMD_DISPLAY; }
 #line 1859 "obj/parser.c"
     break;
 
-  case 94: /* display_cmd: T_DISPLAY format operand name  */
+  case 94: /* display_cmd: T_DISPLAY format operand  */
 #line 231 "src/parser.y"
-                                        { CMD -> id = CMD_DISPLAY; CMD -> name = (yyvsp[0].t).text; }
+                                        { CMD -> id = CMD_DISPLAY; }
 #line 1865 "obj/parser.c"
     break;
 
-  case 95: /* operand: base  */
-#line 235 "src/parser.y"
-                                        { CMD -> opd.deref = FALSE; }
+  case 95: /* display_cmd: T_DISPLAY format operand name  */
+#line 232 "src/parser.y"
+                                        { CMD -> id = CMD_DISPLAY; CMD -> name = (yyvsp[0].t).text; }
 #line 1871 "obj/parser.c"
     break;
 
-  case 96: /* operand: '[' base ']'  */
+  case 96: /* operand: base  */
 #line 236 "src/parser.y"
-                                        { CMD -> opd.deref = TRUE;  }
+                                        { CMD -> opd.deref = FALSE; }
 #line 1877 "obj/parser.c"
     break;
 
-  case 97: /* operand: symref  */
+  case 97: /* operand: '[' base ']'  */
 #line 237 "src/parser.y"
-                                        { set_operand_sym (&(yyvsp[0].s), FALSE); }
+                                        { CMD -> opd.deref = TRUE;  }
 #line 1883 "obj/parser.c"
     break;
 
-  case 98: /* operand: '[' symref ']'  */
+  case 98: /* operand: symref  */
 #line 238 "src/parser.y"
-                                        { set_operand_sym (&(yyvsp[-1].s), FALSE); }
+                                        { set_operand_sym (&(yyvsp[0].s), FALSE); }
 #line 1889 "obj/parser.c"
     break;
 
-  case 99: /* operand: '[' '[' symref ']' ']'  */
+  case 99: /* operand: '[' symref ']'  */
 #line 239 "src/parser.y"
-                                        { set_operand_sym (&(yyvsp[-2].s), TRUE);  }
+                                        { set_operand_sym (&(yyvsp[-1].s), FALSE); }
 #line 1895 "obj/parser.c"
     break;
 
-  case 100: /* operand: '&' symref  */
+  case 100: /* operand: '[' '[' symref ']' ']'  */
 #line 240 "src/parser.y"
-                                        { set_operand (OPD_VALUE, 0, (yyvsp[0].s).addr, 0);
-                                          CMD -> opd.name = (yyvsp[0].s).text; }
-#line 1902 "obj/parser.c"
+                                        { set_operand_sym (&(yyvsp[-2].s), TRUE);  }
+#line 1901 "obj/parser.c"
     break;
 
-  case 101: /* symref: T_WORD  */
-#line 251 "src/parser.y"
-                                        { if (sym_resolve (&(yyvsp[0].t), 0, NULL, &(yyval.s))) YYERROR; }
+  case 101: /* operand: '&' symref  */
+#line 241 "src/parser.y"
+                                        { set_operand (OPD_VALUE, 0, (yyvsp[0].s).addr, 0);
+                                          CMD -> opd.name = (yyvsp[0].s).text; }
 #line 1908 "obj/parser.c"
     break;
 
-  case 102: /* symref: T_WORD '+' T_NUM  */
+  case 102: /* symref: T_WORD  */
 #line 252 "src/parser.y"
-                                        { if (sym_resolve (&(yyvsp[-2].t), +1, &(yyvsp[0].t), &(yyval.s))) YYERROR; }
+                                        { if (sym_resolve (&(yyvsp[0].t), 0, NULL, &(yyval.s))) YYERROR; }
 #line 1914 "obj/parser.c"
     break;
 
-  case 103: /* symref: T_WORD '-' T_NUM  */
+  case 103: /* symref: T_WORD '+' T_NUM  */
 #line 253 "src/parser.y"
-                                        { if (sym_resolve (&(yyvsp[-2].t), -1, &(yyvsp[0].t), &(yyval.s))) YYERROR; }
+                                        { if (sym_resolve (&(yyvsp[-2].t), +1, &(yyvsp[0].t), &(yyval.s))) YYERROR; }
 #line 1920 "obj/parser.c"
     break;
 
-  case 104: /* base: T_REG  */
-#line 257 "src/parser.y"
-                                        { set_operand (OPD_REG, (uint8_t) (yyvsp[0].t).u, 0, 0); }
+  case 104: /* symref: T_WORD '-' T_NUM  */
+#line 254 "src/parser.y"
+                                        { if (sym_resolve (&(yyvsp[-2].t), -1, &(yyvsp[0].t), &(yyval.s))) YYERROR; }
 #line 1926 "obj/parser.c"
     break;
 
-  case 105: /* base: T_REGS  */
+  case 105: /* base: T_REG  */
 #line 258 "src/parser.y"
-                                        { set_operand (OPD_REGS, 0, 0, 0); }
+                                        { set_operand (OPD_REG, (uint8_t) (yyvsp[0].t).u, 0, 0); }
 #line 1932 "obj/parser.c"
     break;
 
-  case 106: /* base: T_IOSYM  */
+  case 106: /* base: T_REGS  */
 #line 259 "src/parser.y"
-                                        { if (operand_iosym (&(yyvsp[0].t))) YYERROR; }
+                                        { set_operand (OPD_REGS, 0, 0, 0); }
 #line 1938 "obj/parser.c"
     break;
 
-  case 107: /* base: T_NUM  */
+  case 107: /* base: T_IOSYM  */
 #line 260 "src/parser.y"
+                                        { if (operand_iosym (&(yyvsp[0].t))) YYERROR; }
+#line 1944 "obj/parser.c"
+    break;
+
+  case 108: /* base: T_NUM  */
+#line 261 "src/parser.y"
                                         { uint32_t v = 0;
                                           if (operand_number (&(yyvsp[0].t), &v)) YYERROR;
                                           if ((yyvsp[0].t).digits <= 3)
                                               set_operand (OPD_IOPORT, 0, v, 0);
                                           else
                                               set_operand (OPD_MEM,    0, v, 0); }
-#line 1949 "obj/parser.c"
+#line 1955 "obj/parser.c"
     break;
 
-  case 108: /* base: T_NUM '-' T_NUM  */
-#line 266 "src/parser.y"
+  case 109: /* base: T_NUM '-' T_NUM  */
+#line 267 "src/parser.y"
                                         { uint32_t lo = 0, hi = 0;
                                           if (operand_number (&(yyvsp[-2].t), &lo)) YYERROR;
                                           if (operand_number (&(yyvsp[0].t), &hi)) YYERROR;
                                           set_operand (OPD_RANGE, 0, lo, hi); }
-#line 1958 "obj/parser.c"
-    break;
-
-  case 109: /* set_cmd: T_SET  */
-#line 275 "src/parser.y"
-                                        { CMD -> id = CMD_SET; }
 #line 1964 "obj/parser.c"
     break;
 
-  case 110: /* set_cmd: T_SET set_lhs '=' set_rhs  */
+  case 110: /* set_cmd: T_SET  */
 #line 276 "src/parser.y"
                                         { CMD -> id = CMD_SET; }
 #line 1970 "obj/parser.c"
     break;
 
-  case 111: /* set_lhs: T_REG  */
-#line 280 "src/parser.y"
-                                        { CMD -> set_kind = SETK_REG; CMD -> set_reg = (uint8_t) (yyvsp[0].t).u; }
+  case 111: /* set_cmd: T_SET set_lhs '=' set_rhs  */
+#line 277 "src/parser.y"
+                                        { CMD -> id = CMD_SET; }
 #line 1976 "obj/parser.c"
     break;
 
-  case 112: /* set_lhs: T_IOSYM  */
+  case 112: /* set_lhs: T_REG  */
 #line 281 "src/parser.y"
+                                        { CMD -> set_kind = SETK_REG; CMD -> set_reg = (uint8_t) (yyvsp[0].t).u; }
+#line 1982 "obj/parser.c"
+    break;
+
+  case 113: /* set_lhs: T_IOSYM  */
+#line 282 "src/parser.y"
                                         { int16_t p = ioports_num ((uint8_t *) (yyvsp[0].t).text);
                                           if (p < 0) { cmd_seterr ("unknown IOPort '%s'", (yyvsp[0].t).text); YYERROR; }
                                           CMD -> set_kind = SETK_IOPORT; CMD -> set_addr = (uint32_t) p; }
-#line 1984 "obj/parser.c"
+#line 1990 "obj/parser.c"
     break;
 
-  case 113: /* set_lhs: T_NUM  */
-#line 284 "src/parser.y"
+  case 114: /* set_lhs: T_NUM  */
+#line 285 "src/parser.y"
                                         { uint32_t v = 0;
                                           if (operand_number (&(yyvsp[0].t), &v)) YYERROR;
                                           CMD -> set_kind = ((yyvsp[0].t).digits <= 3) ? SETK_IOPORT : SETK_MEM;
                                           CMD -> set_addr = v; }
-#line 1993 "obj/parser.c"
-    break;
-
-  case 114: /* set_lhs: T_WORD  */
-#line 288 "src/parser.y"
-                                        { if (set_lhs_word (&(yyvsp[0].t))) YYERROR; }
 #line 1999 "obj/parser.c"
     break;
 
-  case 115: /* set_rhs: T_NUM  */
-#line 292 "src/parser.y"
-                                        { CMD -> set_isnum = TRUE; CMD -> set_val = (yyvsp[0].t); }
+  case 115: /* set_lhs: T_WORD  */
+#line 289 "src/parser.y"
+                                        { if (set_lhs_word (&(yyvsp[0].t))) YYERROR; }
 #line 2005 "obj/parser.c"
     break;
 
-  case 116: /* set_rhs: '-' T_NUM  */
+  case 116: /* set_rhs: T_NUM  */
 #line 293 "src/parser.y"
-                                        { CMD -> set_isnum = TRUE; CMD -> set_val = (yyvsp[0].t); CMD -> set_neg = TRUE; }
+                                        { CMD -> set_isnum = TRUE; CMD -> set_val = (yyvsp[0].t); }
 #line 2011 "obj/parser.c"
     break;
 
-  case 117: /* set_rhs: '+' T_NUM  */
+  case 117: /* set_rhs: '-' T_NUM  */
 #line 294 "src/parser.y"
-                                        { CMD -> set_isnum = TRUE; CMD -> set_val = (yyvsp[0].t); }
+                                        { CMD -> set_isnum = TRUE; CMD -> set_val = (yyvsp[0].t); CMD -> set_neg = TRUE; }
 #line 2017 "obj/parser.c"
     break;
 
-  case 118: /* set_rhs: T_WORD  */
+  case 118: /* set_rhs: '+' T_NUM  */
 #line 295 "src/parser.y"
-                                        { CMD -> word = (yyvsp[0].t).text; }
+                                        { CMD -> set_isnum = TRUE; CMD -> set_val = (yyvsp[0].t); }
 #line 2023 "obj/parser.c"
     break;
 
-  case 119: /* replace_cmd: T_REPLACE repl_list  */
-#line 301 "src/parser.y"
-                                        { CMD -> id = CMD_REPLACE; }
+  case 119: /* set_rhs: T_WORD  */
+#line 296 "src/parser.y"
+                                        { CMD -> word = (yyvsp[0].t).text; }
 #line 2029 "obj/parser.c"
     break;
 
-  case 122: /* repl_item: T_REG ':' T_NUM  */
-#line 311 "src/parser.y"
+  case 120: /* replace_cmd: T_REPLACE repl_list  */
+#line 302 "src/parser.y"
+                                        { CMD -> id = CMD_REPLACE; }
+#line 2035 "obj/parser.c"
+    break;
+
+  case 123: /* repl_item: T_REG ':' T_NUM  */
+#line 312 "src/parser.y"
         {
             if (((yyvsp[-2].t).u != IP) && ((yyvsp[-2].t).u != IR) && ((yyvsp[-2].t).u != IV))
             {
@@ -2045,391 +2051,391 @@ yyreduce:
             CMD -> rep[CMD -> rep_count].value = (yyvsp[0].t).u;
             CMD -> rep_count = CMD -> rep_count + 1;
         }
-#line 2049 "obj/parser.c"
-    break;
-
-  case 123: /* watch_cmd: T_WATCH  */
-#line 331 "src/parser.y"
-                                        { CMD -> id = CMD_WATCHLIST; }
 #line 2055 "obj/parser.c"
     break;
 
-  case 124: /* watch_cmd: T_WATCH format watch_target relop watch_rhs  */
-#line 333 "src/parser.y"
+  case 124: /* watch_cmd: T_WATCH  */
+#line 332 "src/parser.y"
+                                        { CMD -> id = CMD_WATCHLIST; }
+#line 2061 "obj/parser.c"
+    break;
+
+  case 125: /* watch_cmd: T_WATCH format watch_target relop watch_rhs  */
+#line 334 "src/parser.y"
         {
             CMD -> id = CMD_WATCH; CMD -> watch_op = (uint8_t) (yyvsp[-1].op);
             if (check_signed ()) YYERROR;
         }
-#line 2064 "obj/parser.c"
+#line 2070 "obj/parser.c"
     break;
 
-  case 125: /* watch_cmd: T_WATCH format watch_target relop watch_rhs name  */
-#line 338 "src/parser.y"
+  case 126: /* watch_cmd: T_WATCH format watch_target relop watch_rhs name  */
+#line 339 "src/parser.y"
         {
             CMD -> id = CMD_WATCH; CMD -> watch_op = (uint8_t) (yyvsp[-2].op);
             CMD -> name = (yyvsp[0].t).text;
             if (check_signed ()) YYERROR;
         }
-#line 2074 "obj/parser.c"
-    break;
-
-  case 126: /* watch_target: T_REG  */
-#line 347 "src/parser.y"
-                                        { CMD -> watch_target.kind = WLOC_REG;    CMD -> watch_target.id = (yyvsp[0].t).u; }
 #line 2080 "obj/parser.c"
     break;
 
-  case 127: /* watch_target: T_IOSYM  */
+  case 127: /* watch_target: T_REG  */
 #line 348 "src/parser.y"
-                                        { if (loc_iosym (&(yyvsp[0].t), &CMD -> watch_target)) YYERROR; }
+                                        { CMD -> watch_target.kind = WLOC_REG;    CMD -> watch_target.id = (yyvsp[0].t).u; }
 #line 2086 "obj/parser.c"
     break;
 
-  case 128: /* watch_target: T_NUM  */
+  case 128: /* watch_target: T_IOSYM  */
 #line 349 "src/parser.y"
-                                        { if (loc_number (&(yyvsp[0].t), &CMD -> watch_target)) YYERROR; }
+                                        { if (loc_iosym (&(yyvsp[0].t), &CMD -> watch_target)) YYERROR; }
 #line 2092 "obj/parser.c"
     break;
 
-  case 129: /* watch_target: symref  */
+  case 129: /* watch_target: T_NUM  */
 #line 350 "src/parser.y"
-                                        { CMD -> watch_target.kind = WLOC_MEM;    CMD -> watch_target.id = (yyvsp[0].s).addr; }
+                                        { if (loc_number (&(yyvsp[0].t), &CMD -> watch_target)) YYERROR; }
 #line 2098 "obj/parser.c"
     break;
 
-  case 130: /* watch_target: '[' symref ']'  */
+  case 130: /* watch_target: symref  */
 #line 351 "src/parser.y"
-                                        { CMD -> watch_target.kind = WLOC_MEM;    CMD -> watch_target.id = (yyvsp[-1].s).addr; }
+                                        { CMD -> watch_target.kind = WLOC_MEM;    CMD -> watch_target.id = (yyvsp[0].s).addr; }
 #line 2104 "obj/parser.c"
     break;
 
-  case 131: /* watch_rhs: T_NUM  */
-#line 357 "src/parser.y"
-                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (yyvsp[0].t).u; }
+  case 131: /* watch_target: '[' symref ']'  */
+#line 352 "src/parser.y"
+                                        { CMD -> watch_target.kind = WLOC_MEM;    CMD -> watch_target.id = (yyvsp[-1].s).addr; }
 #line 2110 "obj/parser.c"
     break;
 
-  case 132: /* watch_rhs: '-' T_NUM  */
+  case 132: /* watch_rhs: T_NUM  */
 #line 358 "src/parser.y"
-                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (uint32_t) (0 - (yyvsp[0].t).u); }
+                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (yyvsp[0].t).u; }
 #line 2116 "obj/parser.c"
     break;
 
-  case 133: /* watch_rhs: '+' T_NUM  */
+  case 133: /* watch_rhs: '-' T_NUM  */
 #line 359 "src/parser.y"
-                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (yyvsp[0].t).u; }
+                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (uint32_t) (0 - (yyvsp[0].t).u); }
 #line 2122 "obj/parser.c"
     break;
 
-  case 134: /* watch_rhs: T_REG  */
+  case 134: /* watch_rhs: '+' T_NUM  */
 #line 360 "src/parser.y"
-                                        { CMD -> watch_rhs.kind = WLOC_REG; CMD -> watch_rhs.id = (yyvsp[0].t).u; }
+                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (yyvsp[0].t).u; }
 #line 2128 "obj/parser.c"
     break;
 
-  case 135: /* watch_rhs: T_IOSYM  */
+  case 135: /* watch_rhs: T_REG  */
 #line 361 "src/parser.y"
-                                        { if (loc_iosym (&(yyvsp[0].t), &CMD -> watch_rhs)) YYERROR; }
+                                        { CMD -> watch_rhs.kind = WLOC_REG; CMD -> watch_rhs.id = (yyvsp[0].t).u; }
 #line 2134 "obj/parser.c"
     break;
 
-  case 136: /* watch_rhs: '[' T_NUM ']'  */
+  case 136: /* watch_rhs: T_IOSYM  */
 #line 362 "src/parser.y"
-                                        { if (loc_number (&(yyvsp[-1].t), &CMD -> watch_rhs)) YYERROR; }
+                                        { if (loc_iosym (&(yyvsp[0].t), &CMD -> watch_rhs)) YYERROR; }
 #line 2140 "obj/parser.c"
     break;
 
-  case 137: /* watch_rhs: '[' T_IOSYM ']'  */
+  case 137: /* watch_rhs: '[' T_NUM ']'  */
 #line 363 "src/parser.y"
-                                        { if (loc_iosym (&(yyvsp[-1].t), &CMD -> watch_rhs)) YYERROR; }
+                                        { if (loc_number (&(yyvsp[-1].t), &CMD -> watch_rhs)) YYERROR; }
 #line 2146 "obj/parser.c"
     break;
 
-  case 138: /* watch_rhs: '[' T_REG ']'  */
+  case 138: /* watch_rhs: '[' T_IOSYM ']'  */
 #line 364 "src/parser.y"
-                                        { CMD -> watch_rhs.kind = WLOC_REG; CMD -> watch_rhs.id = (yyvsp[-1].t).u; }
+                                        { if (loc_iosym (&(yyvsp[-1].t), &CMD -> watch_rhs)) YYERROR; }
 #line 2152 "obj/parser.c"
     break;
 
-  case 139: /* watch_rhs: '[' symref ']'  */
+  case 139: /* watch_rhs: '[' T_REG ']'  */
 #line 365 "src/parser.y"
-                                        { CMD -> watch_rhs.kind = WLOC_MEM; CMD -> watch_rhs.id = (yyvsp[-1].s).addr; }
+                                        { CMD -> watch_rhs.kind = WLOC_REG; CMD -> watch_rhs.id = (yyvsp[-1].t).u; }
 #line 2158 "obj/parser.c"
     break;
 
-  case 140: /* watch_rhs: symref  */
+  case 140: /* watch_rhs: '[' symref ']'  */
 #line 366 "src/parser.y"
-                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (yyvsp[0].s).addr; }
+                                        { CMD -> watch_rhs.kind = WLOC_MEM; CMD -> watch_rhs.id = (yyvsp[-1].s).addr; }
 #line 2164 "obj/parser.c"
     break;
 
-  case 141: /* watch_rhs: '&' symref  */
+  case 141: /* watch_rhs: symref  */
 #line 367 "src/parser.y"
                                         { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (yyvsp[0].s).addr; }
 #line 2170 "obj/parser.c"
     break;
 
-  case 142: /* relop: '='  */
-#line 371 "src/parser.y"
-                                        { (yyval.op) = WATCH_OP_EQUAL;         }
+  case 142: /* watch_rhs: '&' symref  */
+#line 368 "src/parser.y"
+                                        { CMD -> watch_rhs.kind = WLOC_IMM; CMD -> watch_rhs.id = (yyvsp[0].s).addr; }
 #line 2176 "obj/parser.c"
     break;
 
-  case 143: /* relop: T_EQEQ  */
+  case 143: /* relop: '='  */
 #line 372 "src/parser.y"
                                         { (yyval.op) = WATCH_OP_EQUAL;         }
 #line 2182 "obj/parser.c"
     break;
 
-  case 144: /* relop: T_NE  */
+  case 144: /* relop: T_EQEQ  */
 #line 373 "src/parser.y"
-                                        { (yyval.op) = WATCH_OP_NOT_EQUAL;     }
+                                        { (yyval.op) = WATCH_OP_EQUAL;         }
 #line 2188 "obj/parser.c"
     break;
 
-  case 145: /* relop: '<'  */
+  case 145: /* relop: T_NE  */
 #line 374 "src/parser.y"
-                                        { (yyval.op) = WATCH_OP_LESS;          }
+                                        { (yyval.op) = WATCH_OP_NOT_EQUAL;     }
 #line 2194 "obj/parser.c"
     break;
 
-  case 146: /* relop: '>'  */
+  case 146: /* relop: '<'  */
 #line 375 "src/parser.y"
-                                        { (yyval.op) = WATCH_OP_GREATER;       }
+                                        { (yyval.op) = WATCH_OP_LESS;          }
 #line 2200 "obj/parser.c"
     break;
 
-  case 147: /* relop: T_LE  */
+  case 147: /* relop: '>'  */
 #line 376 "src/parser.y"
-                                        { (yyval.op) = WATCH_OP_LESS_EQUAL;    }
+                                        { (yyval.op) = WATCH_OP_GREATER;       }
 #line 2206 "obj/parser.c"
     break;
 
-  case 148: /* relop: T_GE  */
+  case 148: /* relop: T_LE  */
 #line 377 "src/parser.y"
-                                        { (yyval.op) = WATCH_OP_GREATER_EQUAL; }
+                                        { (yyval.op) = WATCH_OP_LESS_EQUAL;    }
 #line 2212 "obj/parser.c"
     break;
 
-  case 149: /* run_cmd: T_RUN T_NUM  */
-#line 383 "src/parser.y"
-                                        { CMD -> id = CMD_RUN; CMD -> has_count = TRUE; CMD -> count = (yyvsp[0].t).u; }
+  case 149: /* relop: T_GE  */
+#line 378 "src/parser.y"
+                                        { (yyval.op) = WATCH_OP_GREATER_EQUAL; }
 #line 2218 "obj/parser.c"
     break;
 
-  case 150: /* run_cmd: T_RUN  */
-#line 385 "src/parser.y"
+  case 150: /* run_cmd: T_RUN T_NUM  */
+#line 384 "src/parser.y"
+                                        { CMD -> id = CMD_RUN; CMD -> has_count = TRUE; CMD -> count = (yyvsp[0].t).u; }
+#line 2224 "obj/parser.c"
+    break;
+
+  case 151: /* run_cmd: T_RUN  */
+#line 386 "src/parser.y"
         {
             cmd_seterr ("run: the number of frames is required (run N)");
             YYERROR;
         }
-#line 2227 "obj/parser.c"
-    break;
-
-  case 151: /* until_cmd: T_UNTIL  */
-#line 394 "src/parser.y"
-                                        { CMD -> id = CMD_UNTILSRC; }
 #line 2233 "obj/parser.c"
     break;
 
-  case 152: /* until_cmd: T_UNTIL T_NUM  */
+  case 152: /* until_cmd: T_UNTIL  */
 #line 395 "src/parser.y"
-                                        { CMD -> id = CMD_UNTILSRC; CMD -> line = (yyvsp[0].t).u; CMD -> has_line = TRUE; }
+                                        { CMD -> id = CMD_UNTILSRC; }
 #line 2239 "obj/parser.c"
     break;
 
-  case 153: /* until_cmd: T_UNTIL T_FILELINE  */
+  case 153: /* until_cmd: T_UNTIL T_NUM  */
 #line 396 "src/parser.y"
+                                        { CMD -> id = CMD_UNTILSRC; CMD -> line = (yyvsp[0].t).u; CMD -> has_line = TRUE; }
+#line 2245 "obj/parser.c"
+    break;
+
+  case 154: /* until_cmd: T_UNTIL T_FILELINE  */
+#line 397 "src/parser.y"
                                         { CMD -> id = CMD_UNTILSRC; CMD -> file = (yyvsp[0].t).text; CMD -> line = (yyvsp[0].t).u;
                                           CMD -> has_line = TRUE; }
-#line 2246 "obj/parser.c"
+#line 2252 "obj/parser.c"
     break;
 
-  case 154: /* until_cmd: T_UNTIL name until_opts  */
-#line 398 "src/parser.y"
+  case 155: /* until_cmd: T_UNTIL name until_opts  */
+#line 399 "src/parser.y"
                                         { CMD -> id = CMD_UNTIL; CMD -> text = (yyvsp[-1].t).text;
                                           if ((yyvsp[-1].t).text[0] == '\0') { cmd_seterr ("until: the text is empty"); YYERROR; } }
-#line 2253 "obj/parser.c"
-    break;
-
-  case 156: /* until_opts: until_opts T_WORD T_NUM  */
-#line 404 "src/parser.y"
-                                        { if (add_option (&(yyvsp[-1].t), &(yyvsp[0].t))) YYERROR; }
 #line 2259 "obj/parser.c"
     break;
 
-  case 157: /* expect_cmd: T_EXPECT T_WORD T_WORD expect_opts  */
-#line 411 "src/parser.y"
+  case 157: /* until_opts: until_opts T_WORD T_NUM  */
+#line 405 "src/parser.y"
+                                        { if (add_option (&(yyvsp[-1].t), &(yyvsp[0].t))) YYERROR; }
+#line 2265 "obj/parser.c"
+    break;
+
+  case 158: /* expect_cmd: T_EXPECT T_WORD T_WORD expect_opts  */
+#line 412 "src/parser.y"
         {
             if (console_form (&(yyvsp[-2].t), &(yyvsp[-1].t))) YYERROR;
         }
-#line 2267 "obj/parser.c"
+#line 2273 "obj/parser.c"
     break;
 
-  case 158: /* expect_cmd: T_EXPECT T_WORD watch_target relop watch_rhs  */
-#line 415 "src/parser.y"
+  case 159: /* expect_cmd: T_EXPECT T_WORD watch_target relop watch_rhs  */
+#line 416 "src/parser.y"
         {
             if (print_form (&(yyvsp[-3].t))) YYERROR;
             CMD -> id = CMD_EXPECT; CMD -> expect_kind = EXPECT_VALUE; CMD -> watch_op = (uint8_t) (yyvsp[-1].op);
         }
-#line 2276 "obj/parser.c"
+#line 2282 "obj/parser.c"
     break;
 
-  case 159: /* expect_cmd: T_EXPECT T_WORD T_FMT watch_target relop watch_rhs  */
-#line 420 "src/parser.y"
+  case 160: /* expect_cmd: T_EXPECT T_WORD T_FMT watch_target relop watch_rhs  */
+#line 421 "src/parser.y"
         {
             if (print_form (&(yyvsp[-4].t))) YYERROR;
             set_fmt ((yyvsp[-3].ch)); if (CMD -> errmsg[0]) YYERROR;
             CMD -> id = CMD_EXPECT; CMD -> expect_kind = EXPECT_VALUE; CMD -> watch_op = (uint8_t) (yyvsp[-1].op);
             if (check_signed ()) YYERROR;
         }
-#line 2287 "obj/parser.c"
+#line 2293 "obj/parser.c"
     break;
 
-  case 160: /* expect_cmd: T_EXPECT watch_target relop watch_rhs  */
-#line 427 "src/parser.y"
+  case 161: /* expect_cmd: T_EXPECT watch_target relop watch_rhs  */
+#line 428 "src/parser.y"
         {
             CMD -> id = CMD_EXPECT; CMD -> expect_kind = EXPECT_VALUE; CMD -> watch_op = (uint8_t) (yyvsp[-1].op);
         }
-#line 2295 "obj/parser.c"
+#line 2301 "obj/parser.c"
     break;
 
-  case 161: /* expect_cmd: T_EXPECT T_FMT watch_target relop watch_rhs  */
-#line 431 "src/parser.y"
+  case 162: /* expect_cmd: T_EXPECT T_FMT watch_target relop watch_rhs  */
+#line 432 "src/parser.y"
         {
             set_fmt ((yyvsp[-3].ch)); if (CMD -> errmsg[0]) YYERROR;
             CMD -> id = CMD_EXPECT; CMD -> expect_kind = EXPECT_VALUE; CMD -> watch_op = (uint8_t) (yyvsp[-1].op);
             if (check_signed ()) YYERROR;
         }
-#line 2305 "obj/parser.c"
-    break;
-
-  case 163: /* expect_opts: expect_opts T_WORD T_NUM  */
-#line 440 "src/parser.y"
-                                        { if (add_option (&(yyvsp[-1].t), &(yyvsp[0].t))) YYERROR; }
 #line 2311 "obj/parser.c"
     break;
 
-  case 164: /* examine_cmd: T_EXAMINE format examine_loc  */
-#line 446 "src/parser.y"
-                                        { CMD -> id = CMD_EXAMINE; }
+  case 164: /* expect_opts: expect_opts T_WORD T_NUM  */
+#line 441 "src/parser.y"
+                                        { if (add_option (&(yyvsp[-1].t), &(yyvsp[0].t))) YYERROR; }
 #line 2317 "obj/parser.c"
     break;
 
-  case 165: /* examine_cmd: T_EXAMINE format examine_loc T_NUM  */
-#line 448 "src/parser.y"
+  case 165: /* examine_cmd: T_EXAMINE format examine_loc  */
+#line 447 "src/parser.y"
+                                        { CMD -> id = CMD_EXAMINE; }
+#line 2323 "obj/parser.c"
+    break;
+
+  case 166: /* examine_cmd: T_EXAMINE format examine_loc T_NUM  */
+#line 449 "src/parser.y"
         {
             CMD -> id = CMD_EXAMINE; CMD -> has_count = TRUE; CMD -> count = (yyvsp[0].t).u;
         }
-#line 2325 "obj/parser.c"
-    break;
-
-  case 166: /* examine_loc: symref  */
-#line 454 "src/parser.y"
-                                        { set_operand (OPD_MEM, 0, (yyvsp[0].s).addr, 0); CMD -> opd.name = (yyvsp[0].s).text; CMD -> x_words = (yyvsp[0].s).words; }
 #line 2331 "obj/parser.c"
     break;
 
-  case 167: /* examine_loc: '[' symref ']'  */
+  case 167: /* examine_loc: symref  */
 #line 455 "src/parser.y"
-                                        { set_operand (OPD_MEM, 0, (yyvsp[-1].s).addr, 0); CMD -> opd.name = (yyvsp[-1].s).text; CMD -> x_words = (yyvsp[-1].s).words; }
+                                        { set_operand (OPD_MEM, 0, (yyvsp[0].s).addr, 0); CMD -> opd.name = (yyvsp[0].s).text; CMD -> x_words = (yyvsp[0].s).words; }
 #line 2337 "obj/parser.c"
     break;
 
-  case 168: /* examine_loc: T_NUM  */
+  case 168: /* examine_loc: '[' symref ']'  */
 #line 456 "src/parser.y"
+                                        { set_operand (OPD_MEM, 0, (yyvsp[-1].s).addr, 0); CMD -> opd.name = (yyvsp[-1].s).text; CMD -> x_words = (yyvsp[-1].s).words; }
+#line 2343 "obj/parser.c"
+    break;
+
+  case 169: /* examine_loc: T_NUM  */
+#line 457 "src/parser.y"
                                         { uint32_t v = 0;
                                           if (operand_number (&(yyvsp[0].t), &v)) YYERROR;
                                           set_operand (OPD_MEM, 0, v, 0); CMD -> x_words = 1; }
-#line 2345 "obj/parser.c"
-    break;
-
-  case 169: /* gamepad_cmd: T_GAMEPAD  */
-#line 464 "src/parser.y"
-                                        { CMD -> id = CMD_GAMEPAD; }
 #line 2351 "obj/parser.c"
     break;
 
-  case 170: /* gamepad_cmd: T_GAMEPAD T_NUM  */
+  case 170: /* gamepad_cmd: T_GAMEPAD  */
 #line 465 "src/parser.y"
-                                        { CMD -> id = CMD_GAMEPAD; CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
+                                        { CMD -> id = CMD_GAMEPAD; }
 #line 2357 "obj/parser.c"
     break;
 
-  case 171: /* gamepad_cmd: T_GAMEPAD gp_word  */
+  case 171: /* gamepad_cmd: T_GAMEPAD T_NUM  */
 #line 466 "src/parser.y"
-                                        { CMD -> id = CMD_GAMEPAD; }
+                                        { CMD -> id = CMD_GAMEPAD; CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
 #line 2363 "obj/parser.c"
     break;
 
-  case 172: /* gamepad_cmd: T_GAMEPAD T_NUM gp_word  */
+  case 172: /* gamepad_cmd: T_GAMEPAD gp_word  */
 #line 467 "src/parser.y"
-                                        { CMD -> id = CMD_GAMEPAD; CMD -> has_num = TRUE; CMD -> num = (yyvsp[-1].t).u; }
+                                        { CMD -> id = CMD_GAMEPAD; }
 #line 2369 "obj/parser.c"
     break;
 
-  case 173: /* gp_word: name  */
-#line 471 "src/parser.y"
-                                        { CMD -> word = (yyvsp[0].t).text; }
+  case 173: /* gamepad_cmd: T_GAMEPAD T_NUM gp_word  */
+#line 468 "src/parser.y"
+                                        { CMD -> id = CMD_GAMEPAD; CMD -> has_num = TRUE; CMD -> num = (yyvsp[-1].t).u; }
 #line 2375 "obj/parser.c"
     break;
 
-  case 174: /* help_cmd: T_HELP  */
-#line 477 "src/parser.y"
-                                        { CMD -> id = CMD_HELP; }
+  case 174: /* gp_word: name  */
+#line 472 "src/parser.y"
+                                        { CMD -> word = (yyvsp[0].t).text; }
 #line 2381 "obj/parser.c"
     break;
 
-  case 175: /* help_cmd: T_HELP name  */
+  case 175: /* help_cmd: T_HELP  */
 #line 478 "src/parser.y"
-                                        { CMD -> id = CMD_HELP; CMD -> name = (yyvsp[0].t).text; }
+                                        { CMD -> id = CMD_HELP; }
 #line 2387 "obj/parser.c"
     break;
 
-  case 176: /* load_cmd: T_LOAD T_WORD ':' T_PATH  */
-#line 484 "src/parser.y"
-                                        { CMD -> id = CMD_LOAD;   CMD -> name = (yyvsp[-2].t).text; CMD -> path = (yyvsp[0].t).text; }
+  case 176: /* help_cmd: T_HELP name  */
+#line 479 "src/parser.y"
+                                        { CMD -> id = CMD_HELP; CMD -> name = (yyvsp[0].t).text; }
 #line 2393 "obj/parser.c"
     break;
 
-  case 177: /* load_cmd: T_UNLOAD T_WORD  */
+  case 177: /* load_cmd: T_LOAD T_WORD ':' T_PATH  */
 #line 485 "src/parser.y"
-                                        { CMD -> id = CMD_UNLOAD; CMD -> name = (yyvsp[0].t).text; }
+                                        { CMD -> id = CMD_LOAD;   CMD -> name = (yyvsp[-2].t).text; CMD -> path = (yyvsp[0].t).text; }
 #line 2399 "obj/parser.c"
     break;
 
-  case 178: /* undo_cmd: T_UNBREAK T_NUM  */
-#line 491 "src/parser.y"
-                                        { CMD -> id = CMD_UNBREAK;   CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
+  case 178: /* load_cmd: T_UNLOAD T_WORD  */
+#line 486 "src/parser.y"
+                                        { CMD -> id = CMD_UNLOAD; CMD -> name = (yyvsp[0].t).text; }
 #line 2405 "obj/parser.c"
     break;
 
-  case 179: /* undo_cmd: T_UNDISPLAY T_NUM  */
+  case 179: /* undo_cmd: T_UNBREAK T_NUM  */
 #line 492 "src/parser.y"
-                                        { CMD -> id = CMD_UNDISPLAY; CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
+                                        { CMD -> id = CMD_UNBREAK;   CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
 #line 2411 "obj/parser.c"
     break;
 
-  case 180: /* undo_cmd: T_UNLABEL T_NUM  */
+  case 180: /* undo_cmd: T_UNDISPLAY T_NUM  */
 #line 493 "src/parser.y"
-                                        { CMD -> id = CMD_UNLABEL;   CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
+                                        { CMD -> id = CMD_UNDISPLAY; CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
 #line 2417 "obj/parser.c"
     break;
 
-  case 181: /* undo_cmd: T_UNWATCH T_NUM  */
+  case 181: /* undo_cmd: T_UNLABEL T_NUM  */
 #line 494 "src/parser.y"
-                                        { CMD -> id = CMD_UNWATCH;   CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
+                                        { CMD -> id = CMD_UNLABEL;   CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
 #line 2423 "obj/parser.c"
     break;
 
-  case 182: /* undo_cmd: T_UNWATCH name  */
+  case 182: /* undo_cmd: T_UNWATCH T_NUM  */
 #line 495 "src/parser.y"
-                                        { CMD -> id = CMD_UNWATCH;   CMD -> name = (yyvsp[0].t).text; }
+                                        { CMD -> id = CMD_UNWATCH;   CMD -> has_num = TRUE; CMD -> num = (yyvsp[0].t).u; }
 #line 2429 "obj/parser.c"
     break;
 
+  case 183: /* undo_cmd: T_UNWATCH name  */
+#line 496 "src/parser.y"
+                                        { CMD -> id = CMD_UNWATCH;   CMD -> name = (yyvsp[0].t).text; }
+#line 2435 "obj/parser.c"
+    break;
 
-#line 2433 "obj/parser.c"
+
+#line 2439 "obj/parser.c"
 
       default: break;
     }
@@ -2622,7 +2628,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 498 "src/parser.y"
+#line 499 "src/parser.y"
 
 
 /* ------------------------------------------------------------- helpers */
@@ -2777,7 +2783,7 @@ static int  set_lhs_word (tok_t *t)
         }
     }
 
-    cmd_seterr ("set: unknown setting '%s' (color deref errorchk debug profile verbose)", t -> text);
+    cmd_seterr ("set: unknown setting '%s' (color deref errorchk debug profile verbose source mode)", t -> text);
     return (1);
 }
 

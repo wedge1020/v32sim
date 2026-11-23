@@ -30,6 +30,8 @@ ORACLE=; [ -x "$TC/refrun" ] && ORACLE=$TC
 if [ -n "$ORACLE" ]; then
     run gaps     bash "$T/run_gaps.sh" "$TC"
     run romcheck bash "$T/run_romcheck.sh" "$TC"
+    run clock    bash "$T/run_clock.sh" "$TC"
+    [ -x "$TC/vrun" ] && run memcard bash "$T/run_memcard.sh" "$TC" || skipit memcard "no vrun in the toolchain dir"
     [ $QUICK = 1 ] && skipit fuzz "--quick" || run fuzz bash "$T/run_fuzz.sh" "$TC" "1" 100
 else skipit "gaps/romcheck/fuzz" "no refrun in the toolchain dir"; fi
 if [ -x "$TC/compile" ] && [ -x "$TC/assemble" ]; then run turbo bash "$T/run_turbo_tests.sh" "$TC"; else skipit turbo "no stock compile/assemble in the toolchain dir"; fi

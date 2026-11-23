@@ -5,6 +5,10 @@
 #include <errno.h>
 #include <poll.h>
 #include <ctype.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -15,7 +19,13 @@
 // words it reads and writes are the simulator's card memory, not a file; a device is
 // polled at every frame boundary (and, with --v32dev-doorbell, at once when the program
 // rings); the heartbeat moves once per frame; and the session number is a counter,
-// so that a run is repeatable. Nothing here uses wall-clock time.
+// so that a run is repeatable. Nothing here uses wall-clock time (a serial:tcp client is the one outside party, and it
+// is polled at the frame boundary like the rest).
+//
+// The same devices are also what the DesktopEmulator's built-in v32dev server serves (v32io project, emulator/v32dev-server):
+// V32DEV_SERVER and V32DEV_CH0..3 give them, the specs are the same ones (storage options are read from the right, so a
+// file name may hold commas; serial:tcp=PORT listens on 127.0.0.1, one client at a time, a new one replaces the old, output
+// is dropped while nobody is connected, and the program sees a hang up when the client goes away, until the next one comes).
 //
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -77,6 +87,11 @@ typedef struct
     uint32_t   nin, cin;
     char       infile[768], outfile[768];
     FILE      *sink;
+    // serial:tcp=PORT
+    int        tcp_port, lfd, cfd;
+    uint8_t    ever;                    // a client has been connected at some time
+    uint32_t   ntout;
+    uint8_t    tout[65536];             // output the socket did not take yet
 } dh_t;
 
 static dh_t      dh[DEV_CHANNELS];
@@ -85,7 +100,16 @@ static uint8_t   stdin_eof    = FALSE;
 static uint8_t   failed       = FALSE;
 static uint32_t  sessions     = 0;
 static uint8_t   exit_hooked  = FALSE;
+static uint8_t   server_on    = FALSE;           // V32DEV_SERVER
+static uint8_t   explicit_opt = FALSE;           // some channel came from --v32dev-host
+static uint32_t  type_over[DEV_CHANNELS];
+static uint8_t   type_has[DEV_CHANNELS];
 uint8_t          devhost_force = FALSE;
+#ifndef MSG_NOSIGNAL
+#define  MSG_NOSIGNAL    0
+#endif
+#define  TCP_INBOX       16384               // words a client may have in flight towards the program
+#define  TCP_OUTBOX      65536               // bytes held for a slow client
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -598,6 +622,174 @@ static void  read_stdin (dh_t *d)
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// serial:tcp=PORT: a port of this computer only (127.0.0.1), one client at a time. A new client replaces
+// the old one. What the program writes while nobody is connected is dropped, like a serial line with
+// nothing plugged in. When the client goes away the program sees a hang up, until the next one connects
+// (the DesktopEmulator's server: V32DevServer.cpp, TcpEndpoint)
+//
+static void  tcp_drop_client (dh_t *d)
+{
+    if (d -> cfd >= 0)
+    {
+        close (d -> cfd);
+    }
+    d -> cfd    = -1;
+    d -> ntout  = 0;
+}
+
+static void  tcp_close (dh_t *d)
+{
+    if (d -> tcp_port == 0)                 // (an unused channel's descriptors are zero: fd 0 is standard input)
+    {
+        return;
+    }
+    tcp_drop_client (d);
+    if (d -> lfd >= 0)
+    {
+        close (d -> lfd);
+    }
+    d -> lfd   = -1;
+    d -> ever  = FALSE;
+}
+
+static int  tcp_open (dh_t *d, int ch)
+{
+    struct sockaddr_in  a;
+    int                 one  = 1;
+    int                 fl   = 0;
+
+    d -> lfd  = socket (AF_INET, SOCK_STREAM, 0);
+    if (d -> lfd < 0)
+    {
+        fprintf (stderr, "[ERROR:DEVHOST] channel %d: cannot create a socket\n", ch);
+        return (-1);
+    }
+    (void) setsockopt (d -> lfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
+    memset (&a, 0, sizeof (a));
+    a.sin_family       = AF_INET;
+    a.sin_port         = htons ((unsigned short) d -> tcp_port);
+    a.sin_addr.s_addr  = htonl (INADDR_LOOPBACK);
+    fl  = fcntl (d -> lfd, F_GETFL, 0);
+    if ((bind (d -> lfd, (struct sockaddr *) &a, sizeof (a)) != 0) || (listen (d -> lfd, 2) != 0) ||
+        (fl < 0) || (fcntl (d -> lfd, F_SETFL, fl | O_NONBLOCK) != 0))
+    {
+        fprintf (stderr, "[ERROR:DEVHOST] channel %d: cannot listen on 127.0.0.1:%d (is the port in use?)\n", ch, d -> tcp_port);
+        close (d -> lfd);
+        d -> lfd  = -1;
+        return (-1);
+    }
+    d -> cfd    = -1;
+    d -> ntout  = 0;
+    d -> ever   = FALSE;
+    return (0);
+}
+
+static void  tcp_flush (dh_t *d)
+{
+    ssize_t  n  = 0;
+
+    while ((d -> cfd >= 0) && (d -> ntout > 0))
+    {
+        n  = send (d -> cfd, d -> tout, d -> ntout, MSG_NOSIGNAL);
+        if (n > 0)
+        {
+            memmove (d -> tout, d -> tout + n, d -> ntout - (uint32_t) n);
+            d -> ntout  = d -> ntout - (uint32_t) n;
+        }
+        else if ((n < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK) || (errno == EINTR)))
+        {
+            return;
+        }
+        else
+        {
+            tcp_drop_client (d);
+        }
+    }
+}
+
+static void  tcp_accept (dh_t *d)
+{
+    int  fd  = 0;
+    int  fl  = 0;
+    int  one = 1;
+
+    for (;;)
+    {
+        fd  = accept (d -> lfd, NULL, NULL);
+        if (fd < 0)
+        {
+            return;
+        }
+        fl  = fcntl (fd, F_GETFL, 0);
+        if ((fl < 0) || (fcntl (fd, F_SETFL, fl | O_NONBLOCK) != 0))
+        {
+            close (fd);
+            continue;
+        }
+        (void) setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
+#ifdef SO_NOSIGPIPE
+        (void) setsockopt (fd, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof (one));
+#endif
+        tcp_drop_client (d);
+        d -> cfd   = fd;
+        d -> ever  = TRUE;
+    }
+}
+
+static void  tcp_output (dh_t *d, const uint32_t *w, uint32_t n)
+{
+    uint32_t  k  = 0;
+
+    if (d -> cfd < 0)
+    {
+        return;
+    }
+    for (k = 0; (k < n) && (d -> ntout < TCP_OUTBOX); k = k + 1)
+    {
+        d -> tout[d -> ntout]  = (uint8_t) (w[k] & 0xFF);
+        d -> ntout             = d -> ntout + 1;
+    }
+    tcp_flush (d);
+}
+
+// the client's bytes, as words (at most TCP_INBOX waiting)
+static void  tcp_pump (dh_t *d)
+{
+    uint8_t   buf[512];
+    ssize_t   n    = 0;
+    ssize_t   k    = 0;
+    uint32_t  w    = 0;
+    size_t    want = 0;
+
+    if (d -> lfd < 0)
+    {
+        return;
+    }
+    tcp_accept (d);
+    tcp_flush (d);
+    if ((d -> cfd < 0) || (d -> nin >= TCP_INBOX))
+    {
+        return;
+    }
+    want  = TCP_INBOX - d -> nin;
+    if (want > sizeof (buf))  want = sizeof (buf);
+    n  = recv (d -> cfd, buf, want, 0);
+    if (n > 0)
+    {
+        for (k = 0; k < n; k = k + 1)
+        {
+            w  = buf[k];
+            push (&d -> inbox, &d -> nin, &d -> cin, &w, 1);
+        }
+    }
+    else if ((n == 0) || ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != EINTR)))
+    {
+        tcp_drop_client (d);
+    }
+}
+
 static int  se_poll (dh_t *d, int ch)
 {
     int       did    = 0;
@@ -621,6 +813,17 @@ static int  se_poll (dh_t *d, int ch)
         did  = 1;
     }
     read_stdin (d);
+    if (d -> tcp_port != 0)
+    {
+        tcp_pump (d);
+        d -> hup_req  = (d -> ever == TRUE) && (d -> cfd < 0);
+        if ((d -> hung_up == TRUE) && (d -> hup_req == FALSE))        // a client came back
+        {
+            d -> hung_up  = FALSE;
+            ch_status (ch, ST_READY);
+            did           = 1;
+        }
+    }
 
     n0     = 0;
     got_n  = ch_read (d, ch, &got, &ngot, &cgot);
@@ -630,6 +833,7 @@ static int  se_poll (dh_t *d, int ch)
         did  = 1;
         d -> received  = d -> received + got_n;
         sink_words (d, got, got_n);
+        if (d -> tcp_port != 0)  tcp_output (d, got, got_n);
         if (d -> echo == TRUE)
         {
             push (&d -> inbox, &d -> nin, &d -> cin, got, got_n);
@@ -672,33 +876,19 @@ static int  parse_u (const char *s, int64_t *out)
     return ((end != s) && (*end == 0));
 }
 
-int  devhost_add (const char *arg)
+// SPEC for channel ch into dh[ch] (which must be unused). 0 = accepted; -1 = an [ERROR:DEVHOST] was printed
+// and the channel is unused
+static int  parse_spec (int ch, const char *eq)
 {
-    int         ch    = -1;
-    const char *p     = arg;
-    const char *eq    = NULL;
     char        spec[1024];
     char       *kind  = NULL;
     char       *rest  = NULL;
     char       *tok   = NULL;
     char       *save  = NULL;
-    dh_t       *d     = NULL;
-    int         first = 1;
+    char       *comma = NULL;
+    dh_t       *d     = dh + ch;
     int64_t     v     = 0;
 
-    if ((p == NULL) || (p[0] < '0') || (p[0] > '3') || (p[1] != '='))
-    {
-        fprintf (stderr, "[ERROR:DEVHOST] --v32dev-host wants N=SPEC with N from 0 to 3 (got '%s')\n", (arg == NULL) ? "" : arg);
-        return (-1);
-    }
-    ch   = p[0] - '0';
-    eq   = p + 2;
-    d    = dh + ch;
-    if (d -> kind != 0)
-    {
-        fprintf (stderr, "[ERROR:DEVHOST] channel %d is given twice\n", ch);
-        return (-1);
-    }
     snprintf (spec, sizeof (spec), "%s", eq);
     kind  = spec;
     rest  = strchr (spec, ':');
@@ -709,7 +899,10 @@ int  devhost_add (const char *arg)
     }
     for (tok = kind; *tok; tok = tok + 1)  *tok = (char) tolower ((unsigned char) *tok);
 
+    memset (d, 0, sizeof (*d));
     d -> fd         = -1;
+    d -> lfd        = -1;
+    d -> cfd        = -1;
     d -> hup_after  = -1;
     d -> create     = -1;
     snprintf (d -> spec, sizeof (d -> spec), "%s", eq);
@@ -719,27 +912,47 @@ int  devhost_add (const char *arg)
         if ((rest == NULL) || (rest[0] == 0) || (rest[0] == ','))
         {
             fprintf (stderr, "[ERROR:DEVHOST] channel %d: storage needs a file\n", ch);
-            return (-1);
+            goto bad;
         }
-        d -> kind  = 1;
-        for (tok = strtok_r (rest, ",", &save); tok != NULL; tok = strtok_r (NULL, ",", &save))
+        // the options are taken from the right, what is left is the file name (which can have commas)
+        for (;;)
         {
-            if (first == 1)
+            comma  = strrchr (rest, ',');
+            if (comma == NULL)  break;
+            tok  = comma + 1;
+            if (0 == strcmp (tok, "bytes"))                d -> bytes_mode = TRUE;
+            else if (0 == strcmp (tok, "ro"))              d -> readonly   = TRUE;
+            else if (0 == strncmp (tok, "sector=", 7))
             {
-                snprintf (d -> path, sizeof (d -> path), "%s", tok);
-                first  = 0;
+                if ((parse_u (tok + 7, &v) == 0) || (v < 1) || (v > MSG_MAX - 4))
+                {
+                    fprintf (stderr, "[ERROR:DEVHOST] channel %d: bad sector size in \"%s\"\n", ch, tok);
+                    goto bad;
+                }
+                d -> sector_words  = (uint32_t) v;
             }
-            else if (0 == strcmp (tok, "bytes"))          d -> bytes_mode = TRUE;
-            else if (0 == strcmp (tok, "ro"))             d -> readonly   = TRUE;
-            else if ((0 == strncmp (tok, "sector=", 7)) && parse_u (tok + 7, &v) && (v > 0))  d -> sector_words = (uint32_t) v;
-            else if ((0 == strncmp (tok, "create=", 7)) && parse_u (tok + 7, &v) && (v >= 0)) d -> create = v;
+            else if (0 == strncmp (tok, "create=", 7))
+            {
+                if ((parse_u (tok + 7, &v) == 0) || (v < 0) || (v > 0x7FFFFFFF))
+                {
+                    fprintf (stderr, "[ERROR:DEVHOST] channel %d: bad sector count in \"%s\"\n", ch, tok);
+                    goto bad;
+                }
+                d -> create  = v;
+            }
             else
             {
-                fprintf (stderr, "[ERROR:DEVHOST] channel %d: unknown storage option: %s\n", ch, tok);
-                d -> kind  = 0;
-                return (-1);
+                break;
             }
+            *comma  = 0;
         }
+        if (rest[0] == 0)
+        {
+            fprintf (stderr, "[ERROR:DEVHOST] channel %d: storage needs a file\n", ch);
+            goto bad;
+        }
+        snprintf (d -> path, sizeof (d -> path), "%s", rest);
+        d -> kind  = 1;
         if (d -> sector_words == 0)  d -> sector_words = (d -> bytes_mode == TRUE) ? 512 : 128;
         d -> word_size    = (d -> bytes_mode == TRUE) ? 1 : 4;
         d -> sector_bytes = d -> sector_words * d -> word_size;
@@ -747,18 +960,15 @@ int  devhost_add (const char *arg)
         if (d -> max_sectors < 1)
         {
             fprintf (stderr, "[ERROR:DEVHOST] channel %d: sector size is too big (at most %d words)\n", ch, MSG_MAX - 4);
-            d -> kind  = 0;
-            return (-1);
+            goto bad;
         }
     }
     else if (0 == strcmp (kind, "serial"))
     {
-        d -> kind  = 2;
         if ((rest == NULL) || (rest[0] == 0))
         {
-            fprintf (stderr, "[ERROR:DEVHOST] channel %d: serial needs stdio or echo[,hup=N]\n", ch);
-            d -> kind  = 0;
-            return (-1);
+            fprintf (stderr, "[ERROR:DEVHOST] channel %d: serial needs echo[,hup=N], stdio or tcp=PORT\n", ch);
+            goto bad;
         }
         for (tok = strtok_r (rest, ",", &save); tok != NULL; tok = strtok_r (NULL, ",", &save))
         {
@@ -766,26 +976,40 @@ int  devhost_add (const char *arg)
             else if (0 == strcmp (tok, "echo"))           d -> echo = TRUE;
             else if (0 == strcmp (tok, "hangup"))         d -> hangup_opt = TRUE;
             else if ((0 == strncmp (tok, "hup=", 4)) && parse_u (tok + 4, &v) && (v >= 0))   d -> hup_after = v;
+            else if (0 == strncmp (tok, "tcp=", 4))
+            {
+                if ((parse_u (tok + 4, &v) == 0) || (v < 1) || (v > 65535))
+                {
+                    fprintf (stderr, "[ERROR:DEVHOST] channel %d: bad TCP port in \"%s\"\n", ch, tok);
+                    goto bad;
+                }
+                d -> tcp_port  = (int) v;
+            }
             else if (0 == strncmp (tok, "in=", 3))        snprintf (d -> infile,  sizeof (d -> infile),  "%s", tok + 3);
             else if (0 == strncmp (tok, "out=", 4))       snprintf (d -> outfile, sizeof (d -> outfile), "%s", tok + 4);
             else
             {
                 fprintf (stderr, "[ERROR:DEVHOST] channel %d: unknown serial option: %s\n", ch, tok);
-                d -> kind  = 0;
-                return (-1);
+                goto bad;
             }
         }
-        if ((d -> use_stdio == FALSE) && (d -> echo == FALSE) && (d -> infile[0] == 0) && (d -> outfile[0] == 0) && (d -> hup_after < 0))
+        if ((d -> use_stdio == FALSE) && (d -> echo == FALSE) && (d -> infile[0] == 0) && (d -> outfile[0] == 0) &&
+            (d -> hup_after < 0) && (d -> tcp_port == 0))
         {
-            fprintf (stderr, "[ERROR:DEVHOST] channel %d: serial needs stdio or echo[,hup=N]\n", ch);
-            d -> kind  = 0;
-            return (-1);
+            fprintf (stderr, "[ERROR:DEVHOST] channel %d: serial needs echo[,hup=N], stdio or tcp=PORT\n", ch);
+            goto bad;
         }
+        if ((d -> tcp_port != 0) && ((d -> use_stdio == TRUE) || (d -> echo == TRUE) || (d -> infile[0] != 0) || (d -> hup_after >= 0) || (d -> hangup_opt == TRUE)))
+        {
+            fprintf (stderr, "[ERROR:DEVHOST] channel %d: serial:tcp=PORT takes no other option but out=FILE\n", ch);
+            goto bad;
+        }
+        d -> kind  = 2;
     }
     else
     {
         fprintf (stderr, "[ERROR:DEVHOST] channel %d: unknown device: %s\n", ch, eq);
-        return (-1);
+        goto bad;
     }
     if (exit_hooked == FALSE)
     {
@@ -793,6 +1017,149 @@ int  devhost_add (const char *arg)
         atexit (devhost_stop);
     }
     return (0);
+
+bad:
+    memset (d, 0, sizeof (*d));
+    d -> fd   = -1;
+    d -> lfd  = -1;
+    d -> cfd  = -1;
+    return (-1);
+}
+
+int  devhost_add (const char *arg)
+{
+    int         ch    = -1;
+    const char *p     = arg;
+
+    if ((p == NULL) || (p[0] < '0') || (p[0] > '3') || (p[1] != '='))
+    {
+        fprintf (stderr, "[ERROR:DEVHOST] --v32dev-host wants N=SPEC with N from 0 to 3 (got '%s')\n", (arg == NULL) ? "" : arg);
+        return (-1);
+    }
+    ch   = p[0] - '0';
+    if (dh[ch].kind != 0)
+    {
+        fprintf (stderr, "[ERROR:DEVHOST] channel %d is given twice\n", ch);
+        return (-1);
+    }
+    if (parse_spec (ch, p + 2) != 0)
+    {
+        return (-1);
+    }
+    explicit_opt  = TRUE;
+    return (0);
+}
+
+//
+// devhost_env(): V32DEV_SERVER and V32DEV_CH0..3, as the DesktopEmulator's v32dev server reads them. V32DEV_SERVER
+// set to anything but 0 turns the server mode on (the environment is then in charge); unset or 0, the variables
+// V32DEV_CHn are not looked at. A channel that --v32dev-host gave keeps its option (the option wins). A variable that
+// is empty is as if it were not set; one that is wrong is reported and its channel is left alone
+//
+void  devhost_env (void)
+{
+    const char *s  = getenv ("V32DEV_SERVER");
+    char        name[16];
+    const char *v  = NULL;
+    int         ch = 0;
+
+    if ((s == NULL) || (0 == strcmp (s, "0")))
+    {
+        return;
+    }
+    server_on  = TRUE;
+    for (ch = 0; ch < DEV_CHANNELS; ch = ch + 1)
+    {
+        snprintf (name, sizeof (name), "V32DEV_CH%d", ch);
+        v  = getenv (name);
+        if ((v == NULL) || (v[0] == 0) || (dh[ch].kind != 0))
+        {
+            continue;
+        }
+        if (parse_spec (ch, v) != 0)
+        {
+            fprintf (stderr, "[WARNING:DEVHOST] %s is not used\n", name);
+        }
+    }
+}
+
+uint8_t  devhost_server (void)
+{
+    return (server_on);
+}
+
+uint8_t  devhost_strict (void)
+{
+    return ((explicit_opt == TRUE) && (server_on == FALSE));
+}
+
+void  devhost_type_set (int ch, uint32_t type)
+{
+    if ((ch >= 0) && (ch < DEV_CHANNELS))
+    {
+        type_over[ch]  = type;
+        type_has[ch]   = TRUE;
+    }
+}
+
+void  devhost_type_clear (void)
+{
+    memset (type_has, 0, sizeof (type_has));
+}
+
+static const struct { const char *name; uint32_t type; }  type_names[] =
+{
+    { "none",    0x00000000u }, { "storage", 0x01000001u }, { "block",   0x01000000u }, { "serial",  0x02000001u },
+    { "char",    0x02000000u }, { "pipe",    0x03000001u }, { "tcp",     0x04000001u }, { "udp",     0x04000002u },
+    { "netplay", 0x04000003u }, { "socket",  0x04000000u }
+};
+
+int  devhost_type_parse (const char *text, uint32_t *type)
+{
+    unsigned  k    = 0;
+    char     *end  = NULL;
+    unsigned long long  v  = 0;
+
+    for (k = 0; k < sizeof (type_names) / sizeof (type_names[0]); k = k + 1)
+    {
+        if (0 == strcmp (text, type_names[k].name))
+        {
+            *type  = type_names[k].type;
+            return (0);
+        }
+    }
+    if ((text[0] == 0) || (text[0] == '-') || (text[0] == '+'))
+    {
+        return (-1);
+    }
+    v  = strtoull (text, &end, 0);
+    if ((*end != 0) || (v > 0xFFFFFFFFull))
+    {
+        return (-1);
+    }
+    *type  = (uint32_t) v;
+    return (0);
+}
+
+// v32dev.py's describe_type: "storage (block kind 1)", or "block kind 5" for a type with no name
+void  devhost_type_text (uint32_t type, char *out, size_t len)
+{
+    static const char  *cls_names[5]  = { "none", "block", "char", "pipe", "socket" };
+    unsigned    k      = 0;
+    uint32_t    cls    = type >> 24;
+    char        cn[24];
+
+    if (cls < 5)  snprintf (cn, sizeof (cn), "%s", cls_names[cls]);
+    else          snprintf (cn, sizeof (cn), "class %u", cls);
+    for (k = 0; k < sizeof (type_names) / sizeof (type_names[0]); k = k + 1)
+    {
+        if (type_names[k].type == type)
+        {
+            snprintf (out, len, "%s (%s kind %u)", type_names[k].name, cn, type & 0xFFFFFF);
+            return;
+        }
+    }
+    snprintf (out, len, "%s kind %u", cn, type & 0xFFFFFF);
 }
 
 uint8_t  devhost_configured (void)
@@ -834,6 +1201,7 @@ int  devhost_types (uint32_t *types)
     {
         types[ch]  = (dh[ch].kind == 1) ? TYPE_STORAGE : (dh[ch].kind == 2) ? TYPE_SERIAL : 0;
         if (dh[ch].kind != 0)  n = n + 1;
+        if (type_has[ch] == TRUE)  types[ch] = type_over[ch];
     }
     return (n);
 }
@@ -872,14 +1240,15 @@ static void  dev_open (dh_t *d, int ch)
         d -> fd  = open (d -> path, (d -> readonly == TRUE) ? O_RDONLY : O_RDWR);
         if ((d -> fd < 0) || (0 != fstat (d -> fd, &st)))
         {
-            fprintf (stderr, "[ERROR:DEVHOST] channel %d: cannot open '%s'\n", ch, d -> path);
+            fprintf (stderr, "[ERROR:DEVHOST] channel %d: cannot open '%s'%s\n", ch, d -> path,
+                     (strchr (d -> path, ',') != NULL) ? " (the options of a storage SPEC are read from the right: what is not bytes, ro, sector=N or create=N belongs to the file name)" : "");
             failed  = TRUE;
             return;
         }
         d -> sectors  = (uint64_t) st.st_size / d -> sector_bytes;
         flags         = ((d -> readonly == TRUE) ? FL_RO : 0) | ((d -> bytes_mode == TRUE) ? FL_BYTES : 0);
         desc[0]  = d -> sector_words;
-        desc[1]  = (uint32_t) d -> sectors;
+        desc[1]  = (d -> sectors > 0xFFFFFFFFull) ? 0xFFFFFFFFu : (uint32_t) d -> sectors;
         desc[2]  = flags;
         desc[3]  = d -> max_sectors;
         ch_announce (d, ch, TYPE_STORAGE, desc, 4, ST_READY);
@@ -900,6 +1269,13 @@ static void  dev_open (dh_t *d, int ch)
                 failed  = TRUE;
                 return;
             }
+        }
+        if ((d -> tcp_port != 0) && (tcp_open (d, ch) != 0))
+        {
+            failed  = TRUE;
+            if ((d -> sink != NULL) && (d -> sink != stdout))  fclose (d -> sink);
+            d -> sink  = NULL;
+            return;
         }
         load_infile (d);
         ch_announce (d, ch, TYPE_SERIAL, NULL, 0, ST_READY);
@@ -944,6 +1320,7 @@ static void  ch_close (int ch)
         fclose (d -> sink);
     }
     d -> sink  = NULL;
+    tcp_close (d);
     out_clear (d);
 }
 
@@ -1029,8 +1406,9 @@ void  devhost_describe (int ch, char *out, size_t len)
     }
     else
     {
-        snprintf (out, len, "native host: serial '%s', %llu words from the program, %llu to it%s%s%s",
+        snprintf (out, len, "native host: serial '%s', %llu words from the program, %llu to it%s%s%s%s",
                   d -> spec, (unsigned long long) d -> received, (unsigned long long) d -> sent,
+                  (d -> tcp_port == 0) ? "" : (d -> cfd >= 0) ? ", client connected" : ", waiting for a client",
                   (d -> hung_up == TRUE) ? ", hung up" : "", (d -> bad != 0) ? ", corrupt stream seen" : "",
                   (d -> running != 0) ? "" : " (not running)");
     }
@@ -1053,7 +1431,9 @@ static void  ch_forget (int ch)
     free (d -> out);
     free (d -> inbox);
     memset (d, 0, sizeof (*d));
-    d -> fd  = -1;
+    d -> fd   = -1;
+    d -> lfd  = -1;
+    d -> cfd  = -1;
 }
 
 int  devhost_attach (int ch, const char *spec)
@@ -1092,7 +1472,8 @@ int  devhost_attach (int ch, const char *spec)
     }
     else
     {
-        fprintf (stdout, "channel %d: %s (it starts when the card is a mailbox: dev format)\n", ch, dh[ch].spec);
+        fprintf (stdout, "channel %d: %s (it starts when the card is a mailbox: %s)\n", ch, dh[ch].spec,
+                 (server_on == TRUE) ? "V32DEV_SERVER serves a card that is loaded and has the last 64 KiB free" : "dev format");
     }
     return (0);
 }
@@ -1118,25 +1499,12 @@ int  devhost_swap (int ch, const char *spec)
     return (devhost_attach (ch, spec));
 }
 
-static const char  *class_text (uint32_t cls)
-{
-    switch (cls)
-    {
-        case 0:   return ("none");
-        case 1:   return ("block");
-        case 2:   return ("char");
-        case 3:   return ("pipe");
-        case 4:   return ("socket");
-        default:  return ("class ?");
-    }
-}
-
 // 'dev info': the lines `v32dev.py info` prints for a card
 void  devhost_info (void)
 {
     int       ch  = 0;
     uint32_t  hp  = 0, cp = 0, type = 0;
-    const char *named = NULL;
+    char      named[80];
 
     if (memc_mailbox () == FALSE)
     {
@@ -1148,10 +1516,8 @@ void  devhost_info (void)
         hp     = hp_of (ch);
         cp     = cp_of (ch);
         type   = memc_word (hp + DEV_HP_TYPE);
-        named  = (type == 0) ? "none" : (type == TYPE_STORAGE) ? "storage" : (type == TYPE_SERIAL) ? "serial" : NULL;
-        fprintf (stdout, "channel %d: ", ch);
-        if (named != NULL)  fprintf (stdout, "%s (%s kind %u)", named, class_text (type >> 24), type & 0xFFFFFF);
-        else                fprintf (stdout, "%s kind %u", class_text (type >> 24), type & 0xFFFFFF);
+        devhost_type_text (type, named, sizeof (named));
+        fprintf (stdout, "channel %d: %s", ch, named);
         fprintf (stdout, ", host %s, program %s, session %u/%u, h2c(head=%u tail=%u) c2h(head=%u tail=%u)%s\n",
                  (memc_word (hp + DEV_HP_FLAGS) & 1) ? "attached" : "absent",
                  (memc_word (cp + DEV_CP_FLAGS) & 1) ? "open" : "closed",
@@ -1178,7 +1544,7 @@ void  devhost_info (void)
 static uint32_t  shape_of (const dh_t *d)
 {
     return ((d -> sector_words << 8) | (uint32_t) ((d -> bytes_mode != 0) | ((d -> readonly != 0) << 1) | ((d -> echo != 0) << 2) |
-                                                   ((d -> use_stdio != 0) << 3)));
+                                                   ((d -> use_stdio != 0) << 3) | ((d -> tcp_port != 0) << 4)));
 }
 
 static int  w32 (FILE *f, uint32_t v)  { return (state_wr32 (f, v)); }

@@ -5,8 +5,6 @@ void  process_args (int32_t  argc, int8_t **argv)
 {
     int32_t    opt                 = 0;
     int32_t    option_index        = 0;
-    linked_l  *tmp                 = NULL;
-    uint32_t   value               = 0;
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
@@ -110,20 +108,14 @@ void  process_args (int32_t  argc, int8_t **argv)
                 biosfile           = optarg;
                 break;
 
-            case 'b':
-                value              = strtol (optarg, NULL, 16);
-                tmp                = listnode (LIST_MEM, value);
-                if (value         != 0) // offset provided
+            case 'b':   // kept as given: labels are not loaded yet; main() hands each one to cmd_break_spec()
+                if (nbreak_specs  >= MAX_BREAK_SPECS)
                 {
-                    DPRINTF(debug, "[arg] BREAK adding the offset '%s'\n", optarg);
+                    fprintf (stderr, "[ERROR] -b: at most %d breakpoints on the command line\n", MAX_BREAK_SPECS);
+                    exit (1);
                 }
-                else // assuming label
-                {
-                    DPRINTF(debug, "[arg] BREAK adding the label: '%s'\n", optarg);
-                    tmp -> label   = (int8_t *) ralloc (sizeof (int8_t), strlen (optarg) + 1, FLAG_NONE);
-                    strcpy (tmp -> label, optarg);
-                }
-                tpoint             = list_add (tpoint, tmp);
+                break_specs[nbreak_specs]  = optarg;
+                nbreak_specs       = nbreak_specs + 1;
                 break;
 
             case 'C':
@@ -204,6 +196,11 @@ void  process_args (int32_t  argc, int8_t **argv)
                 {
                     modeflag       = FLAG_SRC;
                     sourceflag     = TRUE;
+                }
+                else
+                {
+                    fprintf (stderr, "[ERROR] -L: unknown mode '%s' (use C, lua or src)\n", optarg);
+                    exit (1);
                 }
                 break;
 

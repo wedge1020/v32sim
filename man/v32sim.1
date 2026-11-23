@@ -62,7 +62,7 @@ Start executing at
 instead of the BIOS start.
 .TP
 .BR \-S ", " \-\-bios\-start
-Entry point is the BIOS code start.
+Start at the BIOS code start (the default).
 .TP
 .BR \-V ", " \-\-version
 Print the version and exit.
@@ -133,6 +133,7 @@ on.
 and
 .B next
 then go by source line.
+Any other value is an error (message on standard error, exit status 1).
 .TP
 .BR \-d ", " \-\-deref\-addr
 Show the address of a dereference.
@@ -141,13 +142,18 @@ Show the address of a dereference.
 Colorized output at the prompt.
 .SS Breakpoints, entry and watching
 .TP
-.BI \-b ", " \-\-break= OFFSET | LABEL
-Set a breakpoint; may be repeated.
-A value that reads as hexadecimal 0 is taken as a label.
-Use the
+.BI \-b ", " \-\-break= OFFSET | LABEL | FILE:LINE
+Set a breakpoint, as the
 .B break
-command for
-.IR FILE:LINE .
+command does once the debug files are loaded; may be repeated.
+A name that is a known label (or function) is that label even when it is also
+a hexadecimal number (add, face, dead; write 0xdead for the address);
+otherwise the value is a hexadecimal
+.IR OFFSET ,
+with or without 0x.
+.I FILE:LINE
+needs line information.
+A value that is none of these is reported on standard error.
 .TP
 .BI \-w ", " \-\-watch\-for= OPCODE
 Run (as
@@ -181,7 +187,7 @@ Do not start in single-step mode.
 .BI \-\-max\-frames= N
 Stop after
 .I N
-frames.
+frames, counted from power-on (the BIOS logo, about 250 frames, included).
 .TP
 .B \-\-fast
 Do not throttle to real time.
@@ -358,7 +364,9 @@ and
 .BI ,create= S \fR;
 or
 .BR serial:stdio ", " serial:echo
-with optional
+or
+.BI serial:tcp= PORT
+(127.0.0.1 only, one client at a time) with optional
 .BI ,hup= N ,
 .BI ,in= FILE ,
 .BI ,out= FILE
@@ -376,6 +384,12 @@ Write the screen as PNG after these cartridge frames:
 or
 .IR A\-B/STEP ,
 comma separated.
+Frame 0 is the first frame that ends with the program counter in the
+cartridge, that is after the BIOS has handed over (the stock BIOS's logo takes
+about 250 frames, which
+.B \-\-max\-frames
+also counts).
+Frames the run never reached are reported on standard error at exit.
 .TP
 .BI \-\-screenshot\-file= PATTERN
 File name for those;
@@ -532,6 +546,11 @@ or on standard input in batch mode.
 Commands may be abbreviated (s is step, n next, c continue, p print,
 se set, pro profile, in inventory, lo load); a blank line repeats the
 previous step, next or continue; a line starting with # is a comment.
+The single letters are b break, c continue, d display, g gamepad, h help,
+i ignore, l label, n next, p print, q quit, r replace, s step, w watch, x x and
+? help.
+Where several commands start with the same letters the first one in the
+command table wins, so r is replace, not run (ru is run).
 Formats (\fB/b /B /d /D /f /o /u /x /X\fR) follow
 .BR print ,
 .BR x ,
@@ -587,8 +606,10 @@ Leave the simulator with exit status
 .BR break " [\fI0xADDR\fP|\fILABEL\fP|\fIFILE:LINE\fP]"
 Set a breakpoint, or list them.
 .TP
-.BR tbreak " \fIFILE:LINE\fP|\fILINE\fP|\fI0xADDR\fP|\fILABEL\fP"
-One-shot breakpoint.
+.BR tbreak " [\fIFILE:LINE\fP|\fILINE\fP|\fI0xADDR\fP|\fILABEL\fP]"
+One-shot breakpoint; with no argument it lists the breakpoints, as
+.B break
+does.
 .TP
 .BR unbreak " \fI#\fP"
 Remove breakpoint
@@ -748,6 +769,24 @@ Set to anything but
 .BR 0 :
 the memory card is an ordinary card with no v32dev mailbox.
 .TP
+.B V32DEV_SERVER
+Set to anything but
+.BR 0 :
+the built-in v32dev server of the DesktopEmulator patch of the v32io project.
+The card needs no formatting, the mailbox lives in memory only and never reaches
+the card file, and the channels come from
+.BR V32DEV_CH0 " to " V32DEV_CH3 .
+Unset or
+.BR 0 :
+those variables are not looked at.
+.TP
+.BR V32DEV_CH0 " to " V32DEV_CH3
+With
+.BR V32DEV_SERVER :
+what channel N serves, a SPEC as for
+.BR \-\-v32dev\-host ,
+which wins for its channel.
+.TP
 .BR NO_COLOR ", " COLORTERM ", " TERM
 Choose the level of
 .BR \-\-console\-color=auto :
@@ -804,11 +843,20 @@ An
 .B expect
 failed or an
 .B until
-timed out; also a bad option value.
+timed out.
+At startup also: a bad option or option value (an unknown
+.B \-L
+mode too), a
+.B \-C
+file that cannot be opened,
+.B \-\-tty
+without a terminal, a bad
+.BR \-\-v32dev\-host .
 .TP
 .B 2
 The frame limit was reached
 .RB ( \-x ).
+Also the status when /dev/null cannot be opened at startup.
 .TP
 .B 3
 A system error
@@ -823,14 +871,26 @@ could not parse a command.
 .B \-\-dump
 could not print what was asked.
 .TP
+.B 11
+Startup: a BIOS, cartridge or memory card file cannot be opened.
+.TP
+.B 12
+Startup: such a file cannot be read.
+.TP
+.B 21
+Startup: such a file is not a valid V32 file.
+.TP
+.BR 4 ", " 5 ", " 7 ", " 13 ", " 14 ", " 15
+Internal failures (out of memory, an invalid IOPort access mode) with an
+[ERROR] message on standard error; they should not happen.
+4 and 5 are also the statuses above.
+.TP
 .I N
 .B quit
 .I N
 overrides the above;
 .BI \-\-halt\-status= N
 sets the status of an HLT.
-Other startup errors (an unreadable BIOS or cartridge, ...) exit with their
-own nonzero status.
 .SH EXAMPLES
 Debug a cartridge, stopping at a label:
 .PP
@@ -854,7 +914,7 @@ Screenshots after cartridge frames 60 and 120 with a button held:
 .PP
 .RS
 .EX
-v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=130 \e
+v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=400 \e
     \-\-input=A@40\-44 \-\-screenshot\-at=60,120 cart.v32 </dev/null
 .EE
 .RE

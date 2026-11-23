@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "defines.h"
 #include "command.h"
 #include "assembly.h"
@@ -1135,15 +1136,69 @@ static void  exec_dev (cmd_t *c)
     }
     else if (0 == strcasecmp (verb, "format"))
     {
-        if ((*a != '\0') && (0 != strcasecmp (a, "force")))
+        // dev format [force] [N=TYPE ...]: the types are v32dev.py format's --chN (a name or a number)
+        char      rest[1100];
+        char     *tok    = NULL;
+        char     *save   = NULL;
+        char     *eqp    = NULL;
+        uint32_t  type   = 0;
+        uint8_t   force  = FALSE;
+        int       typed  = 0;
+        int       k      = 0;
+        uint32_t  got[DEV_CHANNELS];
+        uint8_t   has[DEV_CHANNELS];
+
+        memset (has, 0, sizeof (has));
+        memset (got, 0, sizeof (got));
+        snprintf (rest, sizeof (rest), "%s %s", a, b);
+        for (tok = strtok_r (rest, " \t", &save); tok != NULL; tok = strtok_r (NULL, " \t", &save))
         {
-            fprintf (stderr, "[ERROR] dev: format takes only 'force'\n");
-            script_errors = script_errors + 1;
-            return;
+            if (0 == strcasecmp (tok, "force"))
+            {
+                force  = TRUE;
+                continue;
+            }
+            eqp  = strchr (tok, '=');
+            if ((eqp != NULL) && (tok[0] == 'c' || tok[0] == 'C') && (tok[1] == 'h' || tok[1] == 'H'))  tok = tok + 2;
+            if ((eqp == NULL) || (tok[0] < '0') || (tok[0] > '3') || (tok[1] != '='))
+            {
+                fprintf (stderr, "[ERROR] dev: format takes 'force' and N=TYPE (dev format force 0=storage 1=serial; types: none storage block serial char pipe tcp udp netplay socket, or a number)\n");
+                script_errors = script_errors + 1;
+                return;
+            }
+            k  = tok[0] - '0';
+            if (devhost_type_parse (tok + 2, &type) != 0)
+            {
+                fprintf (stderr, "[ERROR] dev: channel %d: unknown device type '%s'\n", k, tok + 2);
+                script_errors = script_errors + 1;
+                return;
+            }
+            got[k]  = type;
+            has[k]  = TRUE;
+            typed   = typed + 1;
         }
-        if (memc_format ((*a != '\0') ? TRUE : FALSE) == TRUE)
+        for (k = 0; k < DEV_CHANNELS; k = k + 1)
+        {
+            if (has[k] == TRUE)  devhost_type_set (k, got[k]);
+        }
+        type  = memc_format (force);
+        devhost_type_clear ();
+        if (type == TRUE)
         {
             fprintf (stdout, "the memory card is a v32dev mailbox\n");
+            if (typed > 0)
+            {
+                char  text[80];
+
+                for (k = 0; k < DEV_CHANNELS; k = k + 1)
+                {
+                    if (has[k] == TRUE)
+                    {
+                        devhost_type_text (got[k], text, sizeof (text));
+                        fprintf (stdout, "channel %d: %s\n", k, text);
+                    }
+                }
+            }
         }
         else
         {
@@ -2399,4 +2454,56 @@ uint8_t  process_command (const char *line)
     cmd_free (&cmd);
 
     return (action);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// cmd_break_spec(): a -b argument, through the same code as the 'break' command. Same rule as
+// --dump=N@NAME: FILE:LINE is a source line; a name that is a known label (or function) is that
+// label, even when it is also a hex number (add, face, dead); anything else is a hex address,
+// with or without 0x.
+//
+void  cmd_break_spec (const char *spec)
+{
+    char       line[600];
+    char      *colon   = NULL;
+    char      *end     = NULL;
+    linked_l  *ltmp    = NULL;
+    uint32_t   addr    = 0;
+    uint8_t    saved   = action;
+
+    if (spec == NULL)
+    {
+        return;
+    }
+    colon  = strrchr (spec, ':');
+    if ((colon != NULL) && (colon != spec) && (colon[1] != '\0') && (strspn (colon + 1, "0123456789") == strlen (colon + 1)))
+    {
+        snprintf (line, sizeof (line), "break %s", spec);
+    }
+    else
+    {
+        for (ltmp = lpoint; ltmp != NULL; ltmp = ltmp -> next)
+        {
+            if ((ltmp -> label != NULL) && (0 == strcasecmp (ltmp -> label, spec)))  break;
+        }
+        if ((ltmp != NULL) || (srcdebug_function (spec, &addr) == TRUE))
+        {
+            snprintf (line, sizeof (line), "break %s", spec);
+        }
+        else
+        {
+            errno      = 0;
+            unsigned long wide  = strtoul (spec, &end, 16);
+            if ((end == spec) || (*end != '\0') || (errno == ERANGE) || (wide > 0xFFFFFFFFul))
+            {
+                fprintf (stderr, "[ERROR] -b: '%s' is not a known label or function, a hex address or FILE:LINE\n", spec);
+                return;
+            }
+            snprintf (line, sizeof (line), "break 0x%lX", wide);
+        }
+    }
+    DPRINTF(debug, "[arg] BREAK '%s'\n", line);
+    process_command (line);
+    action  = saved;
 }

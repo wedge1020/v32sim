@@ -22,7 +22,7 @@ Status as of version `20261123-dev`.
     update_sys.c) was removed. Makefile: `make` falls back to `gen/` without flex/bison, `-ffp-contract=off`, `version` also stamps
     TODO.md. New suite `tests/run_turbo_tests.sh` (in `make check`, needs only the stock toolchain). Same results as before:
     gaps 46, romcheck 28, fuzz and ports differential suites, screenshots and statistics byte-identical to the 20261109 build.
-    Not run here (no v32cc / v32as / v32io in this session): batch, src, stack, harness and v32io suites: run `make check TC=...`.
+    Run since (20261123, v32io 20261105-dev): `make check TC=... V32IO=...`, 11 suites passed, 0 skipped.
 
   * **20261109 (central maintenance)**: v32sim is the hub of the debug stack. `tools/v32mkcart.sh` builds C, C++ (`v32c++ -g --compiler=v32cc`) and Lua (`v32lua -g`) and takes `-O LEVEL` (v32opt);
     `tests/run_stack_tests.sh` (new suite `stack` in `make check`) checks `bt`, `break FILE:LINE`, `locals` and macro lines across C/C++/Lua x -O0/-O2/-O3 (33 checks).
@@ -36,7 +36,7 @@ Status as of version `20261123-dev`.
 
   * **20261106 (central maintenance), VS-19**: native v32dev host (`--v32dev-host=N=SPEC`, `src/devhost.c`): storage and serial, a port of `v32dev.py`
     (Channel / StorageDevice / SerialDevice) working on card memory; opt-in, T = 0 doorbell answers, repeatable. `tests/native_host_test.py` (125 checks since 20261108, in
-    `tests/run_tests.sh`): the v32io real cartridges give the same report and image as against `v32dev.py serve`. Open: pipe/socket classes.
+    `tests/run_tests.sh`): the v32io real cartridges give the same report and image as against `v32dev.py serve`. pipe/socket classes: v32dev.py has none either (only their type names, which `dev format N=TYPE` now takes); `serial:tcp=PORT` and `V32DEV_SERVER` / `V32DEV_CH0..3` (20261123) are what the DesktopEmulator's server has.
 
   * **20261108 (central maintenance), VS-19 leftovers**: `dev [info]`, `dev format [force]`, `dev attach|swap N SPEC`, `dev detach N` (README, `help dev`);
     `save`/`restore` keep the native host's state (queues, counters, session; the whole mailbox region), so a split run equals the whole run
@@ -95,7 +95,7 @@ Status as of version `20261123-dev`.
 
   * **20261105 (central maintenance)**: VS-10 `%define var_NAME` (v32lua) is read, and `var_NAME` resolves; VS-15 `NAME.vbin.sym` is read before
     `NAME.asm.sym`; `#` lines are skipped in the `.debug`/`.sym` files (`.vars` ignored all but `var,` rows already); VS-14 (structs):
-    `struct:TAG:WORDS{x:int@0;...}` types are parsed and printed as `{x = 3, y = 5}` (upvalue and global records still open);
+    `struct:TAG:WORDS{x:int@0;...}` types are parsed and printed as `{x = 3, y = 5}` (upvalue and global records: done, see "Locals, what is left");
     VS-16 `ram:0x75` addresses a low RAM word (`[ram:0x75]`), and a cartridge argument `-` runs the BIOS alone;
     `make version VERSION=...` stamps, `install`/`uninstall`/`sysinstall`/`sysuninstall` (tools go to Vircon32/v32tools/v32sim/tools; ~/.local/lib/v32sim/tools for `install`);
     `v32sim-peek.sh -M CARD`; `v32sim-selfcheck.sh -M` blank card; V32TRACE spec copy updated.
@@ -151,7 +151,7 @@ Status as of version `20261123-dev`.
     converted instead of reinterpreted.
 
   * **Consolidation (2026-11-03)** - oracle tools, harness scripts, AGENTS/CLAUDE and docs from v32cxx, v32nix and V32DOS moved here
-    (`docs/CONSOLIDATION.md`); `--frame-stats` (first slice of VS-9: per-frame CPU/GPU load, equal to v32prof's);
+    (the consolidation log, removed before the first release; what stays elsewhere is in `docs/TOOLS.md`); `--frame-stats` (first slice of VS-9: per-frame CPU/GPU load, equal to v32prof's);
     `%define global_NAME` symbol fallback fixed (it never parsed a newline-terminated line). V32DOS's VS-1..VS-8 are done;
     its `docs/PROPOSAL-STATUS.md` still says outstanding.
 
@@ -162,6 +162,19 @@ Status as of version `20261123-dev`.
   * **Fixed** - `--dump=N@NAME` read a name made of hex digits (`ab`, `f`, `cafe`) as an address.
 
 ## STILL LACKING
+
+  * **Downstream, from the consolidation** (2026-11-03, was `docs/CONSOLIDATION.md`):
+    * Run the new runners on the real thing: `sysprof` on a v32nix cartridge, the corpus runner on GBtoV32's Homebrew Hub set;
+      then make v32nix's `tools/simtest.sh`/`peek.sh`/`klog.sh`/`tools/v32sim/build.sh`, v32cxx's `check.sh` and GBtoV32's harness
+      thin wrappers around these. (V32DOS is done, 20261123-dev: `v32sim-golden.sh` runs its 17 sessions, its bootstrap uses
+      `tools/oracle/build.sh` and `tools/build-nogen.sh`, no v32c++.)
+    * Stale downstream text: GBtoV32's `test_trace.sh` fixture says `cartframe=42` for the gate trap, which is its mini simulator's
+      number; the console (stock core and v32sim) starts the trap routine in cart frame 41.
+    * Two pinned ComputerSoftware commits (`5219741` for the v32cxx tools, `e75b537` for V32SIMGAPS); the current ComputerSoftware
+      has the same sources as the 20261101 bootstrap archive. Re-check both pins against upstream before relying on them.
+      (V32SIMGAPS was re-read against the current `ConsoleLogic` on 20261123: no difference left, including the date and time
+      ports across daylight-saving changes; the clock clamps were the only fix.)
+    * Candidate to bring in: v32nix's `tests/measure_machine.c` as a differential case in `tests/gaps`.
 
 ### Speed ideas not done (20261122; measure on v32nix first, `docs/PERFORMANCE.md`)
 
@@ -178,12 +191,18 @@ Status as of version `20261123-dev`.
 
   * **Fold `sysprof` and `v32trace-ref` into `v32orun`** (`sysprof` is v32nix-specific; `v32trace-ref` needs the patched checkout). `v32prof`/`v32peek`/`v32shot` are done.
 
-  * **Locals, what is left (V32DBG section 4)** - struct members (needs
-    member names in `type=`), globals' `type=` (`loc=@ADDR` from v32cc), upvalues in closures (v32lua), `display NAME` that
-    follows the frame (today it keeps the address the name had).
-  * **Symbols** - only variables with a numeric address (v32cc globals) are data
-    symbols; function-local variables and struct members have no names, and a
-    `.asm.sym` entry without a size counts as one word.
+  * **Locals, what is left (V32DBG section 4)** (checked 20261123 on `locals.c`, `locals.lua`, `stack.{c,cpp,lua}`, `vars_opt.c`, a Lua
+    program with globals and nested tables, built with v32cc / v32c++ / v32lua / v32as `-g`). Done, nothing to do: struct members
+    (`type=struct:TAG:WORDS{x:int@0;...}` is written by v32cc and v32c++, and `locals` shows `p = {x = 3, y = 5}`), globals' `type=`
+    (`;@var g loc=global_g type=int`, in `.vbin.vars` as `@0xADDR`; `locals` lists them first, `(int, @0x00000001)`), Lua globals
+    (`loc=@ADDR type=lua global`) and closure upvalues (`loc=BP+N type=lua boxed upvalue`, listed inside the closure). Still open:
+    `print p.x` / `x p.y` (a member is not a symbol: `unknown symbol 'p.x'`; `x p` shows the words), a struct member that is itself an aggregate
+    (raw words), nested Lua tables (their address only), `print NAME` ignores `type=` (one word in hex), and `display NAME` keeps the address
+    the name had in the frame it was typed in (verified: `display f` in `scale` still shows `scale`'s slot after `up` and `finish`).
+  * **Symbols** - data symbols (`print counter`, `--dump=1@counter`, `x buf`) are only variables with a numeric address (v32cc and v32lua
+    globals, `.asm.sym` / `.vbin.sym`). Function-local variables are not symbols: they live in the `locals` table (`NAME.vbin.vars`),
+    which `print`/`x`/`display`/`watch`/`expect` search first in the selected frame; struct members are named inside a variable's
+    `type=` only, and are no symbols of their own. A `.asm.sym` entry without a size counts as one word.
   * **`until`** - needs the screen to change; it matches text, not colours.
   * **Audio** - the SPU has no output; a WAV capture of the mixed channels
     would be a natural first step.

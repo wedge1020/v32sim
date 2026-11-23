@@ -383,6 +383,7 @@ typedef struct
 static frame_t  frm[MAX_FRAMES];
 static int      nfrm       = 0;
 static int      sel_frame  = 0;
+static uint64_t sel_at     = 0;         // insn_count when frame/up/down chose sel_frame: a stop elsewhere (continue, a watchpoint) is a new frame 0
 
 // is this the address right after a CALL instruction (with or without an immediate)?
 static int  returns_after_call (uint32_t r)
@@ -473,6 +474,10 @@ static void  compute_frames (void)
 {
     frame_t  *f  = NULL;
 
+    if (sel_at != insn_count)
+    {
+        sel_frame  = 0;
+    }
     nfrm  = 0;
     frm[0].pc  = (uint32_t) REG(IP);
     frm[0].sp  = (uint32_t) REG(SP);
@@ -612,7 +617,7 @@ static void  show_source_line (const sl_t *e)
 // frame [N] / up [N] / down [N]
 void  srcdebug_frame (int how, uint32_t n, int has_n)
 {
-    int          target  = sel_frame;
+    int          target  = 0;
     const sl_t  *e       = NULL;
 
     ensure ();
@@ -622,6 +627,7 @@ void  srcdebug_frame (int how, uint32_t n, int has_n)
         return;
     }
     compute_frames ();
+    target  = sel_frame;
     if (how == 0)       target  = (has_n == TRUE) ? (int) n : sel_frame;       // frame
     else if (how > 0)   target  = sel_frame + ((has_n == TRUE) ? (int) n : 1); // up
     else                target  = sel_frame - ((has_n == TRUE) ? (int) n : 1); // down
@@ -641,6 +647,7 @@ void  srcdebug_frame (int how, uint32_t n, int has_n)
         return;
     }
     sel_frame  = target;
+    sel_at     = insn_count;
     print_frame_line (sel_frame, FALSE);
     e  = frame_entry (sel_frame);
     if (e != NULL)

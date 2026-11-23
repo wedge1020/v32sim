@@ -45,10 +45,10 @@ Recettes :
 
 ```
 # capture d'écran après les images 60 et 120 de la cartouche (v32sim-shot-00060.png, ...)
-v32sim -B B.v32 -r -q --fast --max-frames=130 --screenshot-at=60,120 cart.v32 </dev/null
+v32sim -B B.v32 -r -q --fast --max-frames=400 --screenshot-at=60,120 cart.v32 </dev/null
 
 # jouer un script de manette (A maintenu aux images 40-44 de la cartouche, Start à l'image 100), puis faire une capture d'écran
-v32sim -B B.v32 -r -q --fast --max-frames=200 --input='A@40-44,START@100' --screenshot-at=150 cart.v32 </dev/null
+v32sim -B B.v32 -r -q --fast --max-frames=450 --input='A@40-44,START@100' --screenshot-at=150 cart.v32 </dev/null
 
 # statistiques d'images : une ligne CSV par image, résumé (moyenne, p95, maximum, régions) sur stderr
 v32sim -B B.v32 -r -q --fast --max-frames=1800 --frame-stats=load.csv --frame-stats-skip=250 cart.v32 </dev/null
@@ -83,7 +83,7 @@ Les options marquées (forme courte) en ont une : `-B`, etc. « Par défaut » e
 | `-B, --biosfile=FILE` | Fichier V32 du BIOS. Par défaut : `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32` (l'installation du DesktopEmulator). |
 | `-M, --memcfile=FILE` | Fichier de carte mémoire (`V32-MEMC` + 262144 mots). Les modifications sont réécrites à la fin de chaque image. Voir *Carte mémoire* ci-dessous. |
 | `-E, --entry-point=OFFSET` | Commence l'exécution à OFFSET (hexadécimal) au lieu du début du BIOS. |
-| `-S, --bios-start` | Point d'entrée = début du code du BIOS (s'y arrête). |
+| `-S, --bios-start` | Démarre au début du code du BIOS (le comportement par défaut ; conservé pour la compatibilité, et `-E` l'emporte). |
 | `CARTFILE.v32` ou `-` | La cartouche ; `-` = aucune. |
 | `-V, --version` | Affiche `v32sim VERSION` et quitte. |
 | `-h, --help` | Affiche le texte d'utilisation et quitte (code 0). |
@@ -98,7 +98,7 @@ Les options marquées (forme courte) en ont une : `-B`, etc. « Par défaut » e
 | `--symbol-file=FILE` | Symboles de données (`NOM.asm.sym` de v32cc). Les `NOM.asm.sym` / `NOM.vbin.sym` à côté de la cartouche sont lus automatiquement. |
 | `-n, --no-debug` | Ne traite aucun fichier de débogage (étiquettes, lignes, symboles). |
 | `--source` | Affiche la ligne source de chaque arrêt (assembleur ; C ou Lua avec `-L`). |
-| `-L, --langmode=MODE` | `C`, `lua` ou `src` : le langage source de la superposition. `C` et `src` activent aussi `--source` ; `lua` affiche les valeurs Lua dans les vidages mémoire. `step`/`next` avancent alors par ligne source. Une valeur qui n'est aucune de celles-ci est ignorée. |
+| `-L, --langmode=MODE` | `C`, `lua` ou `src` : le langage source de la superposition. `C` et `src` activent aussi `--source` ; `lua` affiche les valeurs Lua dans les vidages mémoire. `step`/`next` avancent alors par ligne source. Toute autre valeur est une erreur (message sur stderr, code de sortie 1). |
 | `-d, --deref-addr` | Affiche l'adresse d'un déréférencement. |
 | `-c, --colors` | Sortie en couleurs à l'invite. |
 
@@ -106,7 +106,7 @@ Les options marquées (forme courte) en ont une : `-B`, etc. « Par défaut » e
 
 | Option | Signification |
 |---|---|
-| `-b, --break=OFFSET\|LABEL` | Pose un point d'arrêt (répétable). La valeur est lue en hexadécimal ; si cela donne 0, elle est prise pour une étiquette. Pour `FILE:LINE`, utilisez la commande `break` (par ex. dans un fichier `-C`). |
+| `-b, --break=OFFSET\|LABEL\|FILE:LINE` | Pose un point d'arrêt (répétable), comme le fait la commande `break` une fois les fichiers de débogage chargés. Un nom qui est une étiquette (ou une fonction) connue désigne cette étiquette même s'il est aussi un nombre hexadécimal (`add`, `face`, `dead` ; écrivez `0xdead` pour l'adresse) ; sinon la valeur est un OFFSET hexadécimal, avec ou sans `0x`. `FILE:LINE` demande des informations de ligne. Une valeur qui n'est rien de tout cela est signalée sur stderr. |
 | `-w, --watch-for=OPCODE` | Exécute (`-r`) jusqu'à ce que ce mot d'instruction de 32 bits soit exécuté. |
 | `-C, --command-file=FILE` | Exécute les commandes du débogueur contenues dans FILE. Elles sont lues par l'invite après la lecture de la première instruction (donc `step`, `next`, `continue` agissent) ; avec `-r`, elles s'exécutent une fois au départ. |
 | `-e, --errorcheck` | Vérification des erreurs à l'exécution. |
@@ -117,7 +117,7 @@ Les options marquées (forme courte) en ont une : `-B`, etc. « Par défaut » e
 | Option | Signification |
 |---|---|
 | `-r, --run` | Ne démarre pas en mode pas à pas : exécute jusqu'à un point d'arrêt, un point de surveillance, HLT ou la limite d'images. |
-| `--max-frames=N` | S'arrête après N images (code de sortie 2 avec `-x`). |
+| `--max-frames=N` | S'arrête après N images, comptées depuis la mise sous tension (le logo du BIOS, environ 250 images, compris ; code de sortie 2 avec `-x`). |
 | `--fast` | Ne bride pas à la vitesse du temps réel. |
 | `--frame-us=N` | Microsecondes d'horloge murale par image. Par défaut 16666 ; 0 = `--fast`. |
 | `--turbo[=report]` | `--fast`, plus l'avance rapide des boucles d'attente active et l'abandon d'une file de pixels GPU pleine au lieu de la peindre (les captures d'écran peuvent être incomplètes). `=report` affiche sur stderr à la sortie ce qui a été sauté. README « Vitesse et Mode Turbo ». Désactivé dès que quelque chose surveille les instructions une à une. |
@@ -161,14 +161,14 @@ un processus externe (`v32dev.py serve`), soit v32sim lui-même :
 | Option | Signification |
 |---|---|
 | `--v32dev-doorbell[=MS]` | Bit 1 de l'indicateur d'en-tête, compteurs de réponses par canal (mots d'en-tête 10..13) ; une écriture dans le `c2h_head` d'une partie de cartouche sonne : vide les tampons, laisse à l'hôte MS ms (2 par défaut ; 0 = pas d'attente) pour répondre, importe la réponse, continue. Désactivé par défaut. |
-| `--v32dev-host=N=SPEC` | Sert le canal N (0-3) nativement. Répétable. Exige `-M FICHIER` désignant une carte v32dev accessible en écriture (ou dont les 64 derniers Kio sont tous à zéro : elle est alors formatée). SPEC : `storage:FICHIER[,bytes][,ro][,sector=N][,create=S]` ou `serial:stdio\|echo[,hup=N][,in=FICHIER][,out=FICHIER][,hangup]`. |
+| `--v32dev-host=N=SPEC` | Sert le canal N (0-3) nativement. Répétable. Exige `-M FICHIER` désignant une carte v32dev accessible en écriture (ou dont les 64 derniers Kio sont tous à zéro : elle est alors formatée). SPEC : `storage:FICHIER[,bytes][,ro][,sector=N][,create=S]` ou `serial:stdio\|echo[,hup=N]\|tcp=PORT[,in=FICHIER][,out=FICHIER][,hangup]` (`tcp=PORT` : 127.0.0.1 seulement, un client à la fois ; les options de `storage:` sont lues de droite à gauche, donc FICHIER peut contenir des virgules). L'emporte sur `V32DEV_CHN` pour son canal. |
 | `--v32dev-host-force` | Formate la carte par-dessus d'autres données dans ses 64 derniers Kio. |
 
 ### Sortie, captures d'écran et console texte
 
 | Option | Signification |
 |---|---|
-| `--screenshot-at=FRAMES` | Écrit l'écran (PNG) après ces images de cartouche : `N`, `A-B`, `A-B/PAS`, séparés par des virgules. Les images de cartouche commencent quand le BIOS passe la main à la cartouche. |
+| `--screenshot-at=FRAMES` | Écrit l'écran (PNG) après ces images de cartouche : `N`, `A-B`, `A-B/PAS`, séparés par des virgules. L'image 0 est la première image qui se termine avec le compteur de programme dans la cartouche, c'est-à-dire une fois que le BIOS a passé la main (le logo du BIOS standard dure environ 250 images, que `--max-frames` compte aussi). Les images que l'exécution n'a jamais atteintes sont signalées sur stderr à la sortie. |
 | `--screenshot-file=PAT` | Nom de fichier de celles-ci ; `%d` = l'image (style printf, par ex. `%05d`). Par défaut `v32sim-shot-%05d.png`. |
 | `--screengrid[=SPEC]` | Grille sur les captures d'écran : `DX[xDY]`, `color=C`, `alpha=N`, `labels`/`nolabels`, séparés par des virgules. Par défaut 40x40. |
 | `--highlight=T:R[:COLOR]` | Entoure la région R de la texture T (`bios:R` pour la texture du BIOS) ; séparés par des virgules. |
@@ -204,7 +204,9 @@ un processus externe (`v32dev.py serve`), soit v32sim lui-même :
 | Variable | Usage |
 |---|---|
 | `V32_INPUT`, `V32_INPUT2` | Scripts de manette utilisés quand `--input` / `--input2` ne sont pas donnés (une note va sur stderr). |
-| `V32DEV_DISABLE` | Toute valeur sauf `0` : une carte est une carte ordinaire, sans boîte aux lettres v32dev ; avec `--v32dev-host`, un avertissement, l'hôte ne démarre pas. |
+| `V32DEV_DISABLE` | Toute valeur sauf `0` : une carte est une carte ordinaire, sans boîte aux lettres v32dev ; avec `--v32dev-host` ou `V32DEV_SERVER`, un avertissement, l'hôte ne démarre pas. |
+| `V32DEV_SERVER` | Définie (et pas `0`) : le serveur v32dev intégré, comme dans le patch du DesktopEmulator du projet v32io : la carte n'a pas besoin d'être formatée, la boîte aux lettres vit en mémoire seulement et n'arrive jamais dans le fichier de la carte, et les canaux viennent de `V32DEV_CH0`..`V32DEV_CH3`. Non définie ou `0` : ces variables ne sont pas regardées. |
+| `V32DEV_CH0` ... `V32DEV_CH3` | Avec `V32DEV_SERVER` : ce que sert le canal N, une SPEC comme pour `--v32dev-host` (`storage:FICHIER[,bytes][,ro][,sector=N][,create=S]`, `serial:echo[,hup=N]`, `serial:stdio`, `serial:tcp=PORT`). Vide ou non définie : rien. Une mauvaise est signalée et son canal laissé de côté. |
 | `NO_COLOR`, `COLORTERM`, `TERM` | Ce que choisit `--console-color=auto` (et `--tty`) : aucune couleur si `NO_COLOR` est défini et non vide ; couleurs vraies pour `truecolor`/`24bit` ; 256 pour `*256color` ; 16 pour les autres terminaux sauf `dumb`. |
 | `HOME`, `INPUTRC`, `TERM` | Lues par GNU readline pour l'invite (édition de ligne, historique en mémoire seulement). |
 
@@ -241,11 +243,15 @@ Lus :
 | Code | Signification |
 |---|---|
 | 0 | Fin normale : le programme a exécuté HLT (sauf avec `--halt-status`), ou `quit`, ou fin de l'entrée. |
-| 1 | Une vérification a échoué : `expect` a échoué ou `until` a expiré. Une valeur d'option invalide quitte aussi avec 1 ; les autres erreurs de démarrage (BIOS ou cartouche illisible, ...) quittent avec leur propre code non nul. |
-| 2 | Limite d'images atteinte (`-x` seulement). |
+| 1 | Une vérification a échoué : `expect` a échoué ou `until` a expiré. Problèmes de démarrage qui sortent avec 1 : une mauvaise option ou valeur d'option (`-L` avec un mode inconnu aussi), un fichier `-C` qui ne peut pas être ouvert, `--tty` sans terminal, un `--v32dev-host` erroné. |
+| 2 | Limite d'images atteinte (`-x` seulement). C'est aussi le code quand `/dev/null` ne peut pas être ouvert au démarrage. |
 | 3 | Erreur système (`-x` seulement ; l'exécution s'arrête au lieu d'entrer dans le gestionnaire d'erreurs du BIOS). |
 | 4 | `--batch` n'a pas pu analyser une commande (ou une commande `dev` a échoué). |
 | 5 | `--dump` n'a pas pu afficher ce qui était demandé (spécification invalide, symbole inconnu, mémoire illisible), quand rien d'autre n'avait fixé de code. |
+| 11 | Démarrage : un fichier de BIOS, de cartouche ou de carte mémoire ne peut pas être ouvert. |
+| 12 | Démarrage : un tel fichier ne peut pas être lu (tronqué, mauvaise position). |
+| 21 | Démarrage : un tel fichier n'est pas un fichier V32 valide. |
+| 4, 5, 7, 13, 14, 15 | Défaillances internes (mémoire insuffisante, mode d'accès invalide à un IOPort), avec un message `[ERROR]` sur stderr ; elles ne devraient pas arriver. 4 et 5 sont aussi les codes ci-dessus. |
 | N | `quit N` l'emporte sur tout ce qui précède ; `--halt-status=N` fixe le code d'un HLT. |
 
 ## Voir aussi

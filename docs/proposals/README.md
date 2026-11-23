@@ -13,9 +13,8 @@ Severity, as in the existing proposals: **A** blocks a stated goal, **B** forces
 | [PROPOSAL-v32cxx.md](PROPOSAL-v32cxx.md) | v32c++ | SX-1 .. SX-3, 2 questions |
 | [PROPOSAL-v32io.md](PROPOSAL-v32io.md) | v32io / v32dev 20261014-dev | SI-1 .. SI-3, 2 questions |
 | [PROPOSAL-GBtoV32.md](PROPOSAL-GBtoV32.md) | GBtoV32 20261101-dev (and NEStoV32, for the shared spec) | SG-1 .. SG-5 (SG-5 and both questions answered 2026-11-04) |
-| [PROPOSAL-V32DOS.md](PROPOSAL-V32DOS.md) | V32DOS | SD-1 .. SD-4, 1 question |
 | [PROPOSAL-v32nix.md](PROPOSAL-v32nix.md) | v32nix 20261102-dev | SN-1 .. SN-3, 2 questions |
 
-Proposals whose every item was done, answered or declined (v32cc, v32as, v32opt, v32lua, ComputerSoftware, and v32sim's own
+Proposals whose every item was done, answered or declined (v32cc, v32as, v32opt, v32lua, ComputerSoftware, V32DOS (done in V32DOS 20261123-dev), and v32sim's own
 VS-10 .. VS-19 backlog) were removed before the first release; see the project history. The VS-9 design is
 [v32sim-proposal-perf-metrics-20261030.md](v32sim-proposal-perf-metrics-20261030.md).

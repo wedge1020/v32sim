@@ -216,6 +216,9 @@ extern uint8_t    warn_halt;                   // --warn-halt: say on stderr whe
 extern int32_t    halt_status;                 // --halt-status=N: exit status when the run ends at HLT (-1 = off)
 extern uint8_t    halted_by_hlt;               // the run ended because the program executed HLT
 extern int8_t    *dumpspec;
+#define   MAX_BREAK_SPECS  64
+extern int8_t    *break_specs[MAX_BREAK_SPECS]; // -b OFFSET|LABEL|FILE:LINE, in command-line order
+extern int32_t    nbreak_specs;
 extern uint8_t    consoleflag;
 extern int8_t    *kbdinput;
 extern int32_t    kbdport;
@@ -318,6 +321,7 @@ int       cli_screengrid (const char *);                     // --screengrid[=SP
 int       shots_set_frames (const char *);                   // --screenshot-at=FRAMES (shots.c)
 void      shots_set_file (const char *);                     // --screenshot-file=PATTERN
 void      shots_frame (void);
+void      shots_report (void);                               // at exit: frames asked for and never reached
 void      gpu_grid_show  (FILE *);
 void      gpu_noextra    (int);
 int       gpu_highlight_add    (int32_t, int32_t, uint32_t);   // texture, region, 0xRRGGBB
