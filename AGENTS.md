@@ -23,7 +23,8 @@ AGENTS.md) and `docs/TOOLS.md` (which tool for which question). The rest of this
   the stock tools, v32opt's `scripts/v32srcmark.py` adds `;@src` markers; without it v32sim only has addresses and
   the `%define global_X N` data symbols. `tools/v32mkcart.sh` builds either way.
 - stdout is for what the script asked for, stderr for diagnostics (`--batch`). Exit statuses are an interface: 0 ok, 1 an
-  `expect` failed / `until` timed out, 2 frame limit (`-x`), 3 system error (`-x`), 4 unparsable command (`--batch`).
+  `expect` failed / `until` timed out, 2 frame limit (`-x`), 3 system error (`-x`), 4 unparsable command (`--batch`), 5 `--dump`
+  could not print what was asked, `quit N` overrides; 11 / 12 / 21 at startup (file not opened / not read / not a V32 file).
 
 ## Layout
 
@@ -31,6 +32,7 @@ AGENTS.md) and `docs/TOOLS.md` (which tool for which question). The rest of this
 src/ inc/            the simulator (README "Project Layout"); gen/ is the flex/bison output, checked in
 tools/               scripts for people who test other projects with v32sim (docs/TOOLS.md)
   v32mkcart.sh         C/C++/Lua/asm -> cartridge with debug files (v32cc/v32c++/v32lua + v32as, optional v32opt -O, or the stock tools)
+  v32sim-check.sh      every suite from one toolchain directory, one summary line (`make check TC=DIR`)
   v32sim-selfcheck.sh  run test_errors-style cartridges, pass/FAIL (or --oracle: on the stock core)
   v32sim-session.py    typed-session script generator (V32DOS's mkcmd.py, generalized)
   v32sim-golden.sh     sessions + golden screens (V32DOS's run.sh, generalized)
@@ -43,22 +45,34 @@ tools/               scripts for people who test other projects with v32sim (doc
   build-nogen.sh       build v32sim with cc + readline only, using gen/ (from v32nix / V32DOS)
   oracle/              C++ tools on the stock ConsoleLogic: v32orun (the one runner; refrun v32run vrun v32prof v32peek v32shot are wrappers) sysprof (+ build.sh)
 tests/               the suites; run_harness_tests.sh covers tools/ (examples/ holds its cartridges)
-docs/                TOOLS TESTING PROFILING AGENTS-SNIPPET CONSOLIDATION V32DBG-STATUS PROPOSALS-STATUS, the specs
-                     (V32DBG-SPEC, V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS), docs/repro/ (cases for other projects), agents/ (one card per tool),
-                     docs/proposals/ (one request list per other project, IDs S*-n; v32sim's own backlog VS-10..)
+man/                 v32sim.1 and its Spanish / French translations (v32sim.es.1, v32sim.fr.1)
+docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TOOLS TESTING PROFILING PERFORMANCE AGENTS-SNIPPET CONSOLIDATION
+                     V32DBG-STATUS PROPOSALS-STATUS TRACE-FORMAT, the specs (V32DBG-SPEC, V32SIMGAPS, V32TRACE-SPEC 2.1, BUGS),
+                     docs/repro/ (cases for other projects), agents/ (one card per tool),
+                     docs/proposals/ (open requests to v32c++, v32io, GBtoV32, V32DOS and v32nix, IDs S*-n;
+                     resolved ones were removed before the first release)
 ```
 
 ## Working on it
 
 - Build: `make` (needs flex + bison + readline) or `tools/build-nogen.sh` (readline only). After editing `src/*.l` /
   `src/*.y`: `make gen` and commit `gen/`, because v32nix and V32DOS build v32sim from it.
-- Tests (each needs the toolchain; see the headers): `tests/run_batch_tests.sh` (scripting), `run_src_tests.sh` (source
-  level), `run_gaps.sh`, `run_romcheck.sh`, `run_fuzz.sh` (differential against `refrun`), `run_tests.sh` (v32dev,
-  v32kbd, card persistence), `run_harness_tests.sh` (the tools/ scripts and their agreement with the oracle).
+- Tests (most need the toolchain; see the headers): `tests/run_batch_tests.sh` (scripting), `run_src_tests.sh` (source
+  level), `run_stack_tests.sh` (C / C++ / Lua debug stack), `run_gaps.sh`, `run_romcheck.sh`, `run_fuzz.sh` (differential
+  against `refrun`), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU),
+  `run_harness_tests.sh` (the tools/ scripts and their agreement with the oracle). `make test` runs
+  `run_kbd_sync_tests.sh`, which needs no toolchain; `make check TC=DIR` runs them all.
   Passing one suite proves little: a CPU/GPU change needs the differential ones, a scripting change the batch one.
-- Add an option: `src/args.c` (long option number), `src/help.c`, `inc/globals.h`, README "Usage", and a test.
+- Add an option: `src/args.c` (long option number), `src/help.c`, `inc/globals.h`, README "Usage", `docs/USAGE.md`, `man/v32sim.1`
+  (and the translations, see Docs), and a test. A new prompt command goes in `src/lexer.l`, `src/parser.y`, `src/command.c`
+  (its command table) and `src/help.c`, and in README "Commands".
   A new per-frame hook goes in `src/update_sys.c: update_frame` before `timer_change_frame` (ports still hold the
   frame that ended). `src/framestats.c` is the model of a read-only observer.
-- Version: `inc/version.h` (`YYYYMMDD-dev`). Bump it when you change behaviour others depend on.
+- Version: `inc/version.h` (`YYYYMMDD-dev`). Bump it when you change behaviour others depend on, with `make version VERSION=X`: it
+  also writes TODO.md's "Status as of version" line and the `.TH` line (version and month) of the man pages; nothing else carries the number.
 - Docs: README (features, options), TODO.md (done / lacking), `docs/`. Say in TODO.md when a downstream request
-  (V32DOS VS-x, the perf proposal) is done: downstream status documents go stale otherwise.
+  (V32DOS VS-x, the perf proposal) is done: downstream status documents go stale otherwise. `README.md`, `docs/USAGE.md`
+  (command-line reference) and the man page `man/v32sim.1` have Spanish and French translations (`README.es.md`, `README.fr.md`,
+  `docs/USAGE.es.md`, `docs/USAGE.fr.md`, `man/v32sim.es.1`, `man/v32sim.fr.1`): when you change an English one, update the
+  translations or say they are stale. `make version` stamps the man pages' `.TH` lines. The other docs are English only. When a
+  limitation is lifted or an option added, update README "Known Limitations", TODO.md and this file.

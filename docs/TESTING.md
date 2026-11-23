@@ -95,7 +95,9 @@ as the emulator, `v32dev.py serve` as a separate process on the card *file*. The
 
 `tests/run_gaps.sh TOOLS [filter]` runs each `tests/gaps/*.asm` on v32sim and on `refrun` and requires identical RAM dumps;
 `run_fuzz.sh` does it with generated programs; `run_romcheck.sh` for ROM validation. Add a case when you find a divergence:
-a short `.asm`, the `;@ frames=N dump=...` header, and it fails until v32sim is fixed.
+a short `.asm`, the `;@ frames=N dump=...` header, and it fails until v32sim is fixed. `make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]`
+(`tools/v32sim-check.sh`) runs every suite of `tests/` from one toolchain directory and prints one summary line; `make test` runs the
+one that needs no toolchain (`tests/run_kbd_sync_tests.sh`).
 
 ## 7. What exit statuses mean
 

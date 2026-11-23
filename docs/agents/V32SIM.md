@@ -1,9 +1,9 @@
 # v32sim -- simulator, debugger and test bench (agent card)
 
 A headless Vircon32 with a gdb-like debugger, a scriptable batch mode, a software GPU (screenshots), an SPU model (no audio), the
-v32kbd keyboard and the v32dev mailbox. Checked instruction for instruction against the stock console logic. Version 20261103-dev.
-Docs: `README.md`, `docs/TOOLS.md` (which tool for which question), `docs/TESTING.md`, `docs/PROFILING.md`,
-`docs/AGENTS-SNIPPET.md` (a section to paste into your project's AGENTS.md).
+v32kbd keyboard, the v32mouse and the v32dev mailbox (with a native host). Checked instruction for instruction against the stock console logic. Version: `v32sim --version`.
+Docs: `README.md`, `docs/USAGE.md` (every option, variable and exit status; `man v32sim`), `docs/TOOLS.md` (which tool for which question),
+`docs/TESTING.md`, `docs/PROFILING.md`, `docs/AGENTS-SNIPPET.md` (a section to paste into your project's AGENTS.md).
 
 ## Run it
 
@@ -13,8 +13,8 @@ v32sim --batch --fast -x -B StandardBios.v32 cart.v32 < script.cmd     # scripte
 v32sim --batch -r --fast -x --max-frames=1200 -B BIOS --dump=1@test_errors cart.v32   # self-check: status 0 + value 0 = pass
 ```
 
-Exit status: 0 ok/halted, 1 an `expect` failed or `until` timed out, 2 frame limit (`-x`), 3 hardware error (`-x`), 4 bad command
-(`--batch`), `quit N`. **Always use `-x` and `--max-frames` in tests.** A program that executes `HLT` ends the run: put checks
+Exit status: 0 ok/halted, 1 an `expect` failed or `until` timed out, 2 frame limit (`-x`), 3 system error (`-x`), 4 bad command
+(`--batch`), 5 `--dump` failed, `quit N`; a program that executes `HLT` is 0 unless `--halt-status=N` (`--warn-halt` says so on stderr). **Always use `-x` and `--max-frames` in tests.** A program that executes `HLT` ends the run: put checks
 before it or use `--dump`.
 
 ## Commands (abbreviations work: s n c b p ...)
@@ -23,15 +23,16 @@ before it or use `--dump`.
 `frame/up/down`, `list`, **`locals [NAME]`** (also `info locals`), `print/fmt X` (`/d /u /x /f /s /D`; registers, `[mem]`, ports,
 symbols, locals), `x/d NAME [N]`, `display`, `watch LOC OP VALUE` (`watch/d` signed), `run N`, `until "TEXT" [timeout N]`,
 `expect LOC OP VALUE` / `expect console "TEXT"`, `console [FILE]` / `console --attrs`, `screenshot FILE.png`, `gamepad N CONTROL`
-(toggles), `kbd attach N` / `kbd type "..."` / `kbd key K`, `mouse attach N` / `mouse move DX DY` / `mouse click`, `mailbox`, `save` / `restore`, `asm` (patch an instruction),
-`profile`, `quit N`.
+(toggles), `kbd attach N` / `kbd type "..."` / `kbd key K`, `mouse attach N` / `mouse move DX DY` / `mouse click`, `mailbox`, `dev` (native v32dev host), `stats` / `expect stats NAME.AGG OP VALUE`, `highlight` / `screengrid` / `noextra`
+(screenshot aids), `mark`, `save` / `restore`, `asm` (patch an instruction), `profile`, `quit N`.
 
 ## Options worth knowing
 
 `--fast`, `--max-frames=N`, `-x`, `--batch`, `-B BIOS`, `-M card.memc`, `--fixed-clock --seed=1 --fixed-cycles` (reproducible),
 `--input=BUTTON@FIRST-LAST,...` (gamepad by cartridge frame, V32_INPUT syntax), `--v32kbd=N`, `--kbd-input=...`, `--v32mouse=N`, `--tty`,
 `--frame-stats=FILE` (per-frame CPU/GPU load), `--profile-out=FILE --profile-by=function --profile-top=N`, `--dump=N@SYM`,
-`--v32trace=PREFIX` (translator traps, V32TRACE 2.1: `traps.txt`, `blocks.txt`, the `trace.txt` report; `mark NOTE` sets a marker), `--symbol-file`, `--debug-dir`, `-n` (no debug files).
+`--v32trace=PREFIX` (translator traps, V32TRACE 2.1: `traps.txt`, `blocks.txt`, the `trace.txt` report; `mark NOTE` sets a marker), `--symbol-file`, `--debug-dir`, `-n` (no debug files), `--screenshot-at=FRAMES`, `--turbo` (spin-loop fast-forward; implies `--fast`),
+`--kbd-sync`, `--v32dev-host=N=SPEC`, `--warn-halt`, `--halt-status=N`.
 Debug files are found next to the `.v32` (`NAME.vbin.debug`, `NAME.vbin.vars`, `NAME.asm.sym`, `NAME.asm`).
 
 ## Tools beside it (`tools/`)

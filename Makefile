@@ -144,11 +144,30 @@ test-harness: $(BIN)
 	tests/run_harness_tests.sh
 
 # make version            print the version
-# make version VERSION=x  stamp x into inc/version.h and TODO.md's "Status as of version" line (the only places the version is written)
+# make version VERSION=x  stamp x into inc/version.h, TODO.md's "Status as of version" line and the .TH line of every man page
+#                         that exists (man/v32sim.1, .es.1, .fr.1: the version, and the month in the page's language, spelled
+#                         out here rather than through locales, which may not be installed). These are the only places the
+#                         version is written. A VERSION= given with the same value changes nothing but the month of the man pages.
+# Portable between GNU and BSD/macOS tools: no `sed -i` (BSD sed takes the script as the backup suffix).
+MONTH_N  := $(shell date +%m | sed 's/^0//')
+YEAR     := $(shell date +%Y)
+MONTHS_EN = January February March April May June July August September October November December
+MONTHS_ES = enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre
+# (accented French months are written as groff \[uXXXX] escapes: the French page is pure ASCII, like the Spanish one)
+MONTHS_FR = janvier f\\[u00E9]vrier mars avril mai juin juillet ao\\[u00FB]t septembre octobre novembre d\\[u00E9]cembre
+MONTH_en := $(word $(MONTH_N),$(MONTHS_EN)) $(YEAR)
+MONTH_es := $(word $(MONTH_N),$(MONTHS_ES)) de $(YEAR)
+MONTH_fr := $(word $(MONTH_N),$(MONTHS_FR)) $(YEAR)
 ifeq ($(origin VERSION),command line)
 version:
 	@sed 's/^\(\#define  *VERSION  *\)"[^"]*"/\1"$(VERSION)"/' inc/version.h > inc/version.h.tmp && mv inc/version.h.tmp inc/version.h
 	@sed 's/^\(Status as of version `\)[^`]*`/\1$(VERSION)`/' TODO.md > TODO.md.tmp && mv TODO.md.tmp TODO.md
+	@for l in en es fr; do \
+		f=man/$(TARGET).$$l.1; [ $$l = en ] && f=man/$(TARGET).1; \
+		[ -f $$f ] || continue; \
+		case $$l in en) m='$(MONTH_en)' ;; es) m='$(MONTH_es)' ;; fr) m='$(MONTH_fr)' ;; esac; \
+		sed "s/^\.TH V32SIM 1 \"[^\"]*\" \"v32sim [^\"]*\"/.TH V32SIM 1 \"$$m\" \"v32sim $(VERSION)\"/" $$f > $$f.tmp && mv $$f.tmp $$f; \
+	done
 	@echo "$(TARGET) $(VERSION)"
 else
 version:
@@ -162,9 +181,28 @@ endif
 # the Vircon32 tools tree v32cc and v32cxx install into). DESTDIR for packaging. The tools find the binary beside
 # themselves (../bin/v32sim, in a checkout), then on $PATH.
 # Both remove what an older v32sim installed in share/v32sim (~/share/v32sim, $(PREFIX)/share/v32sim).
+# Both also install the manual page (see MANPAGE above), gzipped, as v32sim.1.gz: to $(MANDIR) (sysinstall) or, for the per-user
+# install, to $(USRMAN) (~/.local/share/man/man1, found by man-db when ~/.local/bin is on $PATH, from which it derives
+# ~/.local/share/man; otherwise add it to MANPATH). It goes beside the helper tools in ~/.local, not into ~/bin, which holds only the binary.
 PREFIX ?= /usr/local
 VROOT  ?= $(PREFIX)/Vircon32/v32tools
 USRLIB ?= $(HOME)/.local/lib/v32sim
+MANDIR ?= $(PREFIX)/share/man/man1
+USRMAN ?= $(HOME)/.local/share/man/man1
+
+# The manual page. DEST_LANG=en, es or fr installs man/v32sim.$(DEST_LANG).1 as v32sim.1, so `man v32sim` shows it (the
+# English page if that translation does not exist yet); unset or DEST_LANG=all installs the English page, man/v32sim.1.
+# The page is installed gzipped (gzip -9cn: no name or time stamp, so the file is reproducible) as v32sim.1.gz.
+LANGS     = en es fr
+DOC_LANG := $(if $(strip $(DEST_LANG)),$(strip $(DEST_LANG)),all)
+ifeq ($(filter $(DOC_LANG),all $(LANGS)),)
+$(error DEST_LANG must be one of: $(LANGS) or all (got '$(DEST_LANG)'))
+endif
+ifneq ($(wildcard man/$(TARGET).$(DOC_LANG).1),)
+MANPAGE   = man/$(TARGET).$(DOC_LANG).1
+else
+MANPAGE   = man/$(TARGET).1
+endif
 
 install: $(BIN)
 	@if [ -d ~/bin/bin.$(ARCH) ]; then \
@@ -176,23 +214,34 @@ install: $(BIN)
 	else \
 		echo "Skipping: neither ~/bin/bin.$(ARCH) nor ~/bin exist"; \
 	fi
+	@echo "Installing the manual page to $(USRMAN)"; mkdir -p $(USRMAN) && rm -f $(USRMAN)/$(TARGET).1 && \
+		gzip -9cn $(MANPAGE) > $(USRMAN)/$(TARGET).1.gz && chmod 644 $(USRMAN)/$(TARGET).1.gz
 	@echo "Installing the tools to $(USRLIB)/tools"; rm -rf $(USRLIB)/tools ~/share/v32sim; mkdir -p $(USRLIB) && \
 		cp -R tools $(USRLIB)/ && find $(USRLIB)/tools -type f -name '*.o' -delete
 
 uninstall:
-	rm -f ~/bin/bin.$(ARCH)/$(TARGET) ~/bin/$(TARGET); rm -rf $(USRLIB) ~/share/v32sim
+	rm -f ~/bin/bin.$(ARCH)/$(TARGET) ~/bin/$(TARGET) $(USRMAN)/$(TARGET).1 $(USRMAN)/$(TARGET).1.gz; rm -rf $(USRLIB) ~/share/v32sim
 
 sysinstall: $(BIN)
-	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(VROOT)/v32sim
+	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(VROOT)/v32sim $(DESTDIR)$(MANDIR)
 	install -m 755 $(BIN) $(DESTDIR)$(PREFIX)/bin/$(TARGET)
+	rm -f $(DESTDIR)$(MANDIR)/$(TARGET).1 $(DESTDIR)$(MANDIR)/$(TARGET).1.gz
+	gzip -9cn $(MANPAGE) > $(DESTDIR)$(MANDIR)/$(TARGET).1.gz
+	chmod 644 $(DESTDIR)$(MANDIR)/$(TARGET).1.gz
 	rm -rf $(DESTDIR)$(VROOT)/v32sim/tools $(DESTDIR)$(PREFIX)/share/v32sim
 	cp -R tools $(DESTDIR)$(VROOT)/v32sim/ && find $(DESTDIR)$(VROOT)/v32sim/tools -type f -name '*.o' -delete
-	@echo "Installed $(TARGET) to $(PREFIX)/bin and the tools to $(VROOT)/v32sim/tools"
+	@echo "Installed $(TARGET) to $(PREFIX)/bin, its manual page ($(MANPAGE), gzipped) to $(MANDIR) and the tools to $(VROOT)/v32sim/tools"
+ifneq ($(filter es fr,$(DOC_LANG)),)
+ifeq ($(MANPAGE),man/$(TARGET).1)
+	@echo "(there is no man/$(TARGET).$(DOC_LANG).1 yet: the manual page is the English one)"
+endif
+endif
 
 sysuninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET); rm -rf $(DESTDIR)$(VROOT)/v32sim $(DESTDIR)$(PREFIX)/share/v32sim
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET) $(DESTDIR)$(MANDIR)/$(TARGET).1 $(DESTDIR)$(MANDIR)/$(TARGET).1.gz; rm -rf $(DESTDIR)$(VROOT)/v32sim $(DESTDIR)$(PREFIX)/share/v32sim
 
-# the archive carries the date of the version: ../v32sim-project-YYYYMMDD.zip
+# the archive carries the date of the version: ../v32sim-project-YYYYMMDD.zip; it holds everything in the project directory
+# (src, inc, docs, man, tools, tests, ...)
 ARCHIVE = ../v32sim-project-$(shell echo $(VERSION_STRING) | cut -c1-8).zip
 
 archive: clean

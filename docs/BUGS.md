@@ -1,7 +1,8 @@
 # Bug reports for the Vircon32 DesktopEmulator
 
 Three code defects found while comparing v32sim against the DesktopEmulator
-(`ComputerSoftware/DesktopEmulator/ConsoleLogic`). Line numbers are for commit
+(`ComputerSoftware/DesktopEmulator/ConsoleLogic`). **All three, and the 400-year leap rule mentioned at the end, are fixed in
+`ComputerSoftware` `e75b537`** (see `V32SIMGAPS.md`); the reports are kept as written. Line numbers are for commit
 `ea62bc7caad34f483945eadb114cf7d9c26cf54c` of `wedge1020/ComputerSoftware`; please
 re-check them against `vircon32/ComputerSoftware` before filing, since the upstream
 tree may have moved.
@@ -218,5 +219,5 @@ channel 0's loop setting.
   * Related, but a behavior note rather than a bug: the console's leap year test
     (`V32Timer.cpp`, `V32Timer::ChangeFrame`) is `(Year % 4 == 0) && (Year % 100 != 0)`
     and omits the 400-year rule, so the year 2000 is treated as a non-leap year. If that is
-    unintended it is a fourth, trivial report (`|| (Year % 400 == 0)`); v32sim currently
-    plans to mirror the stock behavior (see `V32SIMGAPS.md`, G4).
+    unintended it is a fourth, trivial report (`|| (Year % 400 == 0)`); v32sim now
+    has the 400-year rule, as the console does since `e75b537` (see `V32SIMGAPS.md`, G4).

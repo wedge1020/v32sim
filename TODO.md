@@ -1,6 +1,6 @@
 # TODO
 
-Status as of version `20261122-dev`.
+Status as of version `20261123-dev`.
 
 ## DONE (removed from this list)
 
@@ -46,8 +46,8 @@ Status as of version `20261122-dev`.
   * **20261106 (central maintenance), VS-17**: v32nix answered SN-2: P-E1 (timer interrupt) not wanted, only P-E2. `--v32dev-doorbell[=MS]` in
     `memc.c` (interface exactly as v32nix specified: header word 8 bit 1, per-channel counters at header words 10..13, a `c2h_head` store is the
     doorbell, flush + up to MS ms (2) wall-clock wait for a live host + re-import of that channel, no cycles charged, off = bit-identical).
-    Test cart `tests/examples/bell.c`, host `tests/doorbell_host.py`. Open: v32nix's kernel side; an in-process host (T = 0) does not exist in
-    v32sim (hosts are external `v32dev.py serve` processes), so the wait applies to every ring while the host is alive.
+    Test cart `tests/examples/bell.c`, host `tests/doorbell_host.py`. Open: v32nix's kernel side. (The in-process host with T = 0 came with VS-19, above;
+    with an external `v32dev.py serve` host the wait applies to every ring while the host is alive.)
 
   * **20261106 (central maintenance), VS-13 complete (4.2-4.4)**: `--profile-event=instr|cycles|gpu-draw|gpu-portwrite|spu-write` (with
     `--profile-by=function`: which function issues the draws); `--gpu-trace` / `--spu-trace` (versioned binary, `docs/TRACE-FORMAT.md`) and
@@ -176,7 +176,6 @@ Status as of version `20261122-dev`.
     busy mailbox; a `--v32dev-host` run has no external reader and could batch.
 
 
-  * **VS-9 beyond `--frame-stats`** - GPU/SPU counters, texture/region switches, `--profile-event`, `expect stats`, traces + replay.
   * **Fold `sysprof` and `v32trace-ref` into `v32orun`** (`sysprof` is v32nix-specific; `v32trace-ref` needs the patched checkout). `v32prof`/`v32peek`/`v32shot` are done.
 
   * **Locals, what is left (V32DBG section 4)** - struct members (needs
@@ -196,6 +195,5 @@ Status as of version `20261122-dev`.
     alpha, blinking and the guest's clear color are ignored; the cursor is only
     what the guest draws (recolorable); text drawn with a program's own font is
     not captured.
-  * **v32mouse** - the protocol is not emulated (only the keyboard).
   * **Rendering fidelity** - the software renderer's rasterization of rotated and
     scaled quads has not been compared with the OpenGL output (V32SIMGAPS G14).

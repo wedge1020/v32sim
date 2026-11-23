@@ -78,9 +78,9 @@ wrappers (`v32orun --compat=NAME`), so `run_gaps.sh` (46/46), `run_romcheck.sh` 
 1. **V32DBG, owners outside v32sim** (2026-11-08): v32opt's `loc=` rewriting, v32cc's function end, globals, struct members and `type=char` are done
    (v32opt / v32as / v32cc 20261105-dev, v32cc `type=char` 20261108). Closed 2026-11-09: v32c++ `-g` (`--compiler=v32cc`), v32cc macro origins, v32opt dead variables (`optimized-out`), v32lua chunk-local/global cleanup. Not read on purpose: `;@lang` and `;@fn lines=` are deliberately not read by v32sim (the extension and the line table say the same). Details: `V32DBG-STATUS.md`.
 2. **One oracle runner**: done for the runners (above); `v32prof`/`v32peek`/`v32shot` are folded in; `sysprof` and `v32trace-ref` remain; the old `refrun.cpp`, `v32run.cpp`, `v32peek.cpp`, `v32prof.cpp`, `v32shot.cpp` sources were deleted on 2026-11-08 (nothing built them).
-3. **VS-9 beyond frame stats**: GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`.
-4. **v32mouse in v32sim** (v32nix P-I2; today only gamepad toggles through `v32io-script.py`), and optional emulator extensions to
-   prototype (v32nix P-E1 timer interrupt, P-E2 v32dev doorbell).
+3. **VS-9 beyond frame stats**: done 20261106 (GPU/SPU counters, `--profile-event`, `expect stats`, traces and replay, `statdiff`).
+4. **v32mouse in v32sim** (v32nix P-I2): done 20261106. Of the optional emulator extensions, P-E2 (v32dev doorbell) is done and P-E1
+   (timer interrupt) was declined by v32nix (`PROPOSALS-STATUS.md`).
 5. **Run the new runners on the real thing**: `v32sim-golden.sh` on a V32DOS build, `sysprof` on a v32nix cartridge, the corpus
    runner on GBtoV32's Homebrew Hub set; then make V32DOS's `tests/run.sh`, v32nix's `tools/simtest.sh`/`peek.sh`/`klog.sh`/
    `tools/v32sim/build.sh`, v32cxx's `check.sh` and GBtoV32's harness thin wrappers around these.

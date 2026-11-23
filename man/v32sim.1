@@ -1,0 +1,905 @@
+.TH V32SIM 1 "November 2026" "v32sim 20261123-dev" "User Commands"
+.SH NAME
+v32sim \- headless simulator and single-step debugger for the Vircon32 fantasy console
+.SH SYNOPSIS
+.B v32sim
+.RI [ OPTION ]...
+.RI [ CARTFILE.v32 ]
+.br
+.B v32sim
+.B \-\-version
+.br
+.B v32sim
+.B \-\-help
+.SH DESCRIPTION
+.B v32sim
+runs a Vircon32 cartridge on its own models of the console's CPU, GPU, SPU,
+timers, gamepads and memory card, and either stops at a prompt for
+single-step debugging or runs unattended and reports what happened.
+It reads the debug files written by the Vircon32 toolchain
+.RB ( v32as " and " v32cc " with " \-g )
+to show labels, source lines and variables.
+.PP
+.I CARTFILE.v32
+is the cartridge; \fB\-\fR (or nothing) means no cartridge, and the BIOS runs
+alone.
+Without
+.B \-r
+the simulator stops before the first instruction and reads commands (see
+.BR "DEBUGGER COMMANDS" ).
+With
+.BR \-r ,
+.B \-\-batch
+and
+.BR \-x ,
+it is a headless runner whose exit status says how the program ended.
+.PP
+Values given as
+.IR OFFSET ,
+.I OPCODE
+and
+.I ADDR
+are hexadecimal.
+Options with an optional value written
+.RB [ =\fIX\fP ]
+take it only in the attached form,
+.BR \-\-name=\fIX\fP .
+.SH OPTIONS
+.SS Loading and BIOS
+.TP
+.BI \-B ", " \-\-biosfile= FILE
+BIOS V32 file.
+Default:
+.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 .
+.TP
+.BI \-M ", " \-\-memcfile= FILE
+Memory card file.
+Changes are written back at the end of each frame.
+.TP
+.BI \-E ", " \-\-entry\-point= OFFSET
+Start executing at
+.I OFFSET
+instead of the BIOS start.
+.TP
+.BR \-S ", " \-\-bios\-start
+Entry point is the BIOS code start.
+.TP
+.BR \-V ", " \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print the usage text and exit.
+.SS Debug information and source
+.TP
+.BI \-\-cart\-asm\-debug= FILE
+.TP
+.BI \-\-cart\-c\-debug= FILE
+Load cartridge labels and line information from
+.I FILE
+(assembler
+.I .vbin.debug
+and compiler
+.I .asm.debug
+formats).
+.TP
+.BI \-\-bios\-asm\-debug= FILE
+.TP
+.BI \-\-bios\-c\-debug= FILE
+The same for the BIOS.
+.TP
+.BI \-\-debug\-dir= DIR
+Also look for debug files in
+.IR DIR ,
+which is tried first.
+Otherwise they are searched for beside the V32 file, in its
+.I obj/
+and
+.I ../obj/
+and in
+.I ./obj
+and the current directory.
+.TP
+.BI \-\-symbol\-file= FILE
+Also read data symbols from
+.I FILE
+(the
+.I NAME.asm.sym
+format of
+.BR v32cc ).
+The ones beside the cartridge are read automatically.
+.TP
+.BR \-n ", " \-\-no\-debug
+Do not process any debug files.
+.TP
+.B \-\-source
+Show the source line at each stop (assembly; C or Lua with
+.BR \-L ).
+.TP
+.BI \-L ", " \-\-langmode= MODE
+.I MODE
+is
+.BR C ,
+.B lua
+(Lua values in memory dumps) or
+.B src
+(any language).
+.B C
+and
+.B src
+also turn
+.B \-\-source
+on.
+.B step
+and
+.B next
+then go by source line.
+.TP
+.BR \-d ", " \-\-deref\-addr
+Show the address of a dereference.
+.TP
+.BR \-c ", " \-\-colors
+Colorized output at the prompt.
+.SS Breakpoints, entry and watching
+.TP
+.BI \-b ", " \-\-break= OFFSET | LABEL
+Set a breakpoint; may be repeated.
+A value that reads as hexadecimal 0 is taken as a label.
+Use the
+.B break
+command for
+.IR FILE:LINE .
+.TP
+.BI \-w ", " \-\-watch\-for= OPCODE
+Run (as
+.BR \-r )
+until this instruction word is executed.
+.TP
+.BI \-C ", " \-\-command\-file= FILE
+Run the debugger commands in
+.IR FILE .
+They are read by the prompt after the first instruction is fetched, so
+.BR step ,
+.B next
+and
+.B continue
+act; with
+.B \-r
+they run once at start.
+.TP
+.BR \-e ", " \-\-errorcheck
+Runtime error checking.
+.TP
+.BR \-p ", " \-\-profile
+Instruction profiling; the
+.B profile
+command shows the report.
+.SS Run control, speed and turbo
+.TP
+.BR \-r ", " \-\-run
+Do not start in single-step mode.
+.TP
+.BI \-\-max\-frames= N
+Stop after
+.I N
+frames.
+.TP
+.B \-\-fast
+Do not throttle to real time.
+.TP
+.BI \-\-frame\-us= N
+Wall-clock microseconds per frame.
+Default 16666; 0 is
+.BR \-\-fast .
+.TP
+.BR \-\-turbo [ =report ]
+.B \-\-fast
+plus fast-forwarding of spin loops that cannot change anything, and dropping
+a full GPU pixel queue instead of painting it (a screenshot may then be
+incomplete).
+.B =report
+prints what was skipped to standard error at exit.
+Off while anything watches single instructions (breakpoints, watchpoints,
+stepping, profiling, tracing).
+.TP
+.B \-\-gpu\-eager
+Paint every GPU command at once instead of when a screenshot or save needs
+the pixels.
+The pictures are the same.
+.TP
+.BR \-\-fixed\-clock [ =\fIY,D,S\fP ]
+.B TIM_CurrentDate
+and
+.B TIM_CurrentTime
+start at year
+.IR Y ,
+day
+.I D
+(0 is January 1st) and
+.I S
+seconds, default 2026,0,0, instead of the host clock.
+.TP
+.BI \-\-seed= N
+Seed the
+.B RNG_CurrentValue
+generator with
+.IR N .
+.TP
+.B \-\-fixed\-cycles
+Reads of
+.B TIM_CycleCounter
+return 0.
+.TP
+.B \-\-warn\-halt
+Say on standard error when the program executes HLT (the emulator then stops).
+.TP
+.BI \-\-halt\-status= N
+Exit with status
+.I N
+(1 to 255) when the run ends at HLT and nothing else went wrong.
+.SS Headless, batch and unattended
+.TP
+.BR \-q ", " \-\-batch ", " \-\-quiet
+Script mode: commands come from standard input or
+.B \-C
+without prompt or echo; no banner, instruction line, display list or final
+register summary.
+Standard output holds only what
+.BR print ,
+.BR console ", ..."
+print; acknowledgements, stop reasons and diagnostics go to standard error.
+Blank lines are skipped and the end of input ends the run.
+A failed
+.B expect
+or an
+.B until
+that times out ends the run with status 1; a command that cannot be parsed
+ends it with status 4.
+.TP
+.BR \-x ", " \-\-exit\-status
+The exit status tells how the program ended (see
+.BR "EXIT STATUS" ).
+.TP
+.BI \-\-dump= N [@ ADDR ]
+.TP
+.IB ADDR : N
+After the run print
+.I N
+RAM words (signed, one per line) from
+.IR ADDR :
+hexadecimal, or a label (also tried as
+.BR global_ NAME );
+default the start of RAM.
+.TP
+.B \-\-console
+Print the BIOS-font text screen when the run ends.
+.SS Input
+.TP
+.BI \-\-input= SCRIPT
+Hold gamepad buttons by cartridge frame (0 is the first frame the cartridge
+runs):
+.IB BUTTON [+ BUTTON ]@ FIRST \- LAST ,...
+(or
+.BI @ FRAME\fR).
+Buttons are LEFT RIGHT UP DOWN START A B X Y L R (SELECT is X).
+.BI @ FILE
+takes the
+.B V32_INPUT=
+line of a V32TRACE report.
+Default:
+.BR $V32_INPUT .
+.TP
+.BI \-\-input\-port= N
+Gamepad port that
+.B \-\-input
+drives, default 0.
+.TP
+.BI \-\-input2= SCRIPT
+The same for gamepad 2 (port 1); default
+.BR $V32_INPUT2 .
+.TP
+.BR \-\-v32kbd [ =\fIPORT\fP ]
+Emulate a v32io keyboard on gamepad
+.I PORT
+(0 to 3, default 0).
+.TP
+.BI \-\-kbd\-input= SOURCE
+Host key source:
+.BR stdin ,
+.BI fd: N
+or a FIFO, pipe or file path.
+Implies
+.BR \-\-v32kbd .
+.TP
+.B \-\-kbd\-sync
+Deliver the next key event only after the program has read the gamepad since
+the last one (by default a new event replaces an unread one, as the real
+keyboard does).
+.TP
+.BR \-\-v32mouse [ =\fIPORT\fP ]
+Emulate a v32io mouse on gamepad
+.I PORT
+(0 to 3, default 1); drive it with the
+.B mouse
+command.
+.TP
+.B \-\-tty
+Full-screen interactive mode: the text console on this terminal and the keys
+to a v32kbd (port 0 unless
+.BR \-\-v32kbd=\fIN\fP ).
+Implies
+.BR \-r .
+Ctrl-] returns to the debugger prompt;
+.B continue
+goes back.
+.SS Memory card and v32dev
+.TP
+.BR \-\-v32dev\-doorbell [ =\fIMS\fP ]
+v32dev mailbox doorbell: header flag bit 1, per-channel reply counters at
+header words 10 to 13, and a store to a cart part's
+.B c2h_head
+rings: flush, give the host
+.I MS
+milliseconds (default 2; 0 is no wait) to answer, import its reply, go on.
+.TP
+.BI \-\-v32dev\-host= N = SPEC
+Serve channel
+.I N
+(0 to 3) of the card's v32dev mailbox natively; may be repeated.
+Needs a card given with
+.BR \-M .
+.I SPEC
+is
+.BI storage: FILE
+with optional
+.BR ,bytes ,
+.BR ,ro ,
+.BI ,sector= N
+and
+.BI ,create= S \fR;
+or
+.BR serial:stdio ", " serial:echo
+with optional
+.BI ,hup= N ,
+.BI ,in= FILE ,
+.BI ,out= FILE
+and
+.BR ,hangup .
+.TP
+.B \-\-v32dev\-host\-force
+Format the card over other data in its last 64 KiB.
+.SS Output, screenshots and the text console
+.TP
+.BI \-\-screenshot\-at= FRAMES
+Write the screen as PNG after these cartridge frames:
+.IR N ,
+.I A\-B
+or
+.IR A\-B/STEP ,
+comma separated.
+.TP
+.BI \-\-screenshot\-file= PATTERN
+File name for those;
+.B %d
+is the frame.
+Default
+.IR v32sim\-shot\-%05d.png .
+.TP
+.BR \-\-screengrid [ =\fISPEC\fP ]
+Grid over screenshots:
+.IR DX [x DY ],
+.BI color= C ,
+.BI alpha= N ,
+.BR labels | nolabels ,
+comma separated.
+Default 40x40.
+.TP
+.BI \-\-highlight= T : R [: COLOR ]
+Outline texture
+.I T
+region
+.I R
+(or
+.BI bios: R\fR)
+in screenshots; comma separated.
+.TP
+.B \-\-noextra
+No grid and no outlines in screenshots.
+.TP
+.BI \-\-console\-color= MODE
+Text console colors:
+.BR none ,
+.BR 16 ,
+.BR 256 ,
+.B true
+or
+.B auto
+(the default with
+.BR \-\-tty ).
+.TP
+.BI \-\-cursor\-color= COLOR
+Recolor the cursor block (BIOS character 20): a color name,
+.I #RRGGBB
+or
+.BR off .
+.TP
+.BR \-v ", " \-\-verbose
+More verbose output.
+.TP
+.BR \-D ", " \-\-debug
+Simulator debug output (development).
+.SS Profiling, statistics and traces
+.TP
+.BI \-\-frame\-stats= FILE
+.TP
+.BI \-\-stats= FILE
+One CSV row per frame (cycles, CPU %, GPU pixels, GPU %, then the GPU, SPU
+and bus counters), and a summary (mean, p50, p95, p99, maximum, total, the
+busiest regions) on standard error at exit.
+.TP
+.BI \-\-frame\-stats\-skip= N
+.TP
+.BI \-\-stats\-skip= N
+Leave the first
+.I N
+frames (the BIOS logo takes about 250) out of the summary.
+.TP
+.BI \-\-frame\-stats\-top= N
+.TP
+.BI \-\-stats\-top= N
+List the
+.I N
+regions charged the most GPU pixels; default 8, 0 is none.
+.TP
+.BI \-\-stats\-format= FMT
+.B csv
+(default) or
+.BR json :
+JSON Lines with stable dotted names and a summary line last.
+.TP
+.BI \-\-profile\-out= FILE
+At the end of the run write how many times each instruction address was
+executed.
+Needs no prompt and no
+.BR \-p .
+Debug labels add a third column.
+.TP
+.BI \-\-profile\-format= FMT
+.B text
+(default) or
+.BR bin :
+a
+.B V32PROF1
+header, then little-endian 32-bit (address, count) pairs.
+.TP
+.BI \-\-profile\-top= N
+Print the
+.I N
+hottest addresses (or functions) to standard error at the end.
+.TP
+.BI \-\-profile\-by= KIND
+.B address
+(default) or
+.BR function :
+add up the addresses of each function (the closest label).
+.TP
+.BI \-\-profile\-event= KIND
+What is counted:
+.B instr
+(default),
+.BR gpu\-draw ,
+.BR gpu\-portwrite ,
+.B spu\-write
+or
+.BR cycles .
+.TP
+.B \-\-time\-breakdown
+At exit, where v32sim's own wall-clock time goes per frame (cpu, gpu, spu,
+output).
+.TP
+.BI \-\-frame\-log= FILE
+With it, a row per frame.
+.TP
+.BI \-\-gpu\-trace= FILE
+.TP
+.BI \-\-spu\-trace= FILE
+Record the program's GPU (SPU) port writes by frame, in a binary format
+(docs/TRACE\-FORMAT.md).
+.TP
+.BI \-\-trace\-dump= FILE
+Print a trace file as text and exit.
+.TP
+.BI \-\-v32trace= PREFIX
+V32TRACE recorder: read the translator's
+.I <cart>.v32trace.meta
+and labels, watch its trap routines and events, write
+.IR PREFIX .traps.txt,
+.IR PREFIX .blocks.txt
+and the report
+.IR PREFIX .trace.txt.
+After a trap the cartridge restarts.
+.TP
+.BI \-\-v32trace\-meta= FILE
+.TP
+.BI \-\-v32trace\-labels= FILE
+Name those files when they are not beside the cartridge.
+.TP
+.B \-\-v32trace\-norestart
+Stay in the trap.
+.SH DEBUGGER COMMANDS
+At the prompt, and in files given with
+.B \-C
+or on standard input in batch mode.
+Commands may be abbreviated (s is step, n next, c continue, p print,
+se set, pro profile, in inventory, lo load); a blank line repeats the
+previous step, next or continue; a line starting with # is a comment.
+Formats (\fB/b /B /d /D /f /o /u /x /X\fR) follow
+.BR print ,
+.BR x ,
+.B display
+and
+.BR watch .
+.B help
+.RI [ COMMAND ]
+or
+.B ?
+describes each in full.
+.SS Running and stopping
+.TP
+.B step
+Execute one instruction; in the source modes, one source line.
+.TP
+.B next
+As step, but a call counts as one step.
+.TP
+.B continue
+Resume until a breakpoint, watchpoint or the end.
+.TP
+.BR run " \fIN\fP, " wait " \fIN\fP"
+Resume for
+.I N
+frames, then stop.
+.TP
+.BR until " [" \fIFILE:LINE ]
+Run to a later line (leave a loop), or to
+.IR FILE:LINE .
+.TP
+.BR until " \(dq\fITEXT\fP\(dq [" timeout " \fIFRAMES\fP] [" rows " \fIN\fP]"
+Resume until the text console shows
+.IR TEXT .
+.TP
+.B finish
+Run until the current function returns.
+.TP
+.B ignore
+Skip the current instruction.
+.TP
+.BR frame ", " up ", " down " [\fIN\fP]"
+Select a stack frame.
+.TP
+.BR backtrace ", " bt
+List of calls, with source lines when known.
+.TP
+.BR quit " [\fISTATUS\fP]"
+Leave the simulator with exit status
+.IR STATUS .
+.SS Breakpoints, watchpoints, checks
+.TP
+.BR break " [\fI0xADDR\fP|\fILABEL\fP|\fIFILE:LINE\fP]"
+Set a breakpoint, or list them.
+.TP
+.BR tbreak " \fIFILE:LINE\fP|\fILINE\fP|\fI0xADDR\fP|\fILABEL\fP"
+One-shot breakpoint.
+.TP
+.BR unbreak " \fI#\fP"
+Remove breakpoint
+.IR # .
+.TP
+.BR watch [ /d "] \fILOCATION OP VALUE\fP [\fILABEL\fP]"
+Break when the comparison becomes true; location is a register, IOPort,
+address or symbol.
+.TP
+.B watchlist
+List watchpoints.
+.TP
+.BR unwatch " \fIINDEX\fP|\fILABEL\fP"
+Remove a watchpoint.
+.TP
+.BR expect [ /d "] \fILOCATION OP VALUE\fP"
+.TP
+.BR expect " console \(dq\fITEXT\fP\(dq [" rows " \fIN\fP]"
+.TP
+.BR expect " stats \fINAME\fP[.\fIAGG\fP] \fIOP VALUE\fP"
+Check now; a failure sets exit status 1 and ends a batch run.
+.SS Inspecting
+.TP
+.BR print [ /\fIF\fP "] \fIXYZ\fP"
+One-time display of a register, address, IOPort, label or C global.
+.TP
+.BR x [ /\fIF\fP "] \fISYMBOL\fP|\fI0xADDR\fP [\fICOUNT\fP]"
+Display
+.I COUNT
+words.
+.TP
+.BR display [ /\fIF\fP "] \fIXYZ\fP [\fILABEL\fP]"
+Add a display list item.
+.TP
+.BR undisplay " \fI#\fP"
+Remove it.
+.TP
+.BR locals " [\fINAME\fP], " info " locals [\fINAME\fP]"
+Local variables of the selected frame.
+.TP
+.BR list " [\fIFILE:LINE\fP|\fIFUNC\fP]"
+Source around the current line.
+.TP
+.B inventory
+Loaded components and resources.
+.TP
+.B profile
+Profiling report.
+.TP
+.B version
+The simulator version.
+.TP
+.BR label " [\fI0xADDR LABEL\fP], " unlabel " \fI#\fP"
+List, add and remove labels.
+.TP
+.BR stats " [" show | regions | reset | on | off | save "\fI...\fP]"
+GPU, SPU and bus counters per frame and per region.
+.SS Changing state
+.TP
+.BR set " [\fINAME\fP=\fIVALUE\fP]"
+Set a setting (color, deref, profile, debug, errorchk, verbose, source,
+mode), a register,
+.IR 0xADDR ,
+or an IOPort; with no argument, list the settings.
+.TP
+.BR asm " [@\fIADDR\fP|\-x] \fIINSTRUCTION\fP"
+Assemble an instruction: patch memory, or run it once with
+.BR \-x .
+.TP
+.BR replace " IP:\fIX\fP IR:\fIY\fP IV:\fIZ\fP"
+Patch instruction memory.
+.TP
+.BR save " [\fIFILE\fP], " restore " \fIFILE\fP"
+Write and restore the machine state.
+.TP
+.BR load " bios|cart|memc:\fIFILE\fP, " unload " bios|cart|memc"
+Swap components.
+.TP
+.BR gamepad " [\fI#\fP] [\fICOMMAND\fP]"
+View or simulate gamepad state.
+.TP
+.BR kbd " [\fISUBCOMMAND\fP]"
+v32kbd keyboard:
+.BR attach ,
+.BR detach ,
+.BR type ,
+.BR key ,
+.BR input ,
+.BR clear ,
+.BR sync .
+.TP
+.BR mouse " [\fISUBCOMMAND\fP]"
+v32mouse:
+.BR attach ,
+.BR detach ,
+.BR move ,
+.BR down ,
+.BR up ,
+.BR click ,
+.BR wait ,
+.BR clear .
+.TP
+.BR mailbox " [\fICHANNEL\fP]"
+v32dev mailbox state of the memory card.
+.TP
+.BR dev " [\fISUBCOMMAND\fP]"
+Native v32dev host:
+.BR info ,
+.BR format ,
+.BR attach ,
+.BR detach ,
+.BR swap .
+.SS Screen
+.TP
+.BR console " [\fIFILE\fP]"
+Show the BIOS-font text drawn on the screen as text (or write it to
+.IR FILE ).
+Also
+.BR "console \-\-attrs" [ =fg | bg | all ],
+.B console color
+.IR MODE ,
+.B console cursor
+.IR COLOR ,
+.BR "console status" .
+.TP
+.BR screenshot " [\-\-plain] [\fIFILE\fP]"
+Write the GPU screen to a PNG file.
+.TP
+.BR highlight " [\fITEX:REGION\fP [\fICOLOR\fP]]"
+Outline regions in screenshots (also called
+.BR boundbox ).
+.TP
+.BR screengrid " [\fIARGS\fP]"
+Lay a grid over screenshots.
+.TP
+.BR noextra " [on|off]"
+Screenshots without grid and outlines.
+.TP
+.BR mark " [\fINOTE\fP]"
+With
+.BR \-\-v32trace :
+drop a marker in the report.
+.TP
+.BR help " [\fICOMMAND\fP], " ?
+Display help.
+.SH ENVIRONMENT
+.TP
+.BR V32_INPUT ", " V32_INPUT2
+Gamepad scripts used when
+.B \-\-input
+or
+.B \-\-input2
+is not given.
+.TP
+.B V32DEV_DISABLE
+Set to anything but
+.BR 0 :
+the memory card is an ordinary card with no v32dev mailbox.
+.TP
+.BR NO_COLOR ", " COLORTERM ", " TERM
+Choose the level of
+.BR \-\-console\-color=auto :
+none if
+.B NO_COLOR
+is set and not empty; true color for
+.B COLORTERM
+containing truecolor or 24bit; 256 colors for a
+.B TERM
+containing 256color; 16 for any other terminal except dumb.
+.TP
+.BR HOME ", " INPUTRC
+Read by GNU readline for the prompt.
+.SH FILES
+.TP
+.I /usr/local/Vircon32/Emulator/Bios/StandardBios.v32
+The default BIOS.
+.TP
+.IR NAME .vbin.debug ", " NAME .asm.debug
+Labels and line information, searched for as described under
+.BR \-\-debug\-dir .
+.TP
+.IR NAME .asm.sym ", " NAME .vbin.sym
+Data symbols.
+.TP
+.IR NAME .vbin.vars
+Local variables, for
+.BR locals .
+.TP
+.IR NAME .v32trace.meta
+V32TRACE translator metadata.
+.TP
+.IR v32sim\-shot\-NNNNN.png
+Screenshots of
+.BR \-\-screenshot\-at .
+.TP
+.IR v32sim.YYYYMMDD\-HHMMSS .png ", " .sav
+Default names of the
+.B screenshot
+and
+.B save
+commands.
+.SH EXIT STATUS
+.TP
+.B 0
+The program executed HLT (unless
+.BR \-\-halt\-status ),
+or
+.B quit
+or the end of input.
+.TP
+.B 1
+An
+.B expect
+failed or an
+.B until
+timed out; also a bad option value.
+.TP
+.B 2
+The frame limit was reached
+.RB ( \-x ).
+.TP
+.B 3
+A system error
+.RB ( \-x ):
+the run stops instead of entering the BIOS error handler.
+.TP
+.B 4
+.B \-\-batch
+could not parse a command.
+.TP
+.B 5
+.B \-\-dump
+could not print what was asked.
+.TP
+.I N
+.B quit
+.I N
+overrides the above;
+.BI \-\-halt\-status= N
+sets the status of an HLT.
+Other startup errors (an unreadable BIOS or cartridge, ...) exit with their
+own nonzero status.
+.SH EXAMPLES
+Debug a cartridge, stopping at a label:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-b main cart.v32
+.EE
+.RE
+.PP
+Run headless for 600 frames, print four words of a C global, and use the
+exit status:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-r \-q \-x \-\-fast \-\-max\-frames=600 \e
+    \-\-dump=4@counter cart.v32 </dev/null; echo $?
+.EE
+.RE
+.PP
+Screenshots after cartridge frames 60 and 120 with a button held:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=130 \e
+    \-\-input=A@40\-44 \-\-screenshot\-at=60,120 cart.v32 </dev/null
+.EE
+.RE
+.PP
+Frame statistics and the hottest functions:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=1800 \e
+    \-\-frame\-stats=load.csv \-\-frame\-stats\-skip=250 \e
+    \-\-profile\-by=function \-\-profile\-top=20 cart.v32 </dev/null
+.EE
+.RE
+.PP
+A scripted session on a program with a prompt:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-\-batch \-\-fast \-x \-\-v32kbd dos.v32 < session.cmd
+.EE
+.RE
+.PP
+A text program on the terminal:
+.PP
+.RS
+.EX
+v32sim \-\-tty \-B StandardBios.v32 v32nix.v32
+.EE
+.RE
+.SH SEE ALSO
+.BR v32cc (1),
+.BR v32as (1),
+.BR v32lua (1),
+.BR v32opt (1),
+the Vircon32 DesktopEmulator.
+.PP
+Documentation in the source tree:
+.I README.md
+(the debugger command language),
+.IR docs/USAGE.md ,
+.IR docs/TOOLS.md ,
+.IR docs/TESTING.md ,
+.IR docs/PROFILING.md ,
+.IR docs/TRACE\-FORMAT.md
+and
+.IR docs/V32TRACE\-SPEC.md .
+.SH AUTHOR
+Matthew Haas

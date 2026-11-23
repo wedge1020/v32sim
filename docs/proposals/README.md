@@ -10,17 +10,12 @@ Severity, as in the existing proposals: **A** blocks a stated goal, **B** forces
 
 | file | to | items |
 |---|---|---|
-| [PROPOSAL-v32cc.md](PROPOSAL-v32cc.md) | v32cc 20261102-dev | SC-1 .. SC-5, 2 questions |
-| [PROPOSAL-v32as.md](PROPOSAL-v32as.md) | v32as / v32asld 20261101-dev | SA-1 .. SA-4, 2 questions |
-| [PROPOSAL-v32opt.md](PROPOSAL-v32opt.md) | v32opt 20261030-dev | SO-1 .. SO-4, 2 questions |
-| [PROPOSAL-v32lua.md](PROPOSAL-v32lua.md) | v32lua 20261030-dev | SL-1 .. SL-4, 2 questions |
 | [PROPOSAL-v32cxx.md](PROPOSAL-v32cxx.md) | v32c++ | SX-1 .. SX-3, 2 questions |
 | [PROPOSAL-v32io.md](PROPOSAL-v32io.md) | v32io / v32dev 20261014-dev | SI-1 .. SI-3, 2 questions |
 | [PROPOSAL-GBtoV32.md](PROPOSAL-GBtoV32.md) | GBtoV32 20261101-dev (and NEStoV32, for the shared spec) | SG-1 .. SG-5 (SG-5 and both questions answered 2026-11-04) |
 | [PROPOSAL-V32DOS.md](PROPOSAL-V32DOS.md) | V32DOS | SD-1 .. SD-4, 1 question |
 | [PROPOSAL-v32nix.md](PROPOSAL-v32nix.md) | v32nix 20261102-dev | SN-1 .. SN-3, 2 questions |
-| [PROPOSAL-ComputerSoftware.md](PROPOSAL-ComputerSoftware.md) | Vircon32 ComputerSoftware (DesktopEmulator, DevTools) | SE-1 .. SE-4, 1 question |
-| [PROPOSAL-v32sim.md](PROPOSAL-v32sim.md) | v32sim itself: the backlog these surveys produced | VS-10 .. VS-18 |
 
-Where two projects could each solve one problem (a C function's end for debug ranges: v32cc SC-1 or v32as SA-1), both files say
-so and either answer closes both items.
+Proposals whose every item was done, answered or declined (v32cc, v32as, v32opt, v32lua, ComputerSoftware, and v32sim's own
+VS-10 .. VS-19 backlog) were removed before the first release; see the project history. The VS-9 design is
+[v32sim-proposal-perf-metrics-20261030.md](v32sim-proposal-perf-metrics-20261030.md).

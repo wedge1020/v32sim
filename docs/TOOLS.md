@@ -19,8 +19,10 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 
 | question | tool |
 |---|---|
+| look up an option, an environment variable, a file or an exit status | [USAGE.md](USAGE.md), `man v32sim` |
 | build a cartridge with debug files from C, C++, Lua or assembly (optionally optimized: `-O 2`) | `tools/v32mkcart.sh` ([V32DBG-STATUS.md](V32DBG-STATUS.md) for the stack) |
 | check the whole debug stack (v32sim -> v32opt -> v32cc / v32c++ / v32lua -> v32as) | `tests/run_stack_tests.sh TOOLCHAIN_DIR` |
+| run every v32sim suite from one toolchain directory | `make check TC=DIR` (`tools/v32sim-check.sh`: one summary line, SKIP for a suite whose inputs are missing) |
 | step through it, set breakpoints, watch a variable | `v32sim cart.v32` (README "The Debugger", "Source-Level Debugging") |
 | see the local variables of a frame | `locals` / `info locals` (needs `NAME.vbin.vars`: v32cc -g or v32lua -g, then v32as -g) |
 | run a whole set of carts: which crash, trap, overrun | `tools/v32sim-corpus.py` (CSV, screenshots, `--input fixed` for fair load numbers) |

@@ -1,6 +1,6 @@
 # V32DBG: source locations and language information across the Vircon32 toolchain
 
-Status: proposal, 2026-10-30. `v32lua` already writes the parts marked **(v32lua: done)**.
+Status: proposal, 2026-10-30, since implemented by every party; [V32DBG-STATUS.md](V32DBG-STATUS.md) says where each tool stands. `v32lua` already writes the parts marked **(v32lua: done)**.
 Parties: `v32lua`, `v32cc` / `v32c++`, `v32opt`, `v32as`, `v32sim`, and the stock
 DevelopmentTools C compiler (`compile`) with the stock `assemble`.
 
@@ -58,7 +58,7 @@ already reads: comments only, a missing or unknown line is always safe.
 ```
 
 `;@lang` selects how `v32sim` shows values (Lua's NaN-boxed values, C's `int`/`float`
-by `type=`). `;@var` and `;@scope` are what a debugger needs for `print x` and
+by `type=`; v32sim, by decision, goes by the source file's extension and `type=`, and does not read `;@lang`). `;@var` and `;@scope` are what a debugger needs for `print x` and
 `info locals`; they are the second step and are only meaningful for unoptimized code
 (see "Locations after optimization").
 

@@ -36,7 +36,8 @@ tools/v32dev.py serve game.memc --ch0 storage:disk.img --ch1 serial:stdio      #
 
 - **v32sim** emulates a `v32kbd` on any port (`--v32kbd=N`; `kbd type "ls\n"`, `kbd key`, `--kbd-input=stdin|FIFO|file`, `--tty`) and
   plays the emulator's part of the v32dev mailbox, so a real `v32dev.py serve` talks to a cartridge in v32sim (the v32io suite
-  `tests/v32dev/dev_rom_test.py` passes 41/41 through v32sim's `tests/v32sim_runner.sh`). v32sim has **no v32mouse**: script
-  mouse input as gamepad presses with `v32cxx`'s `tools/v32io-script.py` (in v32sim `tools/`) and `tools/vprof2cmd.py`.
+  `tests/v32dev/dev_rom_test.py` passes 41/41 through v32sim's `tests/v32sim_runner.sh`). It emulates a `v32mouse` too
+  (`--v32mouse[=PORT]`, default port 1; the `mouse` command: `move DX DY`, `click|down|up [left|right|middle]`, `wait N`); `tests/vectors/mouse_*.vec`
+  from this project are checked against it. v32sim's `tools/v32io-script.py` and `tools/vprof2cmd.py` turn actions into gamepad presses.
 - The v32io project's own tests: `tests/run.sh`, `tests/v32dev/run.sh` (unit, order, stress, end-to-end with the host),
   `tests/v32io/run.sh`.

@@ -1,6 +1,6 @@
 # V32SIMGAPS: where v32sim differs from the Vircon32 DesktopEmulator
 
-This is a comparison of v32sim (`20261018-dev`) with the stock DesktopEmulator
+This is a comparison of v32sim with the stock DesktopEmulator
 (`ComputerSoftware/DesktopEmulator/ConsoleLogic`, plus `Emulator/VideoOutput.cpp`
 for rendering). The goal is that a program behaves identically under both.
 
@@ -396,7 +396,7 @@ the addressable range (`memory_texel()`). Tests `g08f`, `g08g`.
 
 ## Verification
 
-`tests/ref/build.sh <ComputerSoftware checkout> <dir>` builds `refrun` (the console logic
+`tools/oracle/build.sh <ComputerSoftware checkout> <dir>` (or its wrapper `tests/ref/build.sh`) builds `refrun` (the console logic
 at `e75b537` with stubbed video/audio/log callbacks), the assembler and the ROM packer.
 Then, with that directory as the tools dir:
 

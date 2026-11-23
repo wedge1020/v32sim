@@ -1,0 +1,918 @@
+.TH V32SIM 1 "noviembre de 2026" "v32sim 20261123-dev" "Comandos de usuario"
+.SH NOMBRE
+v32sim \- simulador sin interfaz y depurador paso a paso para la consola de fantas\('ia Vircon32
+.SH SINOPSIS
+.B v32sim
+.RI [ OPCI\('ON ]...
+.RI [ CARTFILE.v32 ]
+.br
+.B v32sim
+.B \-\-version
+.br
+.B v32sim
+.B \-\-help
+.SH DESCRIPCI\('ON
+.B v32sim
+ejecuta un cartucho de Vircon32 sobre sus propios modelos de la CPU, la GPU,
+la SPU, los temporizadores, los mandos y la tarjeta de memoria de la consola,
+y o bien se detiene en un indicador para la depuraci\('on paso a paso, o bien se
+ejecuta sin supervisi\('on e informa de lo ocurrido.
+Lee los archivos de depuraci\('on que escribe la cadena de herramientas de
+Vircon32
+.RB ( v32as " y " v32cc " con " \-g )
+para mostrar etiquetas, l\('ineas de c\('odigo fuente y variables.
+.PP
+.I CARTFILE.v32
+es el cartucho; \fB\-\fR (o nada) significa que no hay cartucho y la BIOS se
+ejecuta sola.
+Sin
+.B \-r
+el simulador se detiene antes de la primera instrucci\('on y lee \('ordenes (ver
+.BR "\('ORDENES DEL DEPURADOR" ).
+Con
+.BR \-r ,
+.B \-\-batch
+y
+.BR \-x ,
+es un ejecutor sin interfaz cuyo estado de salida indica c\('omo termin\('o el
+programa.
+.PP
+Los valores dados como
+.IR OFFSET ,
+.I OPCODE
+y
+.I ADDR
+son hexadecimales.
+Las opciones con un valor opcional escritas
+.RB [ =\fIX\fP ]
+lo admiten solo en la forma pegada,
+.BR \-\-nombre=\fIX\fP .
+.SH OPCIONES
+.SS Carga y BIOS
+.TP
+.BI \-B ", " \-\-biosfile= ARCHIVO
+Archivo V32 de la BIOS.
+Por defecto:
+.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 .
+.TP
+.BI \-M ", " \-\-memcfile= ARCHIVO
+Archivo de tarjeta de memoria.
+Los cambios se escriben de vuelta al final de cada cuadro.
+.TP
+.BI \-E ", " \-\-entry\-point= OFFSET
+Empieza a ejecutar en
+.I OFFSET
+en lugar de en el inicio de la BIOS.
+.TP
+.BR \-S ", " \-\-bios\-start
+El punto de entrada es el inicio del c\('odigo de la BIOS.
+.TP
+.BR \-V ", " \-\-version
+Imprime la versi\('on y termina.
+.TP
+.BR \-h ", " \-\-help
+Imprime el texto de uso y termina.
+.SS Informaci\('on de depuraci\('on y c\('odigo fuente
+.TP
+.BI \-\-cart\-asm\-debug= ARCHIVO
+.TP
+.BI \-\-cart\-c\-debug= ARCHIVO
+Carga las etiquetas del cartucho y la informaci\('on de l\('ineas desde
+.I ARCHIVO
+(formatos
+.I .vbin.debug
+del ensamblador y
+.I .asm.debug
+del compilador).
+.TP
+.BI \-\-bios\-asm\-debug= ARCHIVO
+.TP
+.BI \-\-bios\-c\-debug= ARCHIVO
+Lo mismo para la BIOS.
+.TP
+.BI \-\-debug\-dir= DIR
+Busca tambi\('en archivos de depuraci\('on en
+.IR DIR ,
+que se prueba primero.
+Si no, se buscan junto al archivo V32, en su
+.I obj/
+y
+.I ../obj/
+y en
+.I ./obj
+y el directorio actual.
+.TP
+.BI \-\-symbol\-file= ARCHIVO
+Lee tambi\('en s\('imbolos de datos de
+.I ARCHIVO
+(el formato
+.I NOMBRE.asm.sym
+de
+.BR v32cc ).
+Los que est\('an junto al cartucho se leen autom\('aticamente.
+.TP
+.BR \-n ", " \-\-no\-debug
+No procesa ning\('un archivo de depuraci\('on.
+.TP
+.B \-\-source
+Muestra la l\('inea de c\('odigo fuente en cada parada (ensamblador; C o Lua con
+.BR \-L ).
+.TP
+.BI \-L ", " \-\-langmode= MODO
+.I MODO
+es
+.BR C ,
+.B lua
+(valores de Lua en los volcados de memoria) o
+.B src
+(cualquier lenguaje).
+.B C
+y
+.B src
+activan tambi\('en
+.B \-\-source .
+.B step
+y
+.B next
+avanzan entonces por l\('inea de c\('odigo.
+.TP
+.BR \-d ", " \-\-deref\-addr
+Muestra la direcci\('on de una desreferencia.
+.TP
+.BR \-c ", " \-\-colors
+Salida en color en el indicador.
+.SS Puntos de ruptura, entrada y vigilancia
+.TP
+.BI \-b ", " \-\-break= OFFSET | ETIQUETA
+Pone un punto de ruptura; puede repetirse.
+Un valor que se lee como hexadecimal 0 se toma como etiqueta.
+Usa la orden
+.B break
+para
+.IR ARCHIVO:L\('INEA .
+.TP
+.BI \-w ", " \-\-watch\-for= OPCODE
+Ejecuta (como
+.BR \-r )
+hasta que se ejecute esta palabra de instrucci\('on.
+.TP
+.BI \-C ", " \-\-command\-file= ARCHIVO
+Ejecuta las \('ordenes del depurador de
+.IR ARCHIVO .
+El indicador las lee despu\('es de obtener la primera instrucci\('on, as\('i que
+.BR step ,
+.B next
+y
+.B continue
+act\('uan; con
+.B \-r
+se ejecutan una vez al inicio.
+.TP
+.BR \-e ", " \-\-errorcheck
+Comprobaci\('on de errores en tiempo de ejecuci\('on.
+.TP
+.BR \-p ", " \-\-profile
+Perfilado de instrucciones; la orden
+.B profile
+muestra el informe.
+.SS Control de ejecuci\('on, velocidad y turbo
+.TP
+.BR \-r ", " \-\-run
+No empieza en modo paso a paso.
+.TP
+.BI \-\-max\-frames= N
+Se detiene tras
+.I N
+cuadros.
+.TP
+.B \-\-fast
+No limita la velocidad al tiempo real.
+.TP
+.BI \-\-frame\-us= N
+Microsegundos de reloj de pared por cuadro.
+Por defecto 16666; 0 equivale a
+.BR \-\-fast .
+.TP
+.BR \-\-turbo [ =report ]
+.B \-\-fast
+m\('as avance r\('apido de los bucles de espera que no pueden cambiar nada, y
+descarte de una cola de p\('ixeles de la GPU llena en lugar de pintarla (una
+captura de pantalla puede entonces salir incompleta).
+.B =report
+imprime en la salida de error est\('andar al salir lo que se omiti\('o.
+Desactivado mientras algo vigile instrucciones individuales (puntos de
+ruptura, puntos de vigilancia, paso a paso, perfilado, trazado).
+.TP
+.B \-\-gpu\-eager
+Pinta cada orden de la GPU de inmediato en lugar de cuando una captura de
+pantalla o un guardado necesitan los p\('ixeles.
+Las im\('agenes son las mismas.
+.TP
+.BR \-\-fixed\-clock [ =\fIA,D,S\fP ]
+.B TIM_CurrentDate
+y
+.B TIM_CurrentTime
+empiezan en el a\(~no
+.IR A ,
+el d\('ia
+.I D
+(0 es el 1 de enero) y
+.I S
+segundos, por defecto 2026,0,0, en lugar del reloj del anfitri\('on.
+.TP
+.BI \-\-seed= N
+Inicializa con
+.I N
+el generador
+.BR RNG_CurrentValue .
+.TP
+.B \-\-fixed\-cycles
+Las lecturas de
+.B TIM_CycleCounter
+devuelven 0.
+.TP
+.B \-\-warn\-halt
+Avisa por la salida de error est\('andar cuando el programa ejecuta HLT (el
+emulador se detiene entonces).
+.TP
+.BI \-\-halt\-status= N
+Sale con el estado
+.I N
+(de 1 a 255) cuando la ejecuci\('on termina en HLT y nada m\('as fue mal.
+.SS Sin interfaz, por lotes y sin supervisi\('on
+.TP
+.BR \-q ", " \-\-batch ", " \-\-quiet
+Modo guion: las \('ordenes vienen de la entrada est\('andar o de
+.B \-C
+sin indicador ni eco; sin cabecera, l\('inea de instrucci\('on, lista de
+visualizaci\('on ni resumen final de registros.
+La salida est\('andar contiene solo lo que imprimen
+.BR print ,
+.BR console ", ..."
+; los acuses, los motivos de parada y los diagn\('osticos van a la salida de
+error est\('andar.
+Las l\('ineas en blanco se omiten y el fin de la entrada termina la ejecuci\('on.
+Un
+.B expect
+fallido o un
+.B until
+que agota su tiempo termina la ejecuci\('on con estado 1; una orden que no se
+puede analizar la termina con estado 4.
+.TP
+.BR \-x ", " \-\-exit\-status
+El estado de salida indica c\('omo termin\('o el programa (ver
+.BR "ESTADO DE SALIDA" ).
+.TP
+.BI \-\-dump= N [@ ADDR ]
+.TP
+.IB ADDR : N
+Tras la ejecuci\('on imprime
+.I N
+palabras de RAM (con signo, una por l\('inea) desde
+.IR ADDR :
+hexadecimal, o una etiqueta (probada tambi\('en como
+.BR global_ NOMBRE );
+por defecto el inicio de la RAM.
+.TP
+.B \-\-console
+Imprime la pantalla de texto con la fuente de la BIOS cuando termina la
+ejecuci\('on.
+.SS Entrada
+.TP
+.BI \-\-input= GUION
+Mantiene pulsados botones del mando por cuadro del cartucho (0 es el primer
+cuadro que ejecuta el cartucho):
+.IB BOT\('ON [+ BOT\('ON ]@ PRIMERO \- \('ULTIMO ,...
+(o
+.BI @ CUADRO\fR).
+Los botones son LEFT RIGHT UP DOWN START A B X Y L R (SELECT es X).
+.BI @ ARCHIVO
+toma la l\('inea
+.B V32_INPUT=
+de un informe de V32TRACE.
+Por defecto:
+.BR $V32_INPUT .
+.TP
+.BI \-\-input\-port= N
+Puerto de mando que maneja
+.BR \-\-input ,
+por defecto 0.
+.TP
+.BI \-\-input2= GUION
+Lo mismo para el mando 2 (puerto 1); por defecto
+.BR $V32_INPUT2 .
+.TP
+.BR \-\-v32kbd [ =\fIPUERTO\fP ]
+Emula un teclado v32io en el puerto de mando
+.I PUERTO
+(de 0 a 3, por defecto 0).
+.TP
+.BI \-\-kbd\-input= ORIGEN
+Origen de las teclas del anfitri\('on:
+.BR stdin ,
+.BI fd: N
+o una ruta de FIFO, tuber\('ia o archivo.
+Implica
+.BR \-\-v32kbd .
+.TP
+.B \-\-kbd\-sync
+Entrega el siguiente evento de tecla solo despu\('es de que el programa haya
+le\('ido el mando desde el anterior (por defecto un evento nuevo reemplaza a uno
+sin leer, como hace el teclado real).
+.TP
+.BR \-\-v32mouse [ =\fIPUERTO\fP ]
+Emula un rat\('on v32io en el puerto de mando
+.I PUERTO
+(de 0 a 3, por defecto 1); se maneja con la orden
+.BR mouse .
+.TP
+.B \-\-tty
+Modo interactivo a pantalla completa: la consola de texto en este terminal y
+las teclas a un v32kbd (puerto 0 salvo
+.BR \-\-v32kbd=\fIN\fP ).
+Implica
+.BR \-r .
+Ctrl-] vuelve al indicador del depurador;
+.B continue
+regresa.
+.SS Tarjeta de memoria y v32dev
+.TP
+.BR \-\-v32dev\-doorbell [ =\fIMS\fP ]
+Timbre del buz\('on v32dev: bit 1 de la bandera de cabecera, contadores de
+respuesta por canal en las palabras de cabecera 10 a 13, y un almacenamiento
+en el
+.B c2h_head
+de una parte del cartucho hace sonar el timbre: vac\('ia, da al anfitri\('on
+.I MS
+milisegundos (por defecto 2; 0 es sin espera) para responder, importa su
+respuesta y sigue.
+.TP
+.BI \-\-v32dev\-host= N = SPEC
+Atiende de forma nativa el canal
+.I N
+(de 0 a 3) del buz\('on v32dev de la tarjeta; puede repetirse.
+Necesita una tarjeta dada con
+.BR \-M .
+.I SPEC
+es
+.BI storage: ARCHIVO
+con los opcionales
+.BR ,bytes ,
+.BR ,ro ,
+.BI ,sector= N
+y
+.BI ,create= S \fR;
+o
+.BR serial:stdio ", " serial:echo
+con los opcionales
+.BI ,hup= N ,
+.BI ,in= ARCHIVO ,
+.BI ,out= ARCHIVO
+y
+.BR ,hangup .
+.TP
+.B \-\-v32dev\-host\-force
+Formatea la tarjeta sobre otros datos en sus \('ultimos 64 KiB.
+.SS Salida, capturas de pantalla y consola de texto
+.TP
+.BI \-\-screenshot\-at= CUADROS
+Escribe la pantalla como PNG tras estos cuadros del cartucho:
+.IR N ,
+.I A\-B
+o
+.IR A\-B/PASO ,
+separados por comas.
+.TP
+.BI \-\-screenshot\-file= PATR\('ON
+Nombre de archivo para ellas;
+.B %d
+es el cuadro.
+Por defecto
+.IR v32sim\-shot\-%05d.png .
+.TP
+.BR \-\-screengrid [ =\fISPEC\fP ]
+Cuadr\('icula sobre las capturas:
+.IR DX [x DY ],
+.BI color= C ,
+.BI alpha= N ,
+.BR labels | nolabels ,
+separados por comas.
+Por defecto 40x40.
+.TP
+.BI \-\-highlight= T : R [: COLOR ]
+Perfila en las capturas la regi\('on
+.I R
+de la textura
+.I T
+(o
+.BI bios: R\fR);
+separadas por comas.
+.TP
+.B \-\-noextra
+Sin cuadr\('icula ni perfiles en las capturas.
+.TP
+.BI \-\-console\-color= MODO
+Colores de la consola de texto:
+.BR none ,
+.BR 16 ,
+.BR 256 ,
+.B true
+o
+.B auto
+(el valor por defecto con
+.BR \-\-tty ).
+.TP
+.BI \-\-cursor\-color= COLOR
+Cambia el color del bloque del cursor (car\('acter 20 de la BIOS): un nombre de
+color,
+.I #RRGGBB
+u
+.BR off .
+.TP
+.BR \-v ", " \-\-verbose
+Salida m\('as detallada.
+.TP
+.BR \-D ", " \-\-debug
+Salida de depuraci\('on del simulador (desarrollo).
+.SS Perfilado, estad\('isticas y trazas
+.TP
+.BI \-\-frame\-stats= ARCHIVO
+.TP
+.BI \-\-stats= ARCHIVO
+Una fila CSV por cuadro (ciclos, % de CPU, p\('ixeles de GPU, % de GPU, y luego
+los contadores de GPU, SPU y bus), y un resumen (media, p50, p95, p99,
+m\('aximo, total, las regiones m\('as ocupadas) en la salida de error est\('andar al
+salir.
+.TP
+.BI \-\-frame\-stats\-skip= N
+.TP
+.BI \-\-stats\-skip= N
+Deja fuera del resumen los primeros
+.I N
+cuadros (el logotipo de la BIOS ocupa unos 250).
+.TP
+.BI \-\-frame\-stats\-top= N
+.TP
+.BI \-\-stats\-top= N
+Lista las
+.I N
+regiones a las que se cargaron m\('as p\('ixeles de GPU; por defecto 8, 0 es
+ninguna.
+.TP
+.BI \-\-stats\-format= FMT
+.B csv
+(por defecto) o
+.BR json :
+JSON Lines con nombres con puntos estables y una l\('inea de resumen al final.
+.TP
+.BI \-\-profile\-out= ARCHIVO
+Al final de la ejecuci\('on escribe cu\('antas veces se ejecut\('o cada direcci\('on de
+instrucci\('on.
+No necesita indicador ni
+.BR \-p .
+Las etiquetas de depuraci\('on a\(~naden una tercera columna.
+.TP
+.BI \-\-profile\-format= FMT
+.B text
+(por defecto) o
+.BR bin :
+una cabecera
+.B V32PROF1
+y luego pares (direcci\('on, cuenta) de 32 bits little-endian.
+.TP
+.BI \-\-profile\-top= N
+Imprime en la salida de error est\('andar al final las
+.I N
+direcciones (o funciones) m\('as calientes.
+.TP
+.BI \-\-profile\-by= TIPO
+.B address
+(por defecto) o
+.BR function :
+suma las direcciones de cada funci\('on (la etiqueta m\('as cercana).
+.TP
+.BI \-\-profile\-event= TIPO
+Qu\('e se cuenta:
+.B instr
+(por defecto),
+.BR gpu\-draw ,
+.BR gpu\-portwrite ,
+.B spu\-write
+o
+.BR cycles .
+.TP
+.B \-\-time\-breakdown
+Al salir, en qu\('e se va por cuadro el tiempo de reloj de pared del propio
+v32sim (cpu, gpu, spu, salida).
+.TP
+.BI \-\-frame\-log= ARCHIVO
+Con ella, una fila por cuadro.
+.TP
+.BI \-\-gpu\-trace= ARCHIVO
+.TP
+.BI \-\-spu\-trace= ARCHIVO
+Registra por cuadro las escrituras del programa en los puertos de la GPU
+(SPU), en un formato binario (docs/TRACE\-FORMAT.md).
+.TP
+.BI \-\-trace\-dump= ARCHIVO
+Imprime un archivo de traza como texto y termina.
+.TP
+.BI \-\-v32trace= PREFIJO
+Registrador V32TRACE: lee el
+.I <cart>.v32trace.meta
+del traductor y las etiquetas, vigila sus rutinas de trampa y sus eventos, y
+escribe
+.IR PREFIJO .traps.txt,
+.IR PREFIJO .blocks.txt
+y el informe
+.IR PREFIJO .trace.txt.
+Tras una trampa el cartucho se reinicia.
+.TP
+.BI \-\-v32trace\-meta= ARCHIVO
+.TP
+.BI \-\-v32trace\-labels= ARCHIVO
+Nombran esos archivos cuando no est\('an junto al cartucho.
+.TP
+.B \-\-v32trace\-norestart
+Permanece en la trampa.
+.SH \('ORDENES DEL DEPURADOR
+En el indicador, y en los archivos dados con
+.B \-C
+o en la entrada est\('andar en modo por lotes.
+Las \('ordenes pueden abreviarse (s es step, n next, c continue, p print,
+se set, pro profile, in inventory, lo load); una l\('inea en blanco repite el
+\('ultimo step, next o continue; una l\('inea que empieza por # es un comentario.
+Los formatos (\fB/b /B /d /D /f /o /u /x /X\fR) siguen a
+.BR print ,
+.BR x ,
+.B display
+y
+.BR watch .
+.B help
+.RI [ ORDEN ]
+o
+.B ?
+describe cada una por completo.
+.SS Ejecuci\('on y parada
+.TP
+.B step
+Ejecuta una instrucci\('on; en los modos de c\('odigo fuente, una l\('inea de c\('odigo.
+.TP
+.B next
+Como step, pero una llamada cuenta como un solo paso.
+.TP
+.B continue
+Reanuda hasta un punto de ruptura, un punto de vigilancia o el final.
+.TP
+.BR run " \fIN\fP, " wait " \fIN\fP"
+Reanuda durante
+.I N
+cuadros y luego se detiene.
+.TP
+.BR until " [" \fIARCHIVO:L\('INEA ]
+Ejecuta hasta una l\('inea posterior (sale de un bucle), o hasta
+.IR ARCHIVO:L\('INEA .
+.TP
+.BR until " \(dq\fITEXTO\fP\(dq [" timeout " \fICUADROS\fP] [" rows " \fIN\fP]"
+Reanuda hasta que la consola de texto muestre
+.IR TEXTO .
+.TP
+.B finish
+Ejecuta hasta que la funci\('on actual retorne.
+.TP
+.B ignore
+Omite la instrucci\('on actual.
+.TP
+.BR frame ", " up ", " down " [\fIN\fP]"
+Selecciona un marco de pila.
+.TP
+.BR backtrace ", " bt
+Lista de llamadas, con l\('ineas de c\('odigo fuente cuando se conocen.
+.TP
+.BR quit " [\fIESTADO\fP]"
+Sale del simulador con el estado de salida
+.IR ESTADO .
+.SS Puntos de ruptura, puntos de vigilancia, comprobaciones
+.TP
+.BR break " [\fI0xADDR\fP|\fIETIQUETA\fP|\fIARCHIVO:L\('INEA\fP]"
+Pone un punto de ruptura, o los lista.
+.TP
+.BR tbreak " \fIARCHIVO:L\('INEA\fP|\fIL\('INEA\fP|\fI0xADDR\fP|\fIETIQUETA\fP"
+Punto de ruptura de un solo uso.
+.TP
+.BR unbreak " \fI#\fP"
+Quita el punto de ruptura
+.IR # .
+.TP
+.BR watch [ /d "] \fIUBICACI\('ON OP VALOR\fP [\fIETIQUETA\fP]"
+Se detiene cuando la comparaci\('on pasa a ser verdadera; la ubicaci\('on es un
+registro, un IOPort, una direcci\('on o un s\('imbolo.
+.TP
+.B watchlist
+Lista los puntos de vigilancia.
+.TP
+.BR unwatch " \fI\('INDICE\fP|\fIETIQUETA\fP"
+Quita un punto de vigilancia.
+.TP
+.BR expect [ /d "] \fIUBICACI\('ON OP VALOR\fP"
+.TP
+.BR expect " console \(dq\fITEXTO\fP\(dq [" rows " \fIN\fP]"
+.TP
+.BR expect " stats \fINOMBRE\fP[.\fIAGG\fP] \fIOP VALOR\fP"
+Comprueba ahora; un fallo fija el estado de salida 1 y termina una ejecuci\('on
+por lotes.
+.SS Inspecci\('on
+.TP
+.BR print [ /\fIF\fP "] \fIXYZ\fP"
+Muestra una vez un registro, una direcci\('on, un IOPort, una etiqueta o una
+global de C.
+.TP
+.BR x [ /\fIF\fP "] \fIS\('IMBOLO\fP|\fI0xADDR\fP [\fICANTIDAD\fP]"
+Muestra
+.I CANTIDAD
+palabras.
+.TP
+.BR display [ /\fIF\fP "] \fIXYZ\fP [\fIETIQUETA\fP]"
+A\(~nade un elemento a la lista de visualizaci\('on.
+.TP
+.BR undisplay " \fI#\fP"
+Lo quita.
+.TP
+.BR locals " [\fINOMBRE\fP], " info " locals [\fINOMBRE\fP]"
+Variables locales del marco seleccionado.
+.TP
+.BR list " [\fIARCHIVO:L\('INEA\fP|\fIFUNC\fP]"
+C\('odigo fuente alrededor de la l\('inea actual.
+.TP
+.B inventory
+Componentes y recursos cargados.
+.TP
+.B profile
+Informe de perfilado.
+.TP
+.B version
+La versi\('on del simulador.
+.TP
+.BR label " [\fI0xADDR ETIQUETA\fP], " unlabel " \fI#\fP"
+Lista, a\(~nade y quita etiquetas.
+.TP
+.BR stats " [" show | regions | reset | on | off | save "\fI...\fP]"
+Contadores de GPU, SPU y bus por cuadro y por regi\('on.
+.SS Cambio de estado
+.TP
+.BR set " [\fINOMBRE\fP=\fIVALOR\fP]"
+Fija un ajuste (color, deref, profile, debug, errorchk, verbose, source,
+mode), un registro,
+.IR 0xADDR ,
+o un IOPort; sin argumento, lista los ajustes.
+.TP
+.BR asm " [@\fIADDR\fP|\-x] \fIINSTRUCCI\('ON\fP"
+Ensambla una instrucci\('on: parchea la memoria, o la ejecuta una vez con
+.BR \-x .
+.TP
+.BR replace " IP:\fIX\fP IR:\fIY\fP IV:\fIZ\fP"
+Parchea la memoria de instrucciones.
+.TP
+.BR save " [\fIARCHIVO\fP], " restore " \fIARCHIVO\fP"
+Escribe y restaura el estado de la m\('aquina.
+.TP
+.BR load " bios|cart|memc:\fIARCHIVO\fP, " unload " bios|cart|memc"
+Cambia componentes.
+.TP
+.BR gamepad " [\fI#\fP] [\fIORDEN\fP]"
+Ve o simula el estado de un mando.
+.TP
+.BR kbd " [\fISUBORDEN\fP]"
+Teclado v32kbd:
+.BR attach ,
+.BR detach ,
+.BR type ,
+.BR key ,
+.BR input ,
+.BR clear ,
+.BR sync .
+.TP
+.BR mouse " [\fISUBORDEN\fP]"
+v32mouse:
+.BR attach ,
+.BR detach ,
+.BR move ,
+.BR down ,
+.BR up ,
+.BR click ,
+.BR wait ,
+.BR clear .
+.TP
+.BR mailbox " [\fICANAL\fP]"
+Estado del buz\('on v32dev de la tarjeta de memoria.
+.TP
+.BR dev " [\fISUBORDEN\fP]"
+Anfitri\('on v32dev nativo:
+.BR info ,
+.BR format ,
+.BR attach ,
+.BR detach ,
+.BR swap .
+.SS Pantalla
+.TP
+.BR console " [\fIARCHIVO\fP]"
+Muestra como texto el texto con la fuente de la BIOS dibujado en la pantalla
+(o lo escribe en
+.IR ARCHIVO ).
+Tambi\('en
+.BR "console \-\-attrs" [ =fg | bg | all ],
+.B console color
+.IR MODO ,
+.B console cursor
+.IR COLOR ,
+.BR "console status" .
+.TP
+.BR screenshot " [\-\-plain] [\fIARCHIVO\fP]"
+Escribe la pantalla de la GPU en un archivo PNG.
+.TP
+.BR highlight " [\fITEX:REGI\('ON\fP [\fICOLOR\fP]]"
+Perfila regiones en las capturas (tambi\('en llamada
+.BR boundbox ).
+.TP
+.BR screengrid " [\fIARGS\fP]"
+Superpone una cuadr\('icula a las capturas.
+.TP
+.BR noextra " [on|off]"
+Capturas sin cuadr\('icula ni perfiles.
+.TP
+.BR mark " [\fINOTA\fP]"
+Con
+.BR \-\-v32trace :
+deja un marcador en el informe.
+.TP
+.BR help " [\fIORDEN\fP], " ?
+Muestra la ayuda.
+.SH ENTORNO
+.TP
+.BR V32_INPUT ", " V32_INPUT2
+Guiones de mando que se usan cuando no se da
+.B \-\-input
+o
+.BR \-\-input2 .
+.TP
+.B V32DEV_DISABLE
+Definida con cualquier valor salvo
+.BR 0 :
+la tarjeta de memoria es una tarjeta ordinaria sin buz\('on v32dev.
+.TP
+.BR NO_COLOR ", " COLORTERM ", " TERM
+Eligen el nivel de
+.BR \-\-console\-color=auto :
+ninguno si
+.B NO_COLOR
+est\('a definida y no vac\('ia; color verdadero si
+.B COLORTERM
+contiene truecolor o 24bit; 256 colores si
+.B TERM
+contiene 256color; 16 para cualquier otro terminal salvo dumb.
+.TP
+.BR HOME ", " INPUTRC
+Los lee GNU readline para el indicador.
+.SH ARCHIVOS
+.TP
+.I /usr/local/Vircon32/Emulator/Bios/StandardBios.v32
+La BIOS por defecto.
+.TP
+.IR NOMBRE .vbin.debug ", " NOMBRE .asm.debug
+Etiquetas e informaci\('on de l\('ineas, que se buscan como se describe en
+.BR \-\-debug\-dir .
+.TP
+.IR NOMBRE .asm.sym ", " NOMBRE .vbin.sym
+S\('imbolos de datos.
+.TP
+.IR NOMBRE .vbin.vars
+Variables locales, para
+.BR locals .
+.TP
+.IR NOMBRE .v32trace.meta
+Metadatos del traductor de V32TRACE.
+.TP
+.IR v32sim\-shot\-NNNNN.png
+Capturas de pantalla de
+.BR \-\-screenshot\-at .
+.TP
+.IR v32sim.AAAAMMDD\-HHMMSS .png ", " .sav
+Nombres por defecto de las \('ordenes
+.B screenshot
+y
+.BR save .
+.SH ESTADO DE SALIDA
+.TP
+.B 0
+El programa ejecut\('o HLT (salvo
+.BR \-\-halt\-status ),
+o
+.B quit
+o el fin de la entrada.
+.TP
+.B 1
+Fall\('o un
+.B expect
+o un
+.B until
+agot\('o su tiempo; tambi\('en un valor de opci\('on incorrecto.
+.TP
+.B 2
+Se alcanz\('o el l\('imite de cuadros
+.RB ( \-x ).
+.TP
+.B 3
+Un error de sistema
+.RB ( \-x ):
+la ejecuci\('on se detiene en lugar de entrar en el manejador de errores de la
+BIOS.
+.TP
+.B 4
+.B \-\-batch
+no pudo analizar una orden.
+.TP
+.B 5
+.B \-\-dump
+no pudo imprimir lo pedido.
+.TP
+.I N
+.B quit
+.I N
+prevalece sobre lo anterior;
+.BI \-\-halt\-status= N
+fija el estado de un HLT.
+Otros errores de arranque (una BIOS o un cartucho ilegibles, ...) salen con
+su propio estado distinto de cero.
+.SH EJEMPLOS
+Depurar un cartucho, deteni\('endose en una etiqueta:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-b main cart.v32
+.EE
+.RE
+.PP
+Ejecutar sin interfaz durante 600 cuadros, imprimir cuatro palabras de una
+global de C y usar el estado de salida:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-r \-q \-x \-\-fast \-\-max\-frames=600 \e
+    \-\-dump=4@counter cart.v32 </dev/null; echo $?
+.EE
+.RE
+.PP
+Capturas de pantalla tras los cuadros 60 y 120 del cartucho con un bot\('on
+pulsado:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=130 \e
+    \-\-input=A@40\-44 \-\-screenshot\-at=60,120 cart.v32 </dev/null
+.EE
+.RE
+.PP
+Estad\('isticas de cuadros y las funciones m\('as calientes:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-r \-q \-\-fast \-\-max\-frames=1800 \e
+    \-\-frame\-stats=load.csv \-\-frame\-stats\-skip=250 \e
+    \-\-profile\-by=function \-\-profile\-top=20 cart.v32 </dev/null
+.EE
+.RE
+.PP
+Una sesi\('on con guion sobre un programa con indicador:
+.PP
+.RS
+.EX
+v32sim \-B StandardBios.v32 \-\-batch \-\-fast \-x \-\-v32kbd dos.v32 < session.cmd
+.EE
+.RE
+.PP
+Un programa de texto en el terminal:
+.PP
+.RS
+.EX
+v32sim \-\-tty \-B StandardBios.v32 v32nix.v32
+.EE
+.RE
+.SH V\('EASE TAMBI\('EN
+.BR v32cc (1),
+.BR v32as (1),
+.BR v32lua (1),
+.BR v32opt (1),
+el DesktopEmulator de Vircon32.
+.PP
+Documentaci\('on en el \('arbol de c\('odigo fuente:
+.I README.es.md
+(el lenguaje de \('ordenes del depurador),
+.IR docs/USAGE.es.md ,
+.IR docs/TOOLS.md ,
+.IR docs/TESTING.md ,
+.IR docs/PROFILING.md ,
+.IR docs/TRACE\-FORMAT.md
+y
+.IR docs/V32TRACE\-SPEC.md .
+.SH AUTOR
+Matthew Haas

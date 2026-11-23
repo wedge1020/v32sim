@@ -41,7 +41,7 @@ replayed in the mini can land one frame off; the delay setting hides it today.
 ## SG-3  the harness's runners  (C)
 
 `tools/testing-harness/test_v32.py` names "v32run -- the official Vircon32 CPU core (tools/headless in the v32lua repo)", which no
-longer builds against current ComputerSoftware (v32lua proposal SL-3); `bench_v32.py` names `v32bench` (`C:/github/v32bench`), which
+longer builds against current ComputerSoftware (v32lua's runner is gone: v32sim's `v32orun` replaces it); `bench_v32.py` names `v32bench` (`C:/github/v32bench`), which
 I could not see. v32sim now has a generic version of both (`tools/v32sim-corpus.py`: OK / HALT / CPU_ERROR / **TRAP** via the
 `.v32trace.meta` / TIMEOUT, CPU and GPU mean / p95 / max, overrun frames, the last screen, `--input fixed` as in `bench_v32.py`;
 `v32sim-addrprof.py` reads `NAME.labels.txt` like `V32_PCPROF`), and the stock-core runners are in v32sim `tools/oracle/`. The
@@ -59,7 +59,7 @@ what v32sim does.
 
 `emulator/emulator-v32trace.patch` (v2 + v2.2, a test build that records by itself and disables restart) is the only DesktopEmulator
 recorder. **Answer (2026-11-04): not meant to go upstream; it remains an optional patch kept in GBtoV32.** ComputerSoftware proposal
-SE-2 no longer lists it. v32sim's `tools/oracle/build.sh` builds `v32trace-ref` (the recorder, headless) when pointed at a
+SE-2 was declined. v32sim's `tools/oracle/build.sh` builds `v32trace-ref` (the recorder, headless) when pointed at a
 ConsoleLogic with the patch applied, and `tests/run_harness_tests.sh` compares v32sim with it.
 
 One thing that would help the comparison: `v32trace-ref` drives the recorder through `V32Trace`'s public calls (`Arm`, the
