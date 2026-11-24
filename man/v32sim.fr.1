@@ -491,7 +491,7 @@ JSON Lines avec des noms point\('es stables et une ligne de r\('esum\('e en dern
 Pour les cartouches
 .BR v32lua  :
 \(`a la fin de chaque image, affiche sur la sortie standard
-.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W
+.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W "[ free=" W " blocks=" N ]
 (pointeur de tas, mots utilis\('es depuis
 .BR HEAP_START ,
 plus grand usage jusque-l\(`a ; le pic est v\('erifi\('e apr\(`es chaque instruction), et avec
@@ -501,7 +501,21 @@ aussi
 \(`A la sortie :
 .B HEAP PEAK
 et
-.BR "HEAP END" .
+.BR "HEAP END" ,
+au m\(^eme format que
+.BR "v32orun \-\-heap" ,
+dont les num\('eros d'image diff\(`erent (ici ceux de la console, images du BIOS comprises).
+.B used
+est le sommet du tas et compte les blocs des listes libres de
+.BR v32lua  ;
+.BR free= " et " blocks=
+(si le
+.B .asm
+a
+.BR FREE_MASK " et " FREE_BINS )
+montrent la part r\('eutilisable, donc
+.B used \- free
+est la m\('emoire vivante.
 Les symboles
 .B %define
 sont lus dans le

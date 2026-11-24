@@ -60,7 +60,7 @@ docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TO
 - Tests (most need the toolchain; see the headers): `tests/run_batch_tests.sh` (scripting), `run_src_tests.sh` (source
   level), `run_stack_tests.sh` (C / C++ / Lua debug stack), `run_gaps.sh` (56 checks), `run_romcheck.sh`, `run_fuzz.sh` (differential
   against `refrun`), `run_clock.sh` (start-up clock vs the oracle across time zones/DST, `LD_PRELOAD` time shim, 37 checks),
-  `run_memcard.sh` (memory card + v32dev mailbox vs the oracle via `vrun`, 14 checks), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU), `run_heap_tests.sh` (`--heap`, `--expect-reach`; needs v32lua, 41 checks),
+  `run_memcard.sh` (memory card + v32dev mailbox vs the oracle via `vrun`, 14 checks), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU), `run_heap_tests.sh` (`--heap`, `--expect-reach`; needs v32lua, 69 checks),
   `run_harness_tests.sh` (the tools/ scripts and their agreement with the oracle; 98 checks with ORACLE and V32IO set). `make test` runs
   `run_kbd_sync_tests.sh` and `run_cli_tests.sh` (command line, help texts, exit statuses; 144 checks), which need no toolchain; `make check TC=DIR` runs them all.
   Passing one suite proves little: a CPU/GPU change needs the differential ones, a scripting change the batch one.

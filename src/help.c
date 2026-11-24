@@ -87,7 +87,7 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --stats-top=N         the same as --frame-stats-top\n");
     fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
     fprintf (stdout, "     --stats-skip=N        the same as --frame-stats-skip\n");
-    fprintf (stdout, "     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N (with --gc arena also\n");
+    fprintf (stdout, "     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N [free=N blocks=N] (with --gc arena also\n");
     fprintf (stdout, "                           floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %%define symbols are read from the\n");
     fprintf (stdout, "                           cart's .asm (found beside it) or from PROG.asm\n");
     fprintf (stdout, "     --expect-reach LABELS exit 0 with EXPECT REACHED <label> frame=N ip=0x.. when the CPU reaches one of the labels\n");

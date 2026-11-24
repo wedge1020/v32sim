@@ -30,7 +30,7 @@ symbols, locals), `x/d NAME [N]`, `display`, `watch LOC OP VALUE` (`watch/d` sig
 
 `--fast`, `--max-frames=N`, `-x`, `--batch`, `-B BIOS`, `-M card.memc`, `--fixed-clock --seed=1 --fixed-cycles` (reproducible),
 `--input=BUTTON@FIRST-LAST,...` (gamepad by cartridge frame, V32_INPUT syntax), `--v32kbd=N`, `--kbd-input=...`, `--v32mouse=N`, `--tty`,
-`--frame-stats=FILE` (per-frame CPU/GPU load), `--profile-out=FILE --profile-by=function --profile-top=N`, `--dump=N@SYM`,
+`--frame-stats=FILE` (per-frame CPU/GPU load), `--heap[=PROG.asm]` (v32lua heap per frame: `HEAP F<n> ptr= used= peak=[ free= blocks=]`, PEAK / END at exit), `--expect-reach LABEL[,...]` (exit 0 `EXPECT REACHED`, else `EXPECT MISSED` exit 1), `--profile-out=FILE --profile-by=function --profile-top=N`, `--dump=N@SYM`,
 `--v32trace=PREFIX` (translator traps, V32TRACE 2.1: `traps.txt`, `blocks.txt`, the `trace.txt` report; `mark NOTE` sets a marker), `--symbol-file`, `--debug-dir`, `-n` (no debug files), `--screenshot-at=FRAMES`, `--turbo` (spin-loop fast-forward; implies `--fast`),
 `--kbd-sync`, `--v32dev-host=N=SPEC`, `--warn-halt`, `--halt-status=N`.
 Debug files are found next to the `.v32` (`NAME.vbin.debug`, `NAME.vbin.vars`, `NAME.asm.sym`, `NAME.asm`).

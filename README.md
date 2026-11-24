@@ -295,7 +295,7 @@ Mandatory arguments to long options are mandatory for short options too.
      --stats-top=N         the same as --frame-stats-top
      --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary
      --stats-skip=N        the same as --frame-stats-skip
-     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N (with --gc arena also
+     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N [free=N blocks=N] (with --gc arena also
                            floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %define symbols are read from the
                            cart's .asm (found beside it) or from PROG.asm
      --expect-reach LABELS exit 0 with EXPECT REACHED <label> frame=N ip=0x.. when the CPU reaches one of the labels
@@ -906,21 +906,26 @@ options as the `--frame-stats` ones. In a session `stats` shows the counters, `e
 `--heap[=PROG.asm]` is for cartridges built by `v32lua`: it watches the heap from outside. At the end of every frame (from the
 first one in which the cartridge ran) it prints on stdout
 
-    HEAP F263 ptr=0x00000389 used=780 peak=790
-    HEAP F263 ptr=0x0000010E used=122 peak=122 floor=0x00000101 pin=0x00000000 depth=2 stack=0x000000F4,0x00000101
+    HEAP F263 ptr=0x00000389 used=780 peak=790 free=56 blocks=3
+    HEAP F263 ptr=0x0000010E used=122 peak=122 free=0 blocks=0 floor=0x00000101 pin=0x00000000 depth=2 stack=0x000000F4,0x00000101
 
 `F` is the frame that ended (`TIM_FrameCounter`, the BIOS frames count), `ptr` the heap pointer (RAM word 0, `HEAP_POINTER`), `used` is
 `ptr - HEAP_START` in words and `peak` the largest `used` so far. The peak is exact: the pointer is read after every instruction, not only at frame
 ends. For a cartridge built with `v32lua --gc arena` the line goes on with `ARENA_FLOOR`, `ARENA_PIN_TOP`, `ARENA_DEPTH` and the first
 `depth` entries of `ARENA_STACK` (`arena.mark()` / `arena.release()` show up as `depth` going up and down). When the run ends it prints
-`HEAP PEAK used=N words ptr=0x.. frame=F` (where the peak was reached) and `HEAP END used=N words ptr=0x.. frame=F`.
+`HEAP PEAK used=N ptr=0x.. frame=F` (where the peak was reached) and
+`HEAP END ptr=0x.. used=N peak=N[ free=N blocks=N] frame=F[ floor= pin= depth= stack=]`; `stack=-` when no arena is open. `used` is the heap top and
+counts the blocks on the free lists; `free=` (words) and `blocks=` appear when the cartridge was built by a `v32lua` that gives outgrown table
+blocks back with `__mfree` (`FREE_MASK` and `FREE_BINS`, 22 size-class lists, in the `.asm`): `free` is how much of `used` is reusable, so
+`used - free` is the live memory. The lists are walked read-only with a cap on the steps (`free=? blocks=?` if one is corrupt); an older `v32lua` prints no such fields.
+`v32orun --heap` prints the same format; the frame numbers differ (v32sim's are the console's, BIOS frames included; v32orun's bare mode counts from 0).
 The names come from the `%define NAME 0xADDR` lines of the generated `NAME.asm`, which is found beside the cartridge like the debug files
 (`obj/`, `--debug-dir`), or is the file `--heap=PROG.asm` names; what that file lacks is looked up in the data symbols (`--symbol-file`,
 `.asm.sym`), and `HEAP_POINTER` defaults to RAM word 0. Without `HEAP_START` (no `.asm`, or not a `v32lua` one) a warning on stderr says so once and
 the lines show only `ptr`. It only reads RAM: a run with and without it gives the same results.
 
 `--expect-reach LABEL[,LABEL...]` says which code the run must get to. The labels are those of the debug files (the ones `break` and `-b`
-use; `NAME.vbin.debug` from `v32as -g` or the stock `assemble -g program`); an unknown one is a start-up error (exit status 1, like a bad option). When the
+use; `NAME.vbin.debug` from the stock `assemble -g program`; with `v32as -g`, whose `.debug` names only the functions, the global labels of `NAME.vbin.sym`, and `__function_NAME` also finds `NAME`); an unknown one is a start-up error (exit status 1, like a bad option). When the
 CPU is about to run the address of any of them v32sim prints `EXPECT REACHED <label> frame=N ip=0x........` on stdout, stops and exits 0.
 If the run ends any other way (the frame limit of `--max-frames`, `HLT`, a CPU error, `quit`, the end of the input) it prints
 `EXPECT MISSED <label>,<label>` and exits 1 (also with `-x`: a failed expectation outranks the status 2 of the frame limit and 3 of a system error;

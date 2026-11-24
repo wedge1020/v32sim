@@ -7,10 +7,12 @@ Status as of version `20261124-dev`.
   * **20261124 (v32lua requests 1-4)**: closures decoded (function tag with bit 21, record `[code, nupvals, cell_ptr...]` at
     `(w & 0x1FFFFF) << 1`): v32orun `CANON NAME closure 0xREC code=.. nupvals=N` and `closure@0xREC(...)` in `-d`/`-D`/`-m`,
     v32sim `x/B` and `locals` `closure: 0x.. (code .., N upvalues)`. `--heap` in v32sim and v32orun (HEAP_POINTER, used over
-    HEAP_START, exact peak, and with `--gc arena` ARENA_FLOOR / PIN_TOP / DEPTH / STACK; `HEAP F<n>`, `HEAP PEAK`, `HEAP END`).
+    HEAP_START, exact peak, and with `--gc arena` ARENA_FLOOR / PIN_TOP / DEPTH / STACK; `HEAP F<n>`, `HEAP PEAK`, `HEAP END`; one identical format in both runners, `-q` does not hide the lines in v32orun, and
+    `free= blocks=` from v32lua's free lists when `FREE_MASK` / `FREE_BINS` exist: `used` is the heap top, `used - free` the live memory;
+    `--expect-reach` finds the runtime labels of `v32as -g` carts through `NAME.vbin.sym`).
     `--expect-reach LABEL[,...]` in both (EXPECT REACHED exit 0 / EXPECT MISSED exit 1; v32orun `--debug FILE` for console mode,
     unknown label exit 2 there, 1 in v32sim as for every bad option value). v32lua's `unittest.py` uses it for its
-    `=== EXPECTED TRAP ===` tests and gained `--@ frames: N`. Tests: `tests/run_heap_tests.sh` (41, needs v32lua),
+    `=== EXPECTED TRAP ===` tests and gained `--@ frames: N`. Tests: `tests/run_heap_tests.sh` (69, needs v32lua),
     `tests/run_cli_tests.sh` 144 checks. Not run here (no v32cc / v32as): `run_batch_tests.sh`, `run_harness_tests.sh`.
 
   * **20261122 (v32nix message of 2026-11-22)**: a key lost after a v32dev round trip (`cat` typed as `at`) is **not a v32sim bug**: one

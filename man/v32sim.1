@@ -490,7 +490,7 @@ JSON Lines with stable dotted names and a summary line last.
 For
 .B v32lua
 cartridges: at the end of every frame print on standard output
-.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W
+.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W "[ free=" W " blocks=" N ]
 (heap pointer, words used since
 .BR HEAP_START ,
 largest use so far; the peak is checked after every instruction), with
@@ -500,7 +500,22 @@ also
 At exit:
 .B HEAP PEAK
 and
-.BR "HEAP END" .
+.BR "HEAP END" ,
+the same format as
+.BR "v32orun \-\-heap" ,
+whose frame numbers differ (these are the console's, BIOS frames included).
+.B used
+is the heap top and counts the blocks on
+.BR v32lua 's
+free lists;
+.BR free= " and " blocks=
+(when the
+.B .asm
+has
+.BR FREE_MASK " and " FREE_BINS )
+show how much of it is reusable, so
+.B used \- free
+is live memory.
 The
 .B %define
 symbols are read from the cartridge's

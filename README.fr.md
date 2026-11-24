@@ -317,7 +317,7 @@ Mandatory arguments to long options are mandatory for short options too.
      --stats-top=N         the same as --frame-stats-top
      --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary
      --stats-skip=N        the same as --frame-stats-skip
-     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N (with --gc arena also
+     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N [free=N blocks=N] (with --gc arena also
                            floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %define symbols are read from the
                            cart's .asm (found beside it) or from PROG.asm
      --expect-reach LABELS exit 0 with EXPECT REACHED <label> frame=N ip=0x.. when the CPU reaches one of the labels
@@ -931,14 +931,19 @@ ceux de `v32prof`, image pour image. Voir [docs/PROFILING.md](docs/PROFILING.md)
 `--heap[=PROG.asm]` est pour les cartouches construites par `v32lua` : il surveille le tas de l'extérieur. À la fin de chaque image (à partir de la première où la
 cartouche a tourné) il affiche sur stdout
 
-    HEAP F263 ptr=0x00000389 used=780 peak=790
-    HEAP F263 ptr=0x0000010E used=122 peak=122 floor=0x00000101 pin=0x00000000 depth=2 stack=0x000000F4,0x00000101
+    HEAP F263 ptr=0x00000389 used=780 peak=790 free=56 blocks=3
+    HEAP F263 ptr=0x0000010E used=122 peak=122 free=0 blocks=0 floor=0x00000101 pin=0x00000000 depth=2 stack=0x000000F4,0x00000101
 
 `F` est l'image qui vient de se terminer (`TIM_FrameCounter` ; les images du BIOS comptent), `ptr` le pointeur de tas (le mot 0 de la RAM, `HEAP_POINTER`),
 `used` vaut `ptr - HEAP_START` en mots et `peak` le plus grand `used` jusque-là. Le pic est exact : le pointeur est lu après chaque instruction, pas seulement à la
 fin des images. Pour une cartouche construite avec `v32lua --gc arena`, la ligne se poursuit avec `ARENA_FLOOR`, `ARENA_PIN_TOP`, `ARENA_DEPTH` et les premières
 `depth` entrées de `ARENA_STACK` (`arena.mark()` / `arena.release()` se voient comme `depth` qui monte et descend). À la fin de l'exécution il affiche
-`HEAP PEAK used=N words ptr=0x.. frame=F` (où le pic a été atteint) et `HEAP END used=N words ptr=0x.. frame=F`.
+`HEAP PEAK used=N ptr=0x.. frame=F` (où le pic a été atteint) et
+`HEAP END ptr=0x.. used=N peak=N[ free=N blocks=N] frame=F[ floor= pin= depth= stack=]` ; `stack=-` si aucune arène n'est ouverte. `used` est le sommet du tas et
+compte les blocs des listes libres ; `free=` (mots) et `blocks=` apparaissent quand la cartouche a été construite par un `v32lua` qui rend avec `__mfree` les
+blocs de table devenus trop petits (`FREE_MASK` et `FREE_BINS`, 22 listes par taille, dans le `.asm`) : `free` est la part de `used` réutilisable, donc
+`used - free` est la mémoire vivante. Les listes sont parcourues en lecture seule avec un plafond de pas (`free=? blocks=?` si l'une est corrompue) ; un `v32lua` plus ancien n'affiche pas ces champs.
+`v32orun --heap` affiche le même format ; les numéros d'image diffèrent (ceux de v32sim sont ceux de la console, images du BIOS comprises ; le mode bare de v32orun compte depuis 0).
 Les noms viennent des lignes `%define NAME 0xADDR` du `NAME.asm` généré, cherché à côté de la cartouche comme les fichiers de débogage
 (`obj/`, `--debug-dir`) ou donné par `--heap=PROG.asm` ; ce qui manque dans ce fichier est cherché parmi les symboles de données (`--symbol-file`,
 `.asm.sym`), et `HEAP_POINTER` vaut par défaut le mot 0 de la RAM. Sans `HEAP_START` (pas de `.asm`, ou pas un de `v32lua`) un avertissement sur stderr le dit une fois et

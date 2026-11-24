@@ -26,22 +26,30 @@
 //    -P FILE [F] per-address cycle profile (tools/v32sim-addrprof.py, v32lua's profile.py)
 //    -m ADDR,N   dump N words of memory at exit      -G   (bare) start as after the BIOS: dirty RAM and registers
 //    -b          per-frame cycle counts: "FC <frame> <cycles> <overrun 0/1>" (what v32lua's v32bench printed)
-//    -q          no per-frame overrun / HEAP lines   --memc FILE   memory card file (console mode; made if missing)
+//    -q          no per-frame overrun lines (the HEAP lines stay)  --memc FILE   memory card file (console mode; made if missing)
 //    --date Y,D --time S   set the clock    --cfi=x86|arm --cfi-log --spu-state --no-memcard --fixed-time --trail=N
 //                                           (the environment variables V32_CFI, V32_CFI_LOG, V32_SPU_STATE,
 //                                           V32_NO_MEMCARD, V32_FIXED_TIME and V32_TRAIL do the same)
 //    --heap      (needs -a PROG.asm) the heap of a v32lua cart, from the program's `%define`s HEAP_POINTER (RAM word; 0 if
 //                undefined), HEAP_START and, for a cart built with `v32lua --gc arena`, ARENA_FLOOR, ARENA_PIN_TOP, ARENA_DEPTH,
-//                ARENA_STACK (and ARENA_MAX_DEPTH, default 16). One line at the end of every frame (not with -q):
-//                  HEAP F<frame> ptr=0x%08X used=<ptr-HEAP_START> peak=<peak used so far>
-//                                [ floor=0x%08X pin=0x%08X depth=N stack=0x..,0x..]     (arena symbols: the first depth marks, "-" if none)
+//                ARENA_STACK (and ARENA_MAX_DEPTH, default 16); and, for a v32lua that frees outgrown blocks, FREE_MASK and
+//                FREE_BINS (bin k = the word FREE_BINS+k holds blocks of 2^k..2^(k+1)-1 words; a block's word 0 is the next
+//                block, word 1 its size; bit k of FREE_MASK is set while bin k is not empty). The same format as v32sim --heap
+//                (the frame numbers differ: here the bare mode counts from 0, v32sim's are the console's, BIOS frames included).
+//                One line at the end of every frame (also with -q):
+//                  HEAP F<frame> ptr=0x%08X used=<ptr-HEAP_START> peak=<peak used so far>[ free=N blocks=N][ floor=0x%08X pin=0x%08X depth=N stack=0x%08X,0x%08X|-]
+//                `used` is the heap top and counts the blocks on the free lists; free= is the words on them, blocks= their
+//                number (so used - free is the live memory; `free=? blocks=?` if a list is corrupt; absent without the
+//                symbols). The arena part appears with the arena symbols: the first depth marks, oldest first, `-` if none.
+//                Without HEAP_START (a warning on stderr) the lines carry ptr only (no used / peak).
 //                The peak is of HEAP_POINTER sampled on every cycle, so an allocation that peaks and is released inside a
 //                frame still counts. At exit (after STATUS and REGS):
-//                  HEAP PEAK used=N words ptr=0x%08X frame=F        (F = the first frame that reached the peak)
-//                  HEAP END used=N ptr=0x%08X peak=N [floor=.. pin=.. depth=.. stack=..]
+//                  HEAP PEAK used=N ptr=0x%08X frame=F        (F = the first frame that reached the peak)
+//                  HEAP END ptr=0x%08X used=N peak=N[ free=N blocks=N] frame=F[ floor=.. pin=.. depth=.. stack=..]
 //                It only reads RAM: the machine ends in the same state with and without it.
 //    --expect-reach L[,L...]   end the run, successfully, when execution reaches the address of any of these labels (from
-//                the program's .vbin.debug, lines `0xADDR,file,line,label`): prints
+//                the program's .vbin.debug, lines `0xADDR,file,line,label`; v32as -g's debug file names only the functions, so the
+//                `F` lines of PROG.vbin.sym, which has every global label, are read too, and __function_NAME also finds NAME): prints
 //                  EXPECT REACHED <label> frame=N ip=0x%08X
 //                then `STATUS EXPECTED ...`, exit 0. The test comes BEFORE -t traps (the same address may be in both).
 //                Any other end of the run (frames exhausted, HALT, HWERROR, a trap) prints, after STATUS / REGS,
@@ -1042,7 +1050,8 @@ int main(int argc, char** argv)
 
     // ---- --heap symbols, --expect-reach labels --------------------------------------------------------------------
     uint32_t h_ptr = 0, h_start = 0, h_floor = 0, h_pin = 0, h_depth = 0, h_stack = 0, h_maxdepth = 16;
-    bool h_arena = false;
+    uint32_t h_fmask = 0, h_fbins = 0;
+    bool h_arena = false, h_free = false, h_have_start = false;
     if (heap) {
         if (!asmf) { fprintf(stderr, "v32orun: --heap needs -a PROG.asm (for HEAP_POINTER / HEAP_START)\n"); return 2; }
         ifstream f(asmf);
@@ -1050,11 +1059,14 @@ int main(int argc, char** argv)
         map<string, uint32_t> hs; string line;
         while (getline(f, line)) {
             char n[256], v[64];
-            if (sscanf(line.c_str(), "%%define %255s %63s", n, v) == 2 && (!strncmp(n, "HEAP_", 5) || !strncmp(n, "ARENA_", 6)))
+            if (sscanf(line.c_str(), "%%define %255s %63s", n, v) == 2 && (!strncmp(n, "HEAP_", 5) || !strncmp(n, "ARENA_", 6) || !strncmp(n, "FREE_", 5)))
                 hs[n] = (uint32_t) strtoul(v, nullptr, 0);
         }
-        if (!hs.count("HEAP_START")) { fprintf(stderr, "v32orun: --heap: no %%define HEAP_START in %s\n", asmf); return 2; }
-        h_start = hs["HEAP_START"];
+        h_have_start = hs.count("HEAP_START") > 0;
+        if (!h_have_start) fprintf(stderr, "[WARNING] --heap: HEAP_START is unknown (no %%define for it in %s): only ptr is shown\n", asmf);
+        else h_start = hs["HEAP_START"];
+        h_free = hs.count("FREE_MASK") && hs.count("FREE_BINS");
+        if (h_free) { h_fmask = hs["FREE_MASK"]; h_fbins = hs["FREE_BINS"]; }
         if (hs.count("HEAP_POINTER")) h_ptr = hs["HEAP_POINTER"];
         h_arena = hs.count("ARENA_FLOOR") && hs.count("ARENA_PIN_TOP") && hs.count("ARENA_DEPTH") && hs.count("ARENA_STACK");
         if (h_arena) { h_floor = hs["ARENA_FLOOR"]; h_pin = hs["ARENA_PIN_TOP"]; h_depth = hs["ARENA_DEPTH"]; h_stack = hs["ARENA_STACK"]; }
@@ -1077,9 +1089,20 @@ int main(int argc, char** argv)
             while (!lab.empty() && (lab.back() == '\r' || lab.back() == ' ')) lab.pop_back();
             if (!labels.count(lab)) labels[lab] = (uint32_t) strtoul(line.c_str(), nullptr, 16);
         }
+        {   // v32as -g: the .debug file names only the functions; PROG.vbin.sym lists every global label (kind F)
+            ifstream sf(dbg.size() > 6 && dbg.compare(dbg.size() - 6, 6, ".debug") == 0 ? dbg.substr(0, dbg.size() - 6) + ".sym" : dbg + ".sym");
+            while (getline(sf, line)) {
+                if (line.compare(0, 2, "F,")) continue;
+                size_t c2 = line.find(',', 2), c3 = c2 == string::npos ? c2 : line.find(',', c2 + 1);
+                if (c3 == string::npos || line.compare(c2 + 1, 2, "0x")) continue;
+                string lab = line.substr(2, c2 - 2);
+                if (!labels.count(lab)) labels[lab] = (uint32_t) strtoul(line.c_str() + c2 + 1, nullptr, 16);
+            }
+        }
         stringstream es(expect_arg); string l;
         while (getline(es, l, ',')) {
             if (l.empty()) continue;
+            if (!labels.count(l) && l.compare(0, 11, "__function_") == 0 && labels.count(l.substr(11))) labels[l] = labels[l.substr(11)];
             if (!labels.count(l)) { fprintf(stderr, "v32orun: --expect-reach: label %s not found in %s\n", l.c_str(), dbg.c_str()); return 2; }
             expects.push_back({l, labels[l]});
         }
@@ -1090,6 +1113,26 @@ int main(int argc, char** argv)
     // heap tracking: HEAP_POINTER is read, never written
     int32_t heap_peak_ptr = (int32_t) h_start; int heap_peak_frame = 0;
     auto heap_ptr = [&]() { V32Word w; w.AsInteger = 0; g_ram_read(h_ptr, w); return w.AsInteger; };
+    // " free=N blocks=N" from the free lists (memory.s), walked read-only; "?" when a list is corrupt; "" without the symbols
+    auto heap_free = [&]() {
+        string r;
+        if (!h_free) return r;
+        const uint32_t ram_words = 0x00400000u, cap = ram_words / 2, nbins = 22;
+        auto rd = [&](uint32_t a) { V32Word w; w.AsInteger = 0; g_ram_read(a, w); return w.AsBinary; };
+        uint32_t mask = rd(h_fmask), steps = 0; unsigned long long words = 0, blocks = 0; bool bad = (mask >> nbins) != 0;
+        for (uint32_t k = 0; k < nbins && !bad; k++) {
+            if (!((mask >> k) & 1)) continue;
+            for (uint32_t b = rd(h_fbins + k); b != 0; b = rd(b)) {
+                uint32_t size = rd(b + 1);
+                if (b >= ram_words - 1 || (h_have_start && b < h_start) || size < 2 || size < (1u << k) || size >= (2u << k) ||
+                    b + size > ram_words || steps >= cap) { bad = true; break; }
+                steps++; words += size; blocks++;
+            }
+        }
+        char b[64];
+        if (bad) snprintf(b, sizeof b, " free=? blocks=?"); else snprintf(b, sizeof b, " free=%llu blocks=%llu", words, blocks);
+        return string(b);
+    };
     auto heap_tail = [&]() {
         string r;
         if (!h_arena) return r;
@@ -1099,7 +1142,7 @@ int main(int argc, char** argv)
         r = b;
         int d = dp.AsInteger < 0 ? 0 : dp.AsInteger > (int) h_maxdepth ? (int) h_maxdepth : dp.AsInteger;
         if (!d) r += "-";
-        for (int k = 0; k < d; k++) { V32Word m; g_ram_read(h_stack + k, m); snprintf(b, sizeof b, "%s0x%X", k ? "," : "", m.AsBinary); r += b; }
+        for (int k = 0; k < d; k++) { V32Word m; g_ram_read(h_stack + k, m); snprintf(b, sizeof b, "%s0x%08X", k ? "," : "", m.AsBinary); r += b; }
         return r;
     };
 
@@ -1240,8 +1283,11 @@ int main(int argc, char** argv)
         if (bench) printf("FC %d %lld %d\n", g_frame, cyc - frame_start, (!CPU.Waiting && !CPU.Halted) ? 1 : 0);
         if (heap) {
             int32_t hp = heap_ptr(); if (hp > heap_peak_ptr) { heap_peak_ptr = hp; heap_peak_frame = g_frame; }
-            if (!quiet) printf("HEAP F%d ptr=0x%08X used=%d peak=%d%s\n", g_frame, (uint32_t) hp, hp - (int32_t) h_start,
-                               heap_peak_ptr - (int32_t) h_start, heap_tail().c_str());
+            {
+                printf("HEAP F%d ptr=0x%08X", g_frame, (uint32_t) hp);
+                if (h_have_start) printf(" used=%d peak=%d", hp - (int32_t) h_start, heap_peak_ptr - (int32_t) h_start);
+                printf("%s%s\n", heap_free().c_str(), heap_tail().c_str());
+            }
         }
         if (expect_hit) break;
         if (CPU.Halted) break;
@@ -1276,8 +1322,11 @@ int main(int argc, char** argv)
     printf("\n");
     if (heap) {
         int32_t hp = heap_ptr();
-        printf("HEAP PEAK used=%d words ptr=0x%08X frame=%d\n", heap_peak_ptr - (int32_t) h_start, (uint32_t) heap_peak_ptr, heap_peak_frame);
-        printf("HEAP END used=%d ptr=0x%08X peak=%d%s\n", hp - (int32_t) h_start, (uint32_t) hp, heap_peak_ptr - (int32_t) h_start, heap_tail().c_str());
+        if (h_have_start) printf("HEAP PEAK used=%d ptr=0x%08X frame=%d\n", heap_peak_ptr - (int32_t) h_start, (uint32_t) heap_peak_ptr, heap_peak_frame);
+        else printf("HEAP PEAK ptr=0x%08X frame=%d\n", (uint32_t) heap_peak_ptr, heap_peak_frame);
+        printf("HEAP END ptr=0x%08X", (uint32_t) hp);
+        if (h_have_start) printf(" used=%d peak=%d", hp - (int32_t) h_start, heap_peak_ptr - (int32_t) h_start);
+        printf("%s frame=%d%s\n", heap_free().c_str(), g_frame, heap_tail().c_str());
     }
     if (!expects.empty() && !expect_hit) {
         printf("EXPECT MISSED");

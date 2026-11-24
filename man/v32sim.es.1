@@ -501,7 +501,7 @@ JSON Lines con nombres con puntos estables y una l\('inea de resumen al final.
 Para cartuchos de
 .BR v32lua :
 al final de cada cuadro imprime en la salida est\('andar
-.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W
+.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W "[ free=" W " blocks=" N ]
 (puntero del mont\('on, palabras usadas desde
 .BR HEAP_START ,
 mayor uso hasta el momento; el m\('aximo se comprueba tras cada instrucci\('on), y con
@@ -511,7 +511,21 @@ tambi\('en
 Al salir:
 .B HEAP PEAK
 y
-.BR "HEAP END" .
+.BR "HEAP END" ,
+con el mismo formato que
+.BR "v32orun \-\-heap" ,
+cuyos n\('umeros de cuadro difieren (aqu\('i son los de la consola, con los de la BIOS).
+.B used
+es el tope del mont\('on y cuenta los bloques de las listas libres de
+.BR v32lua ;
+.BR free= " y " blocks=
+(si el
+.B .asm
+tiene
+.BR FREE_MASK " y " FREE_BINS )
+muestran cu\('anto es reutilizable, as\('i que
+.B used \- free
+es memoria viva.
 Los s\('imbolos
 .B %define
 se leen del

@@ -28,6 +28,7 @@ typedef struct
     char      *name;
     uint32_t   addr;
     uint32_t   words;
+    int        code;        // a code label (kind F of a .sym file: v32as -g lists every global label there)
 } dsym_t;
 
 static dsym_t   *dsyms     = NULL;
@@ -65,7 +66,18 @@ static void  dsym_add (const char *name, uint32_t addr, uint32_t words)
     dsyms[ndsyms].name   = strdup (name);
     dsyms[ndsyms].addr   = addr;
     dsyms[ndsyms].words  = (words == 0) ? 1 : words;
+    dsyms[ndsyms].code   = FALSE;
     ndsyms               = ndsyms + 1;
+}
+
+static void  dsym_mark_code (const char *name)
+{
+    size_t  index  = 0;
+
+    for (index = 0; index < ndsyms; index = index + 1)
+    {
+        if (0 == strcmp (dsyms[index].name, name))  dsyms[index].code = TRUE;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -158,6 +170,7 @@ uint32_t  sym_load_file (const char *path)
             size = 1;                            // v32as's .vbin.sym does not know sizes: 0 means unknown
         }
         dsym_add (name, value, size);
+        if ((kind[0] == 'F') && (kind[1] == '\0'))  dsym_mark_code (name);
         tally = tally + 1;
     }
     fclose (fptr);
@@ -290,13 +303,22 @@ static int  find_data (const char *name, int nocase, uint32_t *addr, uint32_t *w
 
 static int  find_code (const char *name, int nocase, uint32_t *addr)
 {
-    linked_l  *node  = NULL;
+    linked_l  *node   = NULL;
+    size_t     index  = 0;
 
     for (node = lpoint; node != NULL; node = node -> next)
     {
         if ((node -> label != NULL) && (names_match (node -> label, name, nocase) == TRUE))
         {
             *addr = node -> RAW;
+            return (TRUE);
+        }
+    }
+    for (index = 0; index < ndsyms; index = index + 1)       // v32as -g: the .debug file names the functions only,
+    {                                                        // the .vbin.sym has every global label (__oom_handler...)
+        if ((dsyms[index].code == TRUE) && (names_match (dsyms[index].name, name, nocase) == TRUE))
+        {
+            *addr = dsyms[index].addr;
             return (TRUE);
         }
     }
@@ -353,7 +375,13 @@ int  sym_lookup_code (const char *name, uint32_t *addr)
 {
     if (name == NULL)  return (FALSE);
     if (find_code (name, FALSE, addr) == TRUE)  return (TRUE);
-    return (find_code (name, TRUE, addr));
+    if (find_code (name, TRUE, addr)  == TRUE)  return (TRUE);
+    if (0 == strncmp (name, "__function_", 11))              // v32cc / stock assembler: __function_NAME; v32as -g's debug file: NAME
+    {
+        if (find_code (name + 11, FALSE, addr) == TRUE)  return (TRUE);
+        return (find_code (name + 11, TRUE, addr));
+    }
+    return (FALSE);
 }
 
 //

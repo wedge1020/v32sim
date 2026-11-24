@@ -322,7 +322,7 @@ Mandatory arguments to long options are mandatory for short options too.
      --stats-top=N         the same as --frame-stats-top
      --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary
      --stats-skip=N        the same as --frame-stats-skip
-     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N (with --gc arena also
+     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N [free=N blocks=N] (with --gc arena also
                            floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %define symbols are read from the
                            cart's .asm (found beside it) or from PROG.asm
      --expect-reach LABELS exit 0 with EXPECT REACHED <label> frame=N ip=0x.. when the CPU reaches one of the labels
@@ -933,21 +933,26 @@ los de `v32prof`, cuadro por cuadro. Ver [docs/PROFILING.md](docs/PROFILING.md).
 `--heap[=PROG.asm]` es para cartuchos construidos con `v32lua`: vigila el montón desde fuera. Al final de cada cuadro (desde el primero en que
 corrió el cartucho) imprime en stdout
 
-    HEAP F263 ptr=0x00000389 used=780 peak=790
-    HEAP F263 ptr=0x0000010E used=122 peak=122 floor=0x00000101 pin=0x00000000 depth=2 stack=0x000000F4,0x00000101
+    HEAP F263 ptr=0x00000389 used=780 peak=790 free=56 blocks=3
+    HEAP F263 ptr=0x0000010E used=122 peak=122 free=0 blocks=0 floor=0x00000101 pin=0x00000000 depth=2 stack=0x000000F4,0x00000101
 
 `F` es el cuadro que terminó (`TIM_FrameCounter`; los cuadros de la BIOS cuentan), `ptr` el puntero del montón (la palabra 0 de la RAM, `HEAP_POINTER`),
 `used` es `ptr - HEAP_START` en palabras y `peak` el mayor `used` hasta el momento. El máximo es exacto: el puntero se lee tras cada instrucción, no solo al
 final de los cuadros. Para un cartucho construido con `v32lua --gc arena` la línea continúa con `ARENA_FLOOR`, `ARENA_PIN_TOP`, `ARENA_DEPTH` y las primeras
 `depth` entradas de `ARENA_STACK` (`arena.mark()` / `arena.release()` se ven como `depth` que sube y baja). Al terminar la ejecución imprime
-`HEAP PEAK used=N words ptr=0x.. frame=F` (dónde se alcanzó el máximo) y `HEAP END used=N words ptr=0x.. frame=F`.
+`HEAP PEAK used=N ptr=0x.. frame=F` (dónde se alcanzó el máximo) y
+`HEAP END ptr=0x.. used=N peak=N[ free=N blocks=N] frame=F[ floor= pin= depth= stack=]`; `stack=-` si no hay arena abierta. `used` es el tope del montón y
+cuenta los bloques de las listas libres; `free=` (palabras) y `blocks=` aparecen cuando el cartucho fue construido por un `v32lua` que devuelve con `__mfree` los
+bloques de tabla que quedaron chicos (`FREE_MASK` y `FREE_BINS`, 22 listas por tamaño, en el `.asm`): `free` es cuánto de `used` es reutilizable, así que
+`used - free` es la memoria viva. Las listas se recorren solo de lectura y con un tope de pasos (`free=? blocks=?` si una está corrupta); un `v32lua` más viejo no imprime esos campos.
+`v32orun --heap` imprime el mismo formato; los números de cuadro difieren (los de v32sim son los de la consola, con los cuadros de la BIOS; el modo bare de v32orun cuenta desde 0).
 Los nombres salen de las líneas `%define NAME 0xADDR` del `NAME.asm` generado, que se busca junto al cartucho como los archivos de depuración
 (`obj/`, `--debug-dir`) o es el archivo que nombra `--heap=PROG.asm`; lo que falte en él se busca entre los símbolos de datos (`--symbol-file`,
 `.asm.sym`), y `HEAP_POINTER` vale por defecto la palabra 0 de la RAM. Sin `HEAP_START` (sin `.asm`, o uno que no es de `v32lua`) un aviso en stderr lo dice una vez y
 las líneas muestran solo `ptr`. Solo lee la RAM: una ejecución con y sin la opción da los mismos resultados.
 
 `--expect-reach ETIQUETA[,ETIQUETA...]` dice a qué código debe llegar la ejecución. Las etiquetas son las de los archivos de depuración (las que usan `break` y `-b`;
-`NAME.vbin.debug` de `v32as -g` o del `assemble -g program` estándar); una desconocida es un error de arranque (estado de salida 1, como una opción incorrecta). Cuando la
+`NAME.vbin.debug` del `assemble -g program` estándar; con `v32as -g`, cuyo `.debug` nombra solo las funciones, las etiquetas globales de `NAME.vbin.sym`, y `__function_NAME` también encuentra `NAME`); una desconocida es un error de arranque (estado de salida 1, como una opción incorrecta). Cuando la
 CPU está a punto de ejecutar la dirección de cualquiera de ellas, v32sim imprime `EXPECT REACHED <etiqueta> frame=N ip=0x........` en stdout, se detiene y sale con 0.
 Si la ejecución termina de cualquier otra forma (el límite de cuadros de `--max-frames`, `HLT`, un error de CPU, `quit`, el fin de la entrada) imprime
 `EXPECT MISSED <etiqueta>,<etiqueta>` y sale con 1 (también con `-x`: una expectativa fallida prevalece sobre el estado 2 del límite de cuadros y el 3 de un error de sistema;
