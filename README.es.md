@@ -322,6 +322,11 @@ Mandatory arguments to long options are mandatory for short options too.
      --stats-top=N         the same as --frame-stats-top
      --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary
      --stats-skip=N        the same as --frame-stats-skip
+     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N (with --gc arena also
+                           floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %define symbols are read from the
+                           cart's .asm (found beside it) or from PROG.asm
+     --expect-reach LABELS exit 0 with EXPECT REACHED <label> frame=N ip=0x.. when the CPU reaches one of the labels
+                           (comma separated, from the debug files); otherwise EXPECT MISSED <labels> and exit status 1
      --v32trace=PREFIX     V32TRACE (spec 2.1): read the translator's <cart>.v32trace.meta and labels, watch its trap
                            routines and events, write PREFIX.traps.txt, .blocks.txt and the .trace.txt report; after a trap the
                            cartridge restarts (--v32trace-norestart: stay in the trap); --v32trace-meta=FILE and
@@ -335,7 +340,7 @@ Mandatory arguments to long options are mandatory for short options too.
                            a failed expect or timed-out until ends the run with status 1
  -x, --exit-status         exit status tells how the program ended: 0 HLT, 2 frame limit,
                            3 system error (stops instead of entering the BIOS handler)
-                           (always: 1 a check failed or a bad option, 4 --batch could not parse a command, 5 --dump failed,
+                           (always: 1 a check failed (expect, until, --expect-reach) or a bad option, 4 --batch could not parse a command, 5 --dump failed,
                            N 'quit N'; at startup 11 a file cannot be opened, 12 not read, 21 not a V32 file)
  -h, --help                display this information
 
@@ -923,6 +928,32 @@ opciones que las de `--frame-stats`. En una sesión `stats` muestra los contador
 `stats expect ...`) comprueba uno (`.last .mean .min .max .p50 .p95 .p99 .total`), `stats save ARCHIVO [json]` escribe cada cuadro. Solo lee el estado; los números son iguales a
 los de `v32prof`, cuadro por cuadro. Ver [docs/PROFILING.md](docs/PROFILING.md).
 
+### Vigilancia del montón y expect-reach
+
+`--heap[=PROG.asm]` es para cartuchos construidos con `v32lua`: vigila el montón desde fuera. Al final de cada cuadro (desde el primero en que
+corrió el cartucho) imprime en stdout
+
+    HEAP F263 ptr=0x00000389 used=780 peak=790
+    HEAP F263 ptr=0x0000010E used=122 peak=122 floor=0x00000101 pin=0x00000000 depth=2 stack=0x000000F4,0x00000101
+
+`F` es el cuadro que terminó (`TIM_FrameCounter`; los cuadros de la BIOS cuentan), `ptr` el puntero del montón (la palabra 0 de la RAM, `HEAP_POINTER`),
+`used` es `ptr - HEAP_START` en palabras y `peak` el mayor `used` hasta el momento. El máximo es exacto: el puntero se lee tras cada instrucción, no solo al
+final de los cuadros. Para un cartucho construido con `v32lua --gc arena` la línea continúa con `ARENA_FLOOR`, `ARENA_PIN_TOP`, `ARENA_DEPTH` y las primeras
+`depth` entradas de `ARENA_STACK` (`arena.mark()` / `arena.release()` se ven como `depth` que sube y baja). Al terminar la ejecución imprime
+`HEAP PEAK used=N words ptr=0x.. frame=F` (dónde se alcanzó el máximo) y `HEAP END used=N words ptr=0x.. frame=F`.
+Los nombres salen de las líneas `%define NAME 0xADDR` del `NAME.asm` generado, que se busca junto al cartucho como los archivos de depuración
+(`obj/`, `--debug-dir`) o es el archivo que nombra `--heap=PROG.asm`; lo que falte en él se busca entre los símbolos de datos (`--symbol-file`,
+`.asm.sym`), y `HEAP_POINTER` vale por defecto la palabra 0 de la RAM. Sin `HEAP_START` (sin `.asm`, o uno que no es de `v32lua`) un aviso en stderr lo dice una vez y
+las líneas muestran solo `ptr`. Solo lee la RAM: una ejecución con y sin la opción da los mismos resultados.
+
+`--expect-reach ETIQUETA[,ETIQUETA...]` dice a qué código debe llegar la ejecución. Las etiquetas son las de los archivos de depuración (las que usan `break` y `-b`;
+`NAME.vbin.debug` de `v32as -g` o del `assemble -g program` estándar); una desconocida es un error de arranque (estado de salida 1, como una opción incorrecta). Cuando la
+CPU está a punto de ejecutar la dirección de cualquiera de ellas, v32sim imprime `EXPECT REACHED <etiqueta> frame=N ip=0x........` en stdout, se detiene y sale con 0.
+Si la ejecución termina de cualquier otra forma (el límite de cuadros de `--max-frames`, `HLT`, un error de CPU, `quit`, el fin de la entrada) imprime
+`EXPECT MISSED <etiqueta>,<etiqueta>` y sale con 1 (también con `-x`: una expectativa fallida prevalece sobre el estado 2 del límite de cuadros y el 3 de un error de sistema;
+solo `quit N` la sustituye). Funciona paso a paso, en guiones `--batch` y con `-r --fast --max-frames=N`; así dice una prueba
+«este programa debe llegar a `__oom_handler`» (o a `main_loop`, o a `game_over`).
+
 ### Perfil de direcciones
 
 `--profile-out=ARCHIVO` escribe, al terminar la ejecución, cuántas veces se ejecutó la instrucción de cada
@@ -1058,7 +1089,7 @@ es la entrada estándar del simulador (o `-C ARCHIVO`).
   * el primer `expect` fallido, o un `until` que agota su tiempo, termina la ejecución.
 
 Estado de salida (siempre; `-x` añade los códigos de límite de cuadros y de error de sistema): 0 éxito;
-1 un `expect` falló o un `until` agotó su tiempo; 2 se alcanzó el límite de cuadros (`-x`);
+1 un `expect` falló, un `until` agotó su tiempo o no se alcanzó una etiqueta de `--expect-reach`; 2 se alcanzó el límite de cuadros (`-x`);
 3 un error de sistema (`-x`); 4 no se pudo analizar una línea de órdenes (modo por lotes); 5 `--dump` no pudo imprimir lo
 pedido (especificación incorrecta, símbolo desconocido, memoria ilegible; solo cuando nada más fijó un estado); `quit N`
 prevalece sobre todos ellos. Una ejecución que termina porque el programa ejecutó `HLT` es un 0 sin más (un final limpio) salvo que
@@ -1152,7 +1183,7 @@ indicador interactivo no cambia.
 cartucho lo hace `tests/mkcart.py`, y la BIOS es `tests/gaps/bios.asm`.
 
 `tests/run_kbd_sync_tests.sh` (`make test`; 22 comprobaciones, sin cadena de herramientas: entrega de v32kbd con un programa ocupado, `--kbd-sync`, `--warn-halt`,
-`--halt-status`, `regex:`) y `tests/run_cli_tests.sh` (también `make test`; 128 comprobaciones, sin cadena de herramientas: la línea de
+`--halt-status`, `regex:`) y `tests/run_cli_tests.sh` (también `make test`; 144 comprobaciones, sin cadena de herramientas: la línea de
 órdenes, los textos de ayuda y los códigos de salida) y `tests/run_v32dev_server_tests.sh` (también `make test`; 84 comprobaciones, sin cadena de herramientas ni
 v32io: `V32DEV_SERVER`/`V32DEV_CHn`, `serial:tcp`, el análisis de SPEC, los tipos de `dev format`).
 
@@ -1209,6 +1240,7 @@ lista. Desde el indicador, los puertos se pueden manipular con `set` e inspeccio
   por nombre de miembro, globales con su `type=`, valores de Lua, globales de Lua y upvalues de clausuras; un miembro de estructura no se puede nombrar en una
   expresión (`print p.x`; `x p` muestra las palabras), un miembro que es a su vez un agregado se muestra como palabras en bruto, las tablas de Lua anidadas solo
   muestran su dirección, y `display NOMBRE` conserva la dirección que tenía el nombre en lugar de seguir el marco
+- `--heap` solo conoce el montículo de los cartuchos de `v32lua` (necesita `HEAP_START` del `.asm` del cartucho o de un archivo de símbolos; no muestra los fotogramas de la BIOS), y `--expect-reach` acepta etiquetas de código, no direcciones ni `ARCHIVO:LÍNEA`
 - El lector de archivos de depuración está escrito a mano (podría pasar a flex)
 - El inicio por defecto es la BIOS (`0x10000004`), no el cartucho
 

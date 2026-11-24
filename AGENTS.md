@@ -23,7 +23,7 @@ AGENTS.md) and `docs/TOOLS.md` (which tool for which question). The rest of this
   the stock tools, v32opt's `scripts/v32srcmark.py` adds `;@src` markers; without it v32sim only has addresses and
   the `%define global_X N` data symbols. `tools/v32mkcart.sh` builds either way.
 - stdout is for what the script asked for, stderr for diagnostics (`--batch`). Exit statuses are an interface: 0 ok, 1 an
-  `expect` failed / `until` timed out, 2 frame limit (`-x`), 3 system error (`-x`), 4 unparsable command (`--batch`), 5 `--dump`
+  `expect` failed / `until` timed out / `--expect-reach` missed (`EXPECT MISSED`), 2 frame limit (`-x`), 3 system error (`-x`), 4 unparsable command (`--batch`), 5 `--dump`
   could not print what was asked, `quit N` overrides; 11 / 12 / 21 at startup (file not opened / not read / not a V32 file).
 
 ## Layout
@@ -60,9 +60,9 @@ docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TO
 - Tests (most need the toolchain; see the headers): `tests/run_batch_tests.sh` (scripting), `run_src_tests.sh` (source
   level), `run_stack_tests.sh` (C / C++ / Lua debug stack), `run_gaps.sh` (56 checks), `run_romcheck.sh`, `run_fuzz.sh` (differential
   against `refrun`), `run_clock.sh` (start-up clock vs the oracle across time zones/DST, `LD_PRELOAD` time shim, 37 checks),
-  `run_memcard.sh` (memory card + v32dev mailbox vs the oracle via `vrun`, 14 checks), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU),
+  `run_memcard.sh` (memory card + v32dev mailbox vs the oracle via `vrun`, 14 checks), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU), `run_heap_tests.sh` (`--heap`, `--expect-reach`; needs v32lua, 41 checks),
   `run_harness_tests.sh` (the tools/ scripts and their agreement with the oracle; 98 checks with ORACLE and V32IO set). `make test` runs
-  `run_kbd_sync_tests.sh` and `run_cli_tests.sh` (command line, help texts, exit statuses; 128 checks), which need no toolchain; `make check TC=DIR` runs them all.
+  `run_kbd_sync_tests.sh` and `run_cli_tests.sh` (command line, help texts, exit statuses; 144 checks), which need no toolchain; `make check TC=DIR` runs them all.
   Passing one suite proves little: a CPU/GPU change needs the differential ones, a scripting change the batch one.
 - Add an option: `src/args.c` (long option number), `src/help.c`, `inc/globals.h`, README "Usage", `docs/USAGE.md`, `man/v32sim.1`
   (and the translations, see Docs), and a test. A new prompt command goes in `src/lexer.l`, `src/parser.y`, `src/command.c`

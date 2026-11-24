@@ -255,6 +255,24 @@ static void  output_lua_boolean (uint32_t  data, uint32_t  tag, uint32_t  payloa
     {
         fprintf (stdout, "table: 0x%06X", data & 0x003FFFFF);
     }
+    else if ((data & 0xFFE00000) == 0x7FA00000) // closure (function tag + bit 21)
+    {
+        // v32lua: the record is in RAM at word address (payload & 0x1FFFFF) << 1,
+        // laid out [code, nupvals, cell pointers...] (runtime/exec.s, arena.s)
+        uint32_t  rec        = (data & 0x001FFFFF) << 1;
+
+        if ((memory_chk (rec,     FLAG_READ, TRUE) == FALSE) ||
+            (memory_chk (rec + 1, FLAG_READ, TRUE) == FALSE) ||
+            (rec + 1          >= 0x00400000))      // must be in RAM
+        {
+            fprintf (stdout, "closure: 0x%06X <bad record>", rec);
+        }
+        else
+        {
+            fprintf (stdout, "closure: 0x%06X (code 0x%08X, %u upvalues)", rec,
+                     (uint32_t) ISYSMEMGET (rec), (uint32_t) ISYSMEMGET (rec + 1));
+        }
+    }
     else if (tag             == 0x7F800000) // function (ROM-only tag)
     {
         fprintf (stdout, "function: 0x%06X", data & 0x003FFFFF);

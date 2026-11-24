@@ -89,6 +89,29 @@ out=$(timeout 60 "$SIM" --batch -r --fast -B "$W/bios.v32" --screenshot-at=0-1 -
 hasnt "all reached: no warning" "$out" "WARNING"
 out=$(timeout 60 "$SIM" --batch -r --fast -B "$W/bios.v32" --screenshot-at=0 --screenshot-file="$W/u%d.png" - 2>&1 </dev/null)
 
+echo "== --expect-reach, --heap (no toolchain: the tiny cartridge, labels add/face/main at 0x20000000-2)"
+out=$(sim -r --fast --expect-reach main </dev/null); st=$?
+check "--expect-reach: label reached, exit 0"  "$st" "0"
+has   "--expect-reach: REACHED line"           "$out" "EXPECT REACHED main frame="
+has   "--expect-reach: ip"                     "$out" "ip=0x20000002"
+out=$(sim -r --fast --expect-reach nosuch,main </dev/null); st=$?
+check "--expect-reach: unknown label, exit 1"  "$st" "1"
+has   "--expect-reach: unknown label, message" "$out" "[ERROR] --expect-reach: 'nosuch' is not a known label"
+hasnt "--expect-reach: unknown label, nothing ran" "$out" "EXPECT"
+printf '0x20000100,x.asm,1,faraway\n' > "$W/far.dbg"
+out=$(timeout 60 "$SIM" --batch -r --fast -x -B "$W/bios.v32" --cart-asm-debug="$W/far.dbg" --expect-reach faraway "$W/h.v32" 2>&1 </dev/null); st=$?
+check "--expect-reach: label never reached, exit 1 (also with -x)" "$st" "1"
+has   "--expect-reach: MISSED line"            "$out" "EXPECT MISSED faraway"
+out=$(sim -r --fast --heap </dev/null); st=$?
+check "--heap without HEAP_START: exit 0"      "$st" "0"
+has   "--heap without HEAP_START: warning"     "$out" "HEAP_START is unknown"
+out=$(sim -r --fast --heap=/nonexistent/x.asm </dev/null); st=$?
+check "--heap=missing.asm: exit 1"             "$st" "1"
+H=$("$SIM" --help)
+has   "--help: --heap"                         "$H" "--heap[=PROG.asm]"
+has   "--help: --expect-reach"                 "$H" "--expect-reach LABELS"
+has   "--help: status 1 names --expect-reach"  "$H" "1 a check failed (expect, until, --expect-reach)"
+
 echo "== startup exit statuses"
 echo hello > "$W/junk.v32"
 timeout 20 "$SIM" --batch -B "$W/nosuchfile" "$W/h.v32" >/dev/null 2>&1 </dev/null; check "missing BIOS: 11"    "$?" "11"

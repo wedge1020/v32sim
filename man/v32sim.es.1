@@ -1,4 +1,4 @@
-.TH V32SIM 1 "noviembre de 2026" "v32sim 20261123-dev" "Comandos de usuario"
+.TH V32SIM 1 "noviembre de 2026" "v32sim 20261124-dev" "Comandos de usuario"
 .SH NOMBRE
 v32sim \- simulador sin interfaz y depurador paso a paso para la consola de fantas\('ia Vircon32
 .SH SINOPSIS
@@ -266,6 +266,22 @@ fallido o un
 que agota su tiempo termina la ejecuci\('on con estado 1; una orden que no se
 puede analizar la termina con estado 4.
 .TP
+.BI \-\-expect\-reach= ETIQUETA [, ETIQUETA ...]
+La ejecuci\('on debe llegar a una de estas etiquetas de c\('odigo de los archivos de depuraci\('on.
+Cuando llega, imprime
+.B EXPECT REACHED
+.I etiqueta
+.BI frame= N
+.BI ip=0x ........
+en la salida est\('andar, se detiene y sale con 0.
+Si la ejecuci\('on termina de cualquier otra forma (l\('imite de cuadros, HLT, un error de CPU,
+.BR quit )
+imprime
+.B EXPECT MISSED
+y las etiquetas, y sale con 1 (tambi\('en con
+.BR \-x ).
+Una etiqueta desconocida es un error de arranque (estado de salida 1).
+.TP
 .BR \-x ", " \-\-exit\-status
 El estado de salida indica c\('omo termin\('o el programa (ver
 .BR "ESTADO DE SALIDA" ).
@@ -480,6 +496,29 @@ ninguna.
 (por defecto) o
 .BR json :
 JSON Lines con nombres con puntos estables y una l\('inea de resumen al final.
+.TP
+.BI \-\-heap[= PROG.asm ]
+Para cartuchos de
+.BR v32lua :
+al final de cada cuadro imprime en la salida est\('andar
+.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W
+(puntero del mont\('on, palabras usadas desde
+.BR HEAP_START ,
+mayor uso hasta el momento; el m\('aximo se comprueba tras cada instrucci\('on), y con
+.B \-\-gc arena
+tambi\('en
+.BR floor= ", " pin= ", " depth= " y " stack= .
+Al salir:
+.B HEAP PEAK
+y
+.BR "HEAP END" .
+Los s\('imbolos
+.B %define
+se leen del
+.I NAME.asm
+del cartucho (se busca como los archivos de depuraci\('on) o de
+.IR PROG.asm .
+Solo lee la RAM.
 .TP
 .BI \-\-profile\-out= ARCHIVO
 Al final de la ejecuci\('on escribe cu\('antas veces se ejecut\('o cada direcci\('on de
@@ -854,9 +893,11 @@ o el fin de la entrada.
 .B 1
 Fall\('o un
 .B expect
-o un
+, un
 .B until
-agot\('o su tiempo.
+agot\('o su tiempo o
+.B \-\-expect\-reach
+no lleg\('o a su etiqueta (prevalece sobre 2 y 3).
 Al arrancar tambi\('en: una opci\('on o un valor de opci\('on incorrectos (tambi\('en un
 modo desconocido de
 .BR \-L ),

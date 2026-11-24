@@ -26,6 +26,7 @@ skipit() { printf '%-34sSKIP  %s\n' "$1" "$2"; skip=$((skip+1)); }
 run batch   bash "$T/run_batch_tests.sh" "$TC"
 run src     bash "$T/run_src_tests.sh" "$TC"
 run stack   bash "$T/run_stack_tests.sh" "$TC"
+if command -v v32lua >/dev/null || [ -n "${V32LUA:-}" ]; then run heap bash "$T/run_heap_tests.sh" "$TC"; else skipit heap "no v32lua in the toolchain dir"; fi
 ORACLE=; [ -x "$TC/refrun" ] && ORACLE=$TC
 if [ -n "$ORACLE" ]; then
     run gaps     bash "$T/run_gaps.sh" "$TC"

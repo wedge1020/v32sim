@@ -87,6 +87,11 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --stats-top=N         the same as --frame-stats-top\n");
     fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
     fprintf (stdout, "     --stats-skip=N        the same as --frame-stats-skip\n");
+    fprintf (stdout, "     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N (with --gc arena also\n");
+    fprintf (stdout, "                           floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %%define symbols are read from the\n");
+    fprintf (stdout, "                           cart's .asm (found beside it) or from PROG.asm\n");
+    fprintf (stdout, "     --expect-reach LABELS exit 0 with EXPECT REACHED <label> frame=N ip=0x.. when the CPU reaches one of the labels\n");
+    fprintf (stdout, "                           (comma separated, from the debug files); otherwise EXPECT MISSED <labels> and exit status 1\n");
     fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2.1): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
     fprintf (stdout, "                           routines and events, write PREFIX.traps.txt, .blocks.txt and the .trace.txt report; after a trap the\n");
     fprintf (stdout, "                           cartridge restarts (--v32trace-norestart: stay in the trap); --v32trace-meta=FILE and\n");
@@ -100,7 +105,7 @@ void  usage (int8_t *program)
     fprintf (stdout, "                           a failed expect or timed-out until ends the run with status 1\n");
     fprintf (stdout, " -x, --exit-status         exit status tells how the program ended: 0 HLT, 2 frame limit,\n");
     fprintf (stdout, "                           3 system error (stops instead of entering the BIOS handler)\n");
-    fprintf (stdout, "                           (always: 1 a check failed or a bad option, 4 --batch could not parse a command, 5 --dump failed,\n");
+    fprintf (stdout, "                           (always: 1 a check failed (expect, until, --expect-reach) or a bad option, 4 --batch could not parse a command, 5 --dump failed,\n");
     fprintf (stdout, "                           N 'quit N'; at startup 11 a file cannot be opened, 12 not read, 21 not a V32 file)\n");
     fprintf (stdout, " -h, --help                display this information\n\n");
     fprintf (stdout, "FILE   is any path plus the filename desired\n");
@@ -730,7 +735,7 @@ void  help  (uint8_t  item)
             fprintf (stdout, "DESCRIPTION:\n");
             fprintf (stdout, "    Leave the simulator (end of input, ie Ctrl-D, does the same). STATUS is the\n");
             fprintf (stdout, "    exit status of the process (0-255); without it the status says how the run\n");
-            fprintf (stdout, "    went: 1 if an expect failed or an until timed out, 4 if --batch could not\n");
+            fprintf (stdout, "    went: 1 if an expect failed, an until timed out or --expect-reach missed, 4 if --batch could not\n");
             fprintf (stdout, "    parse a command, 5 if --dump failed, otherwise as described by -x.\n\n");
             break;
 

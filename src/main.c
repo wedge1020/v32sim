@@ -548,6 +548,8 @@ int32_t   main (int32_t  argc, char **argv)
         cmd_break_spec ((const char *) break_specs[value]);
     }
     nbreak_specs                    = 0;
+    expect_reach_init ();           // --expect-reach: the labels are loaded now
+    heap_init ();                   // --heap: the symbols of the cartridge are loaded now
 
     ////////////////////////////////////////////////////////////////////////////////////
     //
@@ -585,6 +587,15 @@ int32_t   main (int32_t  argc, char **argv)
     while ((action                    != INPUT_QUIT) &&
            (haltflag                  == FALSE))
     {
+        ////////////////////////////////////////////////////////////////////////////////
+        //
+        // --expect-reach: the instruction about to run is at one of the labels
+        //
+        if ((expect_reach_arg           != NULL) && (expect_reach_check (rom_offset) == TRUE))
+        {
+            break;
+        }
+
         ////////////////////////////////////////////////////////////////////////////////
         //
         // Check for breakpoint
@@ -948,6 +959,10 @@ int32_t   main (int32_t  argc, char **argv)
                 }
                 insn_count             = insn_count + 1;
                 decode_process (REG(IR), REG(IV), FREG(IV), decodeflags | FLAG_PROCESS);
+                if (heap_on           == TRUE)
+                {
+                    heap_poll ();           // --heap: the exact peak, not only at frame ends
+                }
 
                 // Check for watchpoint triggers
                 if ((wpoint          != NULL) && (wpoint_check () == TRUE))
@@ -1156,6 +1171,11 @@ int32_t   main (int32_t  argc, char **argv)
     {
         exitstatus                  = (uint8_t) halt_status;   // --halt-status: HLT is told apart from a clean 0
     }
+    expect_reach_end ();                     // --expect-reach: EXPECT MISSED, if the labels were not reached
+    if (expect_missed                == TRUE)
+    {
+        exitstatus                  = 1;     // an expect failed (it outranks the frame limit, a system error, HLT)
+    }
     if (quit_status_set              == TRUE)
     {
         exitstatus                  = quit_status;
@@ -1170,6 +1190,7 @@ int32_t   main (int32_t  argc, char **argv)
     ft_write ();
     addrprof_write ();
     framestats_write ();
+    heap_report ();
     v32trace_write ();
     if (consoleflag == TRUE)
     {

@@ -104,7 +104,7 @@ words read, writes made, the card file left behind, and the size/signature check
 a short `.asm`, the `;@ frames=N dump=...` header, and it fails until v32sim is fixed. `make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]`
 (`tools/v32sim-check.sh`) runs every suite of `tests/` from one toolchain directory and prints one summary line; `make check` runs clock and memcard too
 (memcard is skipped without `vrun`; the harness, `tests/run_harness_tests.sh`, is 98 checks with `ORACLE` and `V32IO` set, 95 without; 2 more need `V32SRCMARK` and a GBtoV32 tree). `make test` runs the
-ones that need no toolchain: `tests/run_kbd_sync_tests.sh` and `tests/run_cli_tests.sh` (command line, help texts, exit statuses; 128 checks).
+ones that need no toolchain: `tests/run_kbd_sync_tests.sh` and `tests/run_cli_tests.sh` (command line, help texts, exit statuses; 144 checks).
 
 ## 7. What exit statuses mean
 

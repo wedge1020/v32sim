@@ -446,6 +446,18 @@ FILE     *open_search_file (const char *, const char *, char *, size_t);
 uint32_t  sym_load_cart  (const char *);                      // symbols.c: data symbols of a C program
 uint32_t  sym_load_file  (const char *);
 int       sym_lookup     (const char *, uint32_t *, uint32_t *);
+int       sym_lookup_code (const char *, uint32_t *);                // symbols.c: a code label only
+extern int8_t       heap_on;                                         // --heap[=PROG.asm] (heapwatch.c)
+extern const char  *heap_asm_arg;
+void      heap_init (void);
+void      heap_poll (void);
+void      heap_frame (void);
+void      heap_report (void);
+extern const char  *expect_reach_arg;                                // --expect-reach=LIST (expectreach.c)
+extern uint8_t      expect_missed;
+void      expect_reach_init (void);
+int       expect_reach_check (uint32_t);
+void      expect_reach_end (void);
 int       sym_name_for   (uint32_t,    char *,      size_t);
 void      runctl_init    (void);                              // runctl.c: batch mode, run/until/expect
 void      runctl_reset   (void);

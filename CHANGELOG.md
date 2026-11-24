@@ -1,5 +1,11 @@
 # Changelog
 
+## 20261124-dev
+- **Closures in dumps** (v32lua request 1): a function-tagged value with bit 21 set (`(w & 0xFFE00000) == 0x7FA00000`) is shown as a closure, with its RAM record `[code, nupvals, cell_ptr...]` at `(w & 0x1FFFFF) << 1`: v32orun `CANON NAME closure 0xREC code=0x.. nupvals=N` (ROM functions still `CANON NAME function`), `closure@0xREC(code=.. nupvals=N)` in `-d` / `-D` / `-m`; v32sim `x/B` and `locals` print `closure: 0x.. (code 0x.., N upvalues)`.
+- **`--heap[=PROG.asm]`** (v32sim) and **`--heap`** (v32orun, with `-a`), request 2: `HEAP F<frame> ptr= used= peak=` at every frame end (`used` = HEAP_POINTER - HEAP_START), with `--gc arena` also `floor= pin= depth= stack=`; `HEAP PEAK` and `HEAP END` at exit. The peak is read after every instruction. Read-only: RAM dumps and exit statuses are the same with and without it (`src/heapwatch.c`).
+- **`--expect-reach LABEL[,LABEL...]`** (v32sim and v32orun), request 3: `EXPECT REACHED <label> frame=N ip=0x..` and exit 0, or `EXPECT MISSED <labels>` and exit 1; checked before v32orun's `-t` traps. v32orun reads the labels from `PROG.vbin.debug` or `--debug FILE` (`src/expectreach.c`, `sym_lookup_code()`).
+- New suite `tests/run_heap_tests.sh` (41 checks, needs v32lua; also in `tools/v32sim-check.sh`); `tests/run_cli_tests.sh` now has 144 checks.
+
 ## 20261123-dev
 - **Downstream: V32DOS 20261123-dev uses v32sim's tools** (proposal SD-1..SD-4 resolved, `docs/proposals/PROPOSAL-V32DOS.md` removed): its bootstrap builds v32sim with `tools/build-nogen.sh` and the stock runners with `tools/oracle/build.sh` (v32c++ no longer needed), its sessions run through `tools/v32sim-golden.sh`, and its v32dev disk tests use the native host (`--v32dev-host`, `dev detach/attach/swap`) instead of `v32dev.py serve`.
 - **`make check` with `V32IO=` runs v32io's suites again** (13: v32dev device test 98 checks incl. the embedded-server scenarios, native host 125); harness count corrected to 98 with `ORACLE` and `V32IO`.

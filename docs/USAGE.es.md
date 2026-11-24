@@ -133,6 +133,7 @@ Las opciones marcadas (forma corta) tienen una: `-B`, etc. «Por defecto» es lo
 | Opción | Significado |
 |---|---|
 | `-q, --batch` (también `--quiet`) | Modo guion: órdenes desde stdin o `-C` sin indicador ni eco; sin cabecera, línea de instrucción, lista de visualización ni resumen de registros al final de la ejecución. stdout contiene solo lo que imprimen `print`, `console`, ...; los acuses, los motivos de parada y los diagnósticos van a stderr. Las líneas en blanco se omiten; el fin de la entrada termina la ejecución; el primer `expect` fallido, o un `until` que agota su tiempo, la termina con estado 1; una orden que no se puede analizar la termina con 4. |
+| `--expect-reach ETIQUETA[,ETIQUETA...]` | Etiquetas (de los archivos de depuración) a las que debe llegar la ejecución. En la primera: `EXPECT REACHED <etiqueta> frame=N ip=0x........` en stdout, se detiene y sale con 0. Si la ejecución termina de otro modo (límite de cuadros, HLT, error de CPU, `quit`): `EXPECT MISSED <etiquetas>` y sale con 1 (también con `-x`). Una etiqueta desconocida es un error de arranque (sale con 1). |
 | `-x, --exit-status` | El estado de salida indica cómo terminó el programa (ver *Estado de salida*). |
 | `--dump=N[@ADDR]` o `ADDR:N` | Tras la ejecución imprime N palabras de RAM (con signo, una por línea) desde ADDR: hex, o una etiqueta (probada también como `global_NOMBRE`); por defecto el inicio de la RAM. |
 | `--console` | Imprime la pantalla de texto con la fuente de la BIOS (64x18, u 80x24 en v32c++) cuando termina la ejecución. |
@@ -191,6 +192,7 @@ externo (`v32dev.py serve`) o el propio v32sim:
 | `--profile-top=N` | Imprime a stderr al final las N direcciones (o funciones) más calientes. |
 | `--profile-by=address\|function` | Con `function`, `--profile-top` y el `--profile-out` de texto suman cada función (la etiqueta más cercana). Por defecto address. |
 | `--profile-event=TIPO` | Qué se cuenta: `instr` (por defecto), `gpu-draw`, `gpu-portwrite`, `spu-write`, `cycles`. |
+| `--heap[=PROG.asm]` | Cartuchos v32lua: al final de cada cuadro imprime `HEAP F<cuadro> ptr=0x.. used=N peak=N` (con `--gc arena` también `floor= pin= depth= stack=`) y `HEAP PEAK` / `HEAP END` al salir. Lee `HEAP_POINTER`, `HEAP_START` y `ARENA_*` del `.asm` del cartucho (junto a él) o de PROG.asm. README «Vigilancia del montón». |
 | `--time-breakdown` | Al salir, en qué se va por cuadro el tiempo de reloj de pared del propio v32sim (cpu/gpu/spu/salida). |
 | `--frame-log=ARCHIVO` | Con ella, una fila por cuadro de ese desglose. |
 | `--gpu-trace=ARCHIVO`, `--spu-trace=ARCHIVO` | Registra las escrituras en puertos de la GPU / SPU por cuadro (binario, [TRACE-FORMAT.md](TRACE-FORMAT.md)). |
@@ -243,7 +245,7 @@ Escritos:
 | Estado | Significado |
 |---|---|
 | 0 | Fin normal: el programa ejecutó HLT (salvo `--halt-status`), o `quit`, o fin de la entrada. |
-| 1 | Falló una comprobación: falló un `expect` o un `until` agotó su tiempo. Problemas de arranque que salen con 1: una opción o un valor de opción incorrectos (también `-L` con un modo desconocido), un archivo de `-C` que no se puede abrir, `--tty` sin terminal, un `--v32dev-host` incorrecto. |
+| 1 | Falló una comprobación: falló un `expect`, un `until` agotó su tiempo o `--expect-reach` no llegó a su etiqueta (`EXPECT MISSED`; prevalece sobre 2 y 3). Problemas de arranque que salen con 1: una opción o un valor de opción incorrectos (también `-L` con un modo desconocido), un archivo de `-C` que no se puede abrir, `--tty` sin terminal, un `--v32dev-host` incorrecto. |
 | 2 | Se alcanzó el límite de cuadros (solo con `-x`). También es el estado cuando no se puede abrir `/dev/null` al arrancar. |
 | 3 | Error de sistema (solo con `-x`; la ejecución se detiene en lugar de entrar en el manejador de errores de la BIOS). |
 | 4 | `--batch` no pudo analizar una orden (o falló una orden `dev`). |

@@ -1,4 +1,4 @@
-.TH V32SIM 1 "novembre 2026" "v32sim 20261123-dev" "Commandes utilisateur"
+.TH V32SIM 1 "novembre 2026" "v32sim 20261124-dev" "Commandes utilisateur"
 .SH NOM
 v32sim \- simulateur sans interface et d\('ebogueur pas \(`a pas pour la console de fantaisie Vircon32
 .SH SYNOPSIS
@@ -262,6 +262,22 @@ en \('echec ou un
 qui expire termine l'ex\('ecution avec le code 1 ; une commande qui ne peut pas \(^etre analys\('ee
 la termine avec le code 4.
 .TP
+.BI \-\-expect\-reach= \('ETIQUETTE [, \('ETIQUETTE ...]
+L'ex\('ecution doit atteindre l'une de ces \('etiquettes de code des fichiers de d\('ebogage.
+Quand elle y arrive, affiche
+.B EXPECT REACHED
+.I \('etiquette
+.BI frame= N
+.BI ip=0x ........
+sur la sortie standard, s'arr\(^ete et sort avec 0.
+Si l'ex\('ecution se termine autrement (limite d'images, HLT, une erreur CPU,
+.BR quit )
+affiche
+.B EXPECT MISSED
+et les \('etiquettes, et sort avec 1 (aussi avec
+.BR \-x ).
+Une \('etiquette inconnue est une erreur de d\('emarrage (code de sortie 1).
+.TP
 .BR \-x ", " \-\-exit\-status
 Le code de sortie indique comment le programme s'est termin\('e (voir
 .BR "CODE DE SORTIE" ).
@@ -470,6 +486,29 @@ r\('egions auxquelles ont \('et\('e imput\('es le plus de pixels GPU ; 8 par d\(
 (par d\('efaut) ou
 .BR json :
 JSON Lines avec des noms point\('es stables et une ligne de r\('esum\('e en dernier.
+.TP
+.BI \-\-heap[= PROG.asm ]
+Pour les cartouches
+.BR v32lua  :
+\(`a la fin de chaque image, affiche sur la sortie standard
+.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W
+(pointeur de tas, mots utilis\('es depuis
+.BR HEAP_START ,
+plus grand usage jusque-l\(`a ; le pic est v\('erifi\('e apr\(`es chaque instruction), et avec
+.B \-\-gc arena
+aussi
+.BR floor= ", " pin= ", " depth= " et " stack= .
+\(`A la sortie :
+.B HEAP PEAK
+et
+.BR "HEAP END" .
+Les symboles
+.B %define
+sont lus dans le
+.I NAME.asm
+de la cartouche (cherch\('e comme les fichiers de d\('ebogage) ou dans
+.IR PROG.asm .
+Ne fait que lire la RAM.
 .TP
 .BI \-\-profile\-out= FILE
 \(`A la fin de l'ex\('ecution, \('ecrit combien de fois chaque adresse d'instruction a \('et\('e
@@ -841,9 +880,11 @@ ou la fin de l'entr\('ee.
 .B 1
 Un
 .B expect
-a \('echou\('e ou un
+a \('echou\('e, un
 .B until
-a expir\('e.
+a expir\('e ou
+.B \-\-expect\-reach
+n'a pas atteint son \('etiquette (l'emporte sur 2 et 3).
 Au d\('emarrage aussi : une mauvaise option ou valeur d'option (un mode
 .B \-L
 inconnu aussi), un fichier

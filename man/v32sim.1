@@ -1,4 +1,4 @@
-.TH V32SIM 1 "November 2026" "v32sim 20261123-dev" "User Commands"
+.TH V32SIM 1 "November 2026" "v32sim 20261124-dev" "User Commands"
 .SH NAME
 v32sim \- headless simulator and single-step debugger for the Vircon32 fantasy console
 .SH SYNOPSIS
@@ -261,6 +261,22 @@ or an
 that times out ends the run with status 1; a command that cannot be parsed
 ends it with status 4.
 .TP
+.BI \-\-expect\-reach= LABEL [, LABEL ...]
+The run must reach one of these code labels of the debug files.
+When it does, print
+.B EXPECT REACHED
+.I label
+.BI frame= N
+.BI ip=0x ........
+on standard output, stop and exit 0.
+If the run ends any other way (frame limit, HLT, a CPU error,
+.BR quit )
+print
+.B EXPECT MISSED
+and the labels, and exit 1 (also with
+.BR \-x ).
+An unknown label is a startup error (exit status 1).
+.TP
 .BR \-x ", " \-\-exit\-status
 The exit status tells how the program ended (see
 .BR "EXIT STATUS" ).
@@ -469,6 +485,29 @@ regions charged the most GPU pixels; default 8, 0 is none.
 (default) or
 .BR json :
 JSON Lines with stable dotted names and a summary line last.
+.TP
+.BI \-\-heap[= PROG.asm ]
+For
+.B v32lua
+cartridges: at the end of every frame print on standard output
+.BI "HEAP F" N " ptr=0x" ... " used=" W " peak=" W
+(heap pointer, words used since
+.BR HEAP_START ,
+largest use so far; the peak is checked after every instruction), with
+.B \-\-gc arena
+also
+.BR floor= ", " pin= ", " depth= " and " stack= .
+At exit:
+.B HEAP PEAK
+and
+.BR "HEAP END" .
+The
+.B %define
+symbols are read from the cartridge's
+.I NAME.asm
+(searched like the debug files) or from
+.IR PROG.asm .
+Only reads RAM.
 .TP
 .BI \-\-profile\-out= FILE
 At the end of the run write how many times each instruction address was
@@ -841,9 +880,11 @@ or the end of input.
 .B 1
 An
 .B expect
-failed or an
+failed, an
 .B until
-timed out.
+timed out, or
+.B \-\-expect\-reach
+did not reach its label (it outranks 2 and 3).
 At startup also: a bad option or option value (an unknown
 .B \-L
 mode too), a

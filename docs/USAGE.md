@@ -130,6 +130,7 @@ Options marked (short form) have one: `-B`, etc. "Default" is what applies when 
 | Option | Meaning |
 |---|---|
 | `-q, --batch` (also `--quiet`) | Script mode: commands from stdin or `-C` with no prompt or echo; no banner, instruction line, display list or end-of-run register summary. stdout holds only what `print`, `console`, ... print; acknowledgements, stop reasons and diagnostics go to stderr. Blank lines are skipped; end of input ends the run; the first failed `expect`, or an `until` that times out, ends it with status 1; a command that cannot be parsed ends it with 4. |
+| `--expect-reach LABEL[,LABEL...]` | Labels (of the debug files) the run must reach. At the first one: `EXPECT REACHED <label> frame=N ip=0x........` on stdout, stop, exit 0. If the run ends otherwise (frame limit, HLT, CPU error, `quit`): `EXPECT MISSED <labels>`, exit 1 (also with `-x`). An unknown label is a startup error (exit 1). |
 | `-x, --exit-status` | The exit status says how the program ended (see *Exit status*). |
 | `--dump=N[@ADDR]` or `ADDR:N` | After the run print N RAM words (signed, one per line) from ADDR: hex, or a label (also tried as `global_NAME`); default start of RAM. |
 | `--console` | Print the BIOS-font text screen (64x18, or v32c++'s 80x24) when the run ends. |
@@ -188,6 +189,7 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 | `--profile-top=N` | Print the N hottest addresses (or functions) to stderr at the end. |
 | `--profile-by=address\|function` | With `function`, `--profile-top` and the text `--profile-out` add up each function (nearest label). Default address. |
 | `--profile-event=KIND` | What is counted: `instr` (default), `gpu-draw`, `gpu-portwrite`, `spu-write`, `cycles`. |
+| `--heap[=PROG.asm]` | v32lua carts: at every frame end print `HEAP F<frame> ptr=0x.. used=N peak=N` (with `--gc arena` also `floor= pin= depth= stack=`) and `HEAP PEAK` / `HEAP END` at exit. Reads `HEAP_POINTER`, `HEAP_START`, `ARENA_*` from the cart's `.asm` (found beside it) or from PROG.asm. README "Heap watch". |
 | `--time-breakdown` | At exit, where v32sim's own wall-clock time goes per frame (cpu/gpu/spu/output). |
 | `--frame-log=FILE` | With it, one row per frame of that breakdown. |
 | `--gpu-trace=FILE`, `--spu-trace=FILE` | Record the GPU / SPU port writes by frame (binary, [TRACE-FORMAT.md](TRACE-FORMAT.md)). |
@@ -240,7 +242,7 @@ Written:
 | Status | Meaning |
 |---|---|
 | 0 | Normal end: the program executed HLT (unless `--halt-status`), or `quit`, or end of input. |
-| 1 | A check failed: `expect` failed or `until` timed out. Startup problems that exit 1: a bad option or option value (`-L` with an unknown mode too), a `-C` file that cannot be opened, `--tty` without a terminal, a bad `--v32dev-host`. |
+| 1 | A check failed: `expect` failed, `until` timed out, or `--expect-reach` did not reach its label (`EXPECT MISSED`; it outranks 2 and 3). Startup problems that exit 1: a bad option or option value (`-L` with an unknown mode too), a `-C` file that cannot be opened, `--tty` without a terminal, a bad `--v32dev-host`. |
 | 2 | Frame limit reached (`-x` only). Also the status when `/dev/null` cannot be opened at startup. |
 | 3 | System error (`-x` only; the run stops instead of entering the BIOS error handler). |
 | 4 | `--batch` could not parse a command (or a `dev` command failed). |

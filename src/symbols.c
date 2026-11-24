@@ -347,6 +347,16 @@ int  sym_lookup (const char *name, uint32_t *addr, uint32_t *words)
 }
 
 //
+// sym_lookup_code(): the address of a code label (the debug files' labels, not the data symbols), exact name first
+//
+int  sym_lookup_code (const char *name, uint32_t *addr)
+{
+    if (name == NULL)  return (FALSE);
+    if (find_code (name, FALSE, addr) == TRUE)  return (TRUE);
+    return (find_code (name, TRUE, addr));
+}
+
+//
 // sym_name_for(): "NAME" or "NAME+OFFSET" for an address inside a variable. Only data
 // symbols are named this way (a watchpoint on a code label is not a common sight).
 //

@@ -26,10 +26,29 @@
 //    -P FILE [F] per-address cycle profile (tools/v32sim-addrprof.py, v32lua's profile.py)
 //    -m ADDR,N   dump N words of memory at exit      -G   (bare) start as after the BIOS: dirty RAM and registers
 //    -b          per-frame cycle counts: "FC <frame> <cycles> <overrun 0/1>" (what v32lua's v32bench printed)
-//    -q          no per-frame overrun lines          --memc FILE   memory card file (console mode; made if missing)
+//    -q          no per-frame overrun / HEAP lines   --memc FILE   memory card file (console mode; made if missing)
 //    --date Y,D --time S   set the clock    --cfi=x86|arm --cfi-log --spu-state --no-memcard --fixed-time --trail=N
 //                                           (the environment variables V32_CFI, V32_CFI_LOG, V32_SPU_STATE,
 //                                           V32_NO_MEMCARD, V32_FIXED_TIME and V32_TRAIL do the same)
+//    --heap      (needs -a PROG.asm) the heap of a v32lua cart, from the program's `%define`s HEAP_POINTER (RAM word; 0 if
+//                undefined), HEAP_START and, for a cart built with `v32lua --gc arena`, ARENA_FLOOR, ARENA_PIN_TOP, ARENA_DEPTH,
+//                ARENA_STACK (and ARENA_MAX_DEPTH, default 16). One line at the end of every frame (not with -q):
+//                  HEAP F<frame> ptr=0x%08X used=<ptr-HEAP_START> peak=<peak used so far>
+//                                [ floor=0x%08X pin=0x%08X depth=N stack=0x..,0x..]     (arena symbols: the first depth marks, "-" if none)
+//                The peak is of HEAP_POINTER sampled on every cycle, so an allocation that peaks and is released inside a
+//                frame still counts. At exit (after STATUS and REGS):
+//                  HEAP PEAK used=N words ptr=0x%08X frame=F        (F = the first frame that reached the peak)
+//                  HEAP END used=N ptr=0x%08X peak=N [floor=.. pin=.. depth=.. stack=..]
+//                It only reads RAM: the machine ends in the same state with and without it.
+//    --expect-reach L[,L...]   end the run, successfully, when execution reaches the address of any of these labels (from
+//                the program's .vbin.debug, lines `0xADDR,file,line,label`): prints
+//                  EXPECT REACHED <label> frame=N ip=0x%08X
+//                then `STATUS EXPECTED ...`, exit 0. The test comes BEFORE -t traps (the same address may be in both).
+//                Any other end of the run (frames exhausted, HALT, HWERROR, a trap) prints, after STATUS / REGS,
+//                  EXPECT MISSED <labels>
+//                and exits 1. An unknown label is a usage error (exit 2). The -d / -D dump and --heap lines still print.
+//                Typical labels of a v32lua cart: __oom_handler __arena_err_escape __arena_err_mark __arena_err_depth.
+//    --debug FILE   the .debug file for --expect-reach (default: PROG.vbin + ".debug"; required in console mode)
 //    --compat=refrun|v32run|vrun|peek|prof|shot|gpureplay   the command line and output of the old tool of that name (the wrappers
 //                                  tools/oracle/bin/{refrun,v32run,vrun,v32peek,v32prof,v32shot} are this)
 //
@@ -50,7 +69,11 @@
 //  x86-64; 0 or saturated on ARM64). v32orun is built with a patched copy of V32CPUProcessors.cpp (build.sh)
 //  that asks cfi_hook(): --cfi=arm picks the ARM behaviour, --cfi-log reports every such conversion.
 //
-//  Exit status: 0 normally, 2 usage/file errors, 3 when the console logic reports an exception.
+//  -D / -d print a v32lua closure (a function value with bit 21 set) as `closure@0xREC(code=0x.. nupvals=N)` and, in the
+//  CANON lines, `CANON NAME closure 0xREC code=0xXXXXXXXX nupvals=N` (`CANON NAME function` stays for ROM functions);
+//  the record, at RAM word (payload & 0x1FFFFF) << 1, is [code, nupvals, cell pointers...]; outside RAM: `<bad record>`.
+//
+//  Exit status: 0 normally, 1 --expect-reach missed, 2 usage/file errors, 3 when the console logic reports an exception.
 // *****************************************************************************
 #include "V32Console.hpp"
 #include "ExternalInterfaces.hpp"
@@ -107,6 +130,17 @@ int32_t v32orun_cfi(float f, int32_t ip)
 }
 
 // ---- v32lua value formatting for the -d / -D dumps ------------------------------------------------------------------
+static bool g_ram_read(uint32_t addr, V32Word& w);       // defined after `con`
+// v32lua closure: function tag with bit 21 set; record [code, nupvals, cells...] at RAM word (payload & 0x1FFFFF) << 1
+static bool is_closure(uint32_t u) { return (u & 0xFFE00000u) == 0x7FA00000u; }
+static bool closure_rec(uint32_t u, uint32_t& rec, uint32_t& code, uint32_t& nup)
+{
+    rec = (u & 0x1FFFFFu) << 1;
+    V32Word c, n;
+    if (!g_ram_read(rec, c) || !g_ram_read(rec + 1, n)) return false;
+    code = c.AsBinary; nup = n.AsBinary;
+    return true;
+}
 static string fmtword(V32Word w)
 {
     char b[128];
@@ -117,6 +151,12 @@ static string fmtword(V32Word w)
     if ((u & 0xFFC00000u) == 0x7FC00000u) { snprintf(b, sizeof b, "romstr@%X", u & 0x3FFFFF); return b; }
     if ((u & 0xFFC00000u) == 0xFF800000u) { snprintf(b, sizeof b, "table@%X", u & 0x3FFFFF); return b; }
     if ((u & 0xFFC00000u) == 0xFFC00000u) { snprintf(b, sizeof b, "ramstr@%X", u & 0x3FFFFF); return b; }
+    if (is_closure(u)) {
+        uint32_t rec, code, nup;
+        if (closure_rec(u, rec, code, nup)) snprintf(b, sizeof b, "closure@0x%X(code=0x%08X nupvals=%u)", rec, code, nup);
+        else snprintf(b, sizeof b, "closure@0x%X<bad record>", (u & 0x1FFFFFu) << 1);
+        return b;
+    }
     if ((u & 0xFFC00000u) == 0x7F800000u && u != 0x7F800000u) { snprintf(b, sizeof b, "func@%X", u & 0x3FFFFF); return b; }
     snprintf(b, sizeof b, "%.9g", w.AsFloat);
     return b;
@@ -310,6 +350,7 @@ static void install_callbacks(void (*log)(const std::string&))
 }
 
 static V32Console con;       // static: it is large
+static bool g_ram_read(uint32_t addr, V32Word& w) { return addr < (uint32_t) con.RAM.Memory.size() && con.RAM.ReadAddress(addr, w); }
 
 // gamepad script: frame -> list of (slot, value); slot 0 = Conn, 1..11 = Left Right Up Down Start A B X Y L R
 typedef map<int, vector<pair<int,int>>> PadScript;
@@ -936,7 +977,8 @@ int main(int argc, char** argv)
     const char *vbin = nullptr, *asmf = nullptr, *bios = nullptr, *cart = nullptr, *memc = nullptr, *profpath = nullptr, *keys = nullptr;
     int profstart = 0, frames = -1, year = -1, day = 0, seconds = -1;
     long long maxcycles = -1;
-    string dump, padscript, memdump;
+    string dump, padscript, memdump, expect_arg, debugf;
+    bool heap = false;
     vector<long long> traps;
     int trailn = 48;
     if (const char* e = getenv("V32_CFI")) g_cfi_arm = !strcmp(e, "arm");
@@ -966,6 +1008,9 @@ int main(int argc, char** argv)
         else if (a == "-c") maxcycles = atoll(need("a number"));
         else if (a == "-B") bpwatch = true;
         else if (a == "-t") { stringstream ts(need("addresses")); string t; while (getline(ts, t, ',')) if (!t.empty()) traps.push_back(strtoll(t.c_str(), nullptr, 16)); }
+        else if (a == "--heap") heap = true;
+        else if (a == "--expect-reach") expect_arg = need("labels");
+        else if (a == "--debug") debugf = need("a file");
         else if (a == "--bios") bios = need("a file");
         else if (a == "--cart") cart = need("a file");
         else if (a == "--memc") memc = need("a file");
@@ -994,6 +1039,69 @@ int main(int argc, char** argv)
     if (asbios && !vbin) { fprintf(stderr, "v32orun: --as-bios needs a .vbin\n"); return 2; }
     if (frames < 0) frames = console_mode ? 600 : 10;
     bool bare = !console_mode && !asbios;           // stand-in devices
+
+    // ---- --heap symbols, --expect-reach labels --------------------------------------------------------------------
+    uint32_t h_ptr = 0, h_start = 0, h_floor = 0, h_pin = 0, h_depth = 0, h_stack = 0, h_maxdepth = 16;
+    bool h_arena = false;
+    if (heap) {
+        if (!asmf) { fprintf(stderr, "v32orun: --heap needs -a PROG.asm (for HEAP_POINTER / HEAP_START)\n"); return 2; }
+        ifstream f(asmf);
+        if (!f) { fprintf(stderr, "v32orun: cannot open %s\n", asmf); return 2; }
+        map<string, uint32_t> hs; string line;
+        while (getline(f, line)) {
+            char n[256], v[64];
+            if (sscanf(line.c_str(), "%%define %255s %63s", n, v) == 2 && (!strncmp(n, "HEAP_", 5) || !strncmp(n, "ARENA_", 6)))
+                hs[n] = (uint32_t) strtoul(v, nullptr, 0);
+        }
+        if (!hs.count("HEAP_START")) { fprintf(stderr, "v32orun: --heap: no %%define HEAP_START in %s\n", asmf); return 2; }
+        h_start = hs["HEAP_START"];
+        if (hs.count("HEAP_POINTER")) h_ptr = hs["HEAP_POINTER"];
+        h_arena = hs.count("ARENA_FLOOR") && hs.count("ARENA_PIN_TOP") && hs.count("ARENA_DEPTH") && hs.count("ARENA_STACK");
+        if (h_arena) { h_floor = hs["ARENA_FLOOR"]; h_pin = hs["ARENA_PIN_TOP"]; h_depth = hs["ARENA_DEPTH"]; h_stack = hs["ARENA_STACK"]; }
+        if (hs.count("ARENA_MAX_DEPTH")) h_maxdepth = hs["ARENA_MAX_DEPTH"];
+    }
+    vector<pair<string, uint32_t>> expects;
+    if (!expect_arg.empty()) {
+        string dbg = debugf;
+        if (dbg.empty()) {
+            if (!vbin) { fprintf(stderr, "v32orun: --expect-reach needs --debug FILE in console mode\n"); return 2; }
+            dbg = string(vbin) + ".debug";
+        }
+        ifstream f(dbg);
+        if (!f) { fprintf(stderr, "v32orun: --expect-reach: cannot open %s\n", dbg.c_str()); return 2; }
+        map<string, uint32_t> labels; string line;
+        while (getline(f, line)) {
+            size_t c1 = line.find(','), c2 = line.rfind(',');
+            if (c1 == string::npos || line.compare(0, 2, "0x")) continue;
+            string lab = line.substr(c2 + 1);
+            while (!lab.empty() && (lab.back() == '\r' || lab.back() == ' ')) lab.pop_back();
+            if (!labels.count(lab)) labels[lab] = (uint32_t) strtoul(line.c_str(), nullptr, 16);
+        }
+        stringstream es(expect_arg); string l;
+        while (getline(es, l, ',')) {
+            if (l.empty()) continue;
+            if (!labels.count(l)) { fprintf(stderr, "v32orun: --expect-reach: label %s not found in %s\n", l.c_str(), dbg.c_str()); return 2; }
+            expects.push_back({l, labels[l]});
+        }
+        if (expects.empty()) { fprintf(stderr, "v32orun: --expect-reach needs at least one label\n"); return 2; }
+    }
+    bool expect_hit = false;
+    string expect_label;
+    // heap tracking: HEAP_POINTER is read, never written
+    int32_t heap_peak_ptr = (int32_t) h_start; int heap_peak_frame = 0;
+    auto heap_ptr = [&]() { V32Word w; w.AsInteger = 0; g_ram_read(h_ptr, w); return w.AsInteger; };
+    auto heap_tail = [&]() {
+        string r;
+        if (!h_arena) return r;
+        char b[96];
+        V32Word fl, pn, dp; g_ram_read(h_floor, fl); g_ram_read(h_pin, pn); g_ram_read(h_depth, dp);
+        snprintf(b, sizeof b, " floor=0x%08X pin=0x%08X depth=%d stack=", fl.AsBinary, pn.AsBinary, dp.AsInteger);
+        r = b;
+        int d = dp.AsInteger < 0 ? 0 : dp.AsInteger > (int) h_maxdepth ? (int) h_maxdepth : dp.AsInteger;
+        if (!d) r += "-";
+        for (int k = 0; k < d; k++) { V32Word m; g_ram_read(h_stack + k, m); snprintf(b, sizeof b, "%s0x%X", k ? "," : "", m.AsBinary); r += b; }
+        return r;
+    };
 
     // ---- wire the console -------------------------------------------------------------------------------------------
     static LogGPU lgpu; static LogSPU lspu; static StubPad PAD; static StubCar CAR; static StubMem MEMC; static V32ROM BIOS;
@@ -1075,6 +1183,16 @@ int main(int argc, char** argv)
         }
         bool hwerr = false; long long frame_start = cyc;
         for (int i = 0; i < Constants::CyclesPerFrame; i++) {
+            if (!expects.empty()) {
+                uint32_t ip = (uint32_t) CPU.InstructionPointer.AsInteger;
+                for (auto& e : expects) if (e.second == ip) { expect_hit = true; expect_label = e.first; }
+                if (expect_hit) {
+                    printf("EXPECT REACHED %s frame=%d ip=0x%08X\n", expect_label.c_str(), g_frame, ip);
+                    status = "EXPECTED";
+                    break;
+                }
+            }
+            if (heap) { int32_t hp = heap_ptr(); if (hp > heap_peak_ptr) { heap_peak_ptr = hp; heap_peak_frame = g_frame; } }
             if (profpath && g_frame >= profstart) prof[(uint32_t) CPU.InstructionPointer.AsInteger]++;
             if (bpwatch) {
                 // -B: a routine must return with the caller's BP. Report the first RET where BP differs from its
@@ -1120,6 +1238,12 @@ int main(int argc, char** argv)
         }
         if (!bare && con.MemoryCardController.PendingSave) con.SaveMemoryCard();
         if (bench) printf("FC %d %lld %d\n", g_frame, cyc - frame_start, (!CPU.Waiting && !CPU.Halted) ? 1 : 0);
+        if (heap) {
+            int32_t hp = heap_ptr(); if (hp > heap_peak_ptr) { heap_peak_ptr = hp; heap_peak_frame = g_frame; }
+            if (!quiet) printf("HEAP F%d ptr=0x%08X used=%d peak=%d%s\n", g_frame, (uint32_t) hp, hp - (int32_t) h_start,
+                               heap_peak_ptr - (int32_t) h_start, heap_tail().c_str());
+        }
+        if (expect_hit) break;
         if (CPU.Halted) break;
         if (maxcycles > 0 && cyc >= maxcycles) { status = "CYCLE_LIMIT"; break; }
         if (!CPU.Waiting && !hwerr) { g_overruns++; if (!quiet) printf("F%d: frame budget exhausted without WAIT\n", g_frame); }
@@ -1150,6 +1274,16 @@ int main(int argc, char** argv)
     printf("REGS");
     for (int r = 0; r < 16; r++) { V32Word w; memcpy(&w, (char*)&CPU.Registers[0] + r * 4, 4); printf(" R%d=%08X", r, w.AsBinary); }
     printf("\n");
+    if (heap) {
+        int32_t hp = heap_ptr();
+        printf("HEAP PEAK used=%d words ptr=0x%08X frame=%d\n", heap_peak_ptr - (int32_t) h_start, (uint32_t) heap_peak_ptr, heap_peak_frame);
+        printf("HEAP END used=%d ptr=0x%08X peak=%d%s\n", hp - (int32_t) h_start, (uint32_t) hp, heap_peak_ptr - (int32_t) h_start, heap_tail().c_str());
+    }
+    if (!expects.empty() && !expect_hit) {
+        printf("EXPECT MISSED");
+        for (size_t k = 0; k < expects.size(); k++) printf("%s%s", k ? "," : " ", expects[k].first.c_str());
+        printf("\n");
+    }
 
     if (!dump.empty() && asmf) {
         map<string, uint32_t> sym;
@@ -1187,6 +1321,11 @@ int main(int argc, char** argv)
                 else if ((u & 0xFFC00000u) == 0x7FC00000u) printf("CANON %s str %s\n", nm.c_str(), rdstr(true, u & 0x3FFFFF).c_str());
                 else if ((u & 0xFFC00000u) == 0xFFC00000u) printf("CANON %s str %s\n", nm.c_str(), rdstr(false, u & 0x3FFFFF).c_str());
                 else if ((u & 0xFFC00000u) == 0xFF800000u) printf("CANON %s table\n", nm.c_str());
+                else if (is_closure(u)) {
+                    uint32_t rec, code, nup;
+                    if (closure_rec(u, rec, code, nup)) printf("CANON %s closure 0x%X code=0x%08X nupvals=%u\n", nm.c_str(), rec, code, nup);
+                    else printf("CANON %s closure 0x%X bad\n", nm.c_str(), (u & 0x1FFFFFu) << 1);
+                }
                 else if ((u & 0x7F800000u) == 0x7F800000u && (u & 0x007FFFFF) != 0) printf("CANON %s function\n", nm.c_str());
                 else printf("CANON %s num %.9g\n", nm.c_str(), w.AsFloat);
                 continue;
@@ -1219,5 +1358,5 @@ int main(int argc, char** argv)
             }
         }
     }
-    return 0;
+    return (!expects.empty() && !expect_hit) ? 1 : 0;
 }

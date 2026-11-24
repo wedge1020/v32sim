@@ -88,6 +88,8 @@ void  process_args (int32_t  argc, int8_t **argv)
        { "v32dev-host-force", no_argument,    0, 217 },
        { "screenshot-at",  required_argument, 0, 204 },
        { "screenshot-file",required_argument, 0, 205 },
+       { "heap",           optional_argument, 0, 223 },
+       { "expect-reach",   required_argument, 0, 224 },
        { "exit-status",    no_argument,       0, 'x' },
        { "help",           no_argument,       0, 'h' },
        { 0,                0,                 0,  0  }
@@ -277,6 +279,15 @@ void  process_args (int32_t  argc, int8_t **argv)
 
             case 221: // warn-halt
                 warn_halt          = TRUE;
+                break;
+
+            case 223: // heap[=PROG.asm]
+                heap_on            = TRUE;
+                heap_asm_arg       = optarg;
+                break;
+
+            case 224: // expect-reach=LABEL[,LABEL...]
+                expect_reach_arg   = optarg;
                 break;
 
             case 222: // halt-status=N
