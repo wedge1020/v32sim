@@ -72,7 +72,7 @@ case $EXT in
     $(tool v32lua) -g --no-build-scripts $OPTS -o "$OUT/$NAME.asm" "$(basename "$SRC")" >/dev/null
     optimize "$OUT/$NAME.asm"
     $(tool v32as) -g -o "$OUT/$NAME.vbin" "$OUT/$NAME.asm"
-    sed -i "s|<binary path=\"[^\"]*\"|<binary path=\"$NAME.vbin\"|" "$OUT/$NAME.xml"
+    sed "s|<binary path=\"[^\"]*\"|<binary path=\"$NAME.vbin\"|" "$OUT/$NAME.xml" > "$OUT/$NAME.xml.t" && mv "$OUT/$NAME.xml.t" "$OUT/$NAME.xml"   # no sed -i: BSD sed differs
     OWNXML=0;;
   asm|s)
     if [ $STOCK = 1 ]; then $(tool assemble) "$SRC" -o "$OUT/$NAME.vbin" -g program

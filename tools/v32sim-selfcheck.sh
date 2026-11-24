@@ -46,7 +46,7 @@ for cart in "$@"; do
         set -- -x --fast --max-frames="$FRAMES" -B "$BIOS" --dump="1@$G"; [ -n "$card" ] && set -- "$@" -M "$card"
         if [ -f "$base.input" ]; then
             cmd=$(mktemp); python3 -I "$HERE/vprof2cmd.py" "$base.input" > "$cmd" || { echo "FAIL $name: cannot convert $name.input"; fail=1; continue; }
-            sed -i '$d' "$cmd"; echo "continue" >> "$cmd"        # play the script, then let it run on to the end
+            sed '$d' "$cmd" > "$cmd.t" && mv "$cmd.t" "$cmd"; echo "continue" >> "$cmd"   # play the script, then let it run on to the end (no sed -i: BSD sed differs)
             out=$("$SIM" --batch "$@" "$cart" < "$cmd" 2>/dev/null); st=$?; rm -f "$cmd"
         else
             out=$("$SIM" --batch -r "$@" "$cart" < /dev/null 2>/dev/null); st=$?
