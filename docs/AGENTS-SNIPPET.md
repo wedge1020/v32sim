@@ -16,7 +16,8 @@ it runs unattended, takes scripted input, and its exit status says what happened
   finds them by itself. The stock `compile`/`assemble` write no enhanced debug info: with them you get addresses and
   `%define global_X` data symbols only (`--stock`; add `--srcmark` with v32opt's `v32srcmark.py` for `;@src` markers).
 - **Does a self-checking test pass?** (`int test_errors = -1;` set to 0 at the end, then halt):
-  `<v32sim>/tools/v32sim-selfcheck.sh -B StandardBios.v32 out/t_x.v32`. Add `--oracle` to ask the stock console logic too.
+  `<v32sim>/tools/v32sim-selfcheck.sh out/t_x.v32`. (`-B StandardBios.v32` is optional: without it v32sim uses `$V32BIOS`, an installed
+  StandardBios, or its bundled StubBios.) Add `--oracle` to ask the stock console logic too.
   By hand: `v32sim --batch -r --fast -x --max-frames=1200 -B StandardBios.v32 --dump=1@test_errors cart.v32`, then read the
   exit status (0 halted, 2 frame limit = failed, 3 system error) and the printed value (0 = pass).
 - **Look inside**: `v32sim cart.v32` is the debugger (`break main`, `step`, `next`, `finish`, `bt`, `print counter`,
@@ -29,7 +30,11 @@ it runs unattended, takes scripted input, and its exit status says what happened
   Keyboard: `kbd attach 2` then `kbd type "ls\n"` (a v32io keyboard on gamepad port 2). Gamepad: `gamepad 1 left` toggles, or
   `--input=A@40-44,START@100` holds buttons by cartridge frame.
 - **Is it fast enough?** `--frame-stats=load.csv` (per-frame CPU/GPU %, summary on stderr), `--profile-by=function --profile-top=15`.
-  The BIOS logo takes ~250 frames before a cartridge starts; `--frame-stats-skip=250` leaves it out.
+  StandardBios's logo takes ~250 frames before a cartridge starts; `--frame-stats-skip=250` leaves it out (the bundled StubBios has no
+  logo: the cartridge starts at frame 2).
+- **A hardware error without `-x`** (memory fault, division by zero...) runs the BIOS handler: with StubBios it writes a record at RAM
+  `0x3FFFE0` and a `V32ERR <code> <fault> <instr> <imm>` line on the text console. Read it with `console` or `--console`, or
+  `--dump=32@0x3FFFE0`; the fields are in `<v32sim>/bios/README.md`.
 - **Reproducible runs**: add `--fixed-clock --seed=1 --fixed-cycles`.
 - **If v32sim and the real emulator disagree**, run the cartridge on the oracle (`<v32sim>/tools/oracle`: `v32orun`, `refrun`) and
   report a v32sim bug in `<v32sim>/TODO.md` or `docs/BUGS.md` with the cartridge and both outputs. Do not work around it in

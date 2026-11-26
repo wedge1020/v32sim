@@ -190,6 +190,12 @@ cmp -s <(grep '^V32_INPUT' "$W/t2/o.trace.txt") <(grep '^V32_INPUT' "$W/t2/o2.tr
 grep -q 'segstart=0 input=[^ ]* input2=' "$W/t2/o.traps.txt" && ok "traps.txt lines get input2= when gamepad 2 was used" || bad "traps.txt input2"
 "$SIM" --batch -r --fast -x --max-frames=420 -B "$V32BIOS" --input="A@5-7" --v32trace="$W/t2/o3" "$W/t2/pad_bits.v32" >/dev/null 2>&1
 grep -q 'input2' "$W/t2/o3.trace.txt" "$W/t2/o3.traps.txt" && bad "input2 appears without a second pad" || ok "no input2 anywhere when gamepad 2 was never used (reports stay equal to the recorder's)"
+# spec 3.6: without `resume` the cartridge is never restarted (the meta above has none); with it, restarted after 60 held frames
+grep -q 'restarts=0$' "$W/t2/o3.traps.txt" && grep -q '^TRAP n=1 .* count=1 ' "$W/t2/o3.traps.txt" \
+  && ok "no resume in the meta: no restart (restarts=0, count=1)" || bad "restart without resume: $(head -2 "$W/t2/o3.traps.txt" | tr '\n' ' ')"
+printf 'format 2\narch test\ntrap _start\nresume\n' > "$W/t2/pad_bits.v32trace.meta"
+"$SIM" --batch -r --fast -x --max-frames=420 -B "$V32BIOS" --v32trace="$W/t2/o4" "$W/t2/pad_bits.v32" >/dev/null 2>&1 </dev/null
+grep -q 'restarts=[1-9]' "$W/t2/o4.traps.txt" && ok "resume in the meta: the cartridge is restarted after the trap" || bad "no restart with resume: $(head -1 "$W/t2/o4.traps.txt")"
 
 echo "== symbol sources: var_NAME (v32lua) and NAME.vbin.sym (read after NAME.asm.sym; sizes survive)"
 addr=$(grep '^V,counter,' "$W/ex/hello_text.asm.sym" | cut -d, -f3)
@@ -205,7 +211,9 @@ if [ -n "$addr" ]; then
 else bad "no counter address in hello_text.asm.sym"; fi
 
 echo "== BIOS alone (cartridge '-') and ram:0x... addresses"
-"$SIM" --batch -r --fast -x --max-frames=5 -B "$V32BIOS" - >/dev/null 2>&1 </dev/null; [ $? = 2 ] && ok "'-' runs the BIOS with no cartridge (frame limit, status 2)" || bad "BIOS alone"
+"$SIM" --batch -r --fast -x --max-frames=5 -B "$V32BIOS" - >/dev/null 2>&1 </dev/null; rc=$?
+# StandardBios is still in its logo at frame 5 (frame limit, 2); StubBios has shown NO CARTRIDGE FOUND and halted (0)
+case $rc in 0|2) ok "'-' runs the BIOS with no cartridge (status $rc)";; *) bad "BIOS alone (status $rc)";; esac
 o=$(printf 'print [ram:0x75]\nquit\n' | "$SIM" --batch -B "$V32BIOS" - 2>&1 | head -1)
 case "$o" in "[0x00000075("*) ok "[ram:0x75] is the RAM word, not IOPort 0x75";; *) bad "[ram:0x75] gave '$o'";; esac
 
@@ -215,7 +223,7 @@ t=$(sh "$T/v32sim-peek.sh" -t -F 400 "$W/ex/hello_text.v32" message 13); [ "$t" 
 sh "$T/v32sim-golden.sh" --cart "$W/exk/hello_text.v32" --bios "$V32BIOS" --sessions "$EX/sessions" --golden "$EX/golden" --kbd-port 0 --boot-frames 260 >/dev/null \
     && ok "golden screen matches" || bad "golden screen"
 "$SIM" --batch -r --fast -x --max-frames=400 -B "$V32BIOS" --profile-out="$W/h.prof" "$W/ex/hello_text.v32" >/dev/null 2>&1 </dev/null
-top=$(python3 -I "$T/v32sim-addrprof.py" "$W/h.prof" --map "cart:$W/ex/hello_text.vbin.debug" -n 3 | sed -n 3p | awk '{print $3}')
+top=$(python3 -I "$T/v32sim-addrprof.py" "$W/h.prof" --map "cart:$W/ex/hello_text.vbin.debug" -n 3 | awk 'NR >= 2 && $3 !~ /^bios:/ { print $3; exit }')   # the BIOS row (StandardBios's logo) may come first
 [ "$top" = "cart:add_up" ] && ok "addrprof names the hottest cartridge function" || bad "addrprof top was '$top'"
 
 echo "== v32orun: the one oracle runner"

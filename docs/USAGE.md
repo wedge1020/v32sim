@@ -77,7 +77,7 @@ Options marked (short form) have one: `-B`, etc. "Default" is what applies when 
 
 | Option | Meaning |
 |---|---|
-| `-B, --biosfile=FILE` | BIOS V32 file. Default: `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32` (the DesktopEmulator's install). |
+| `-B, --biosfile=FILE` | BIOS V32 file. Default, in order: `$V32BIOS`, `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32` (the DesktopEmulator's install), the bundled `StubBios.v32` (see Files); if none exists, the StandardBios path, so the error names it. `-v` prints the one loaded. |
 | `-M, --memcfile=FILE` | Memory card file (`V32-MEMC` + 262144 words). Changes are written back at the end of each frame. See *Memory card* below. |
 | `-E, --entry-point=OFFSET` | Start executing at OFFSET (hex) instead of the BIOS start. |
 | `-S, --bios-start` | Start at the BIOS code start (the default; kept for compatibility, and `-E` overrides it). |
@@ -114,7 +114,7 @@ Options marked (short form) have one: `-B`, etc. "Default" is what applies when 
 | Option | Meaning |
 |---|---|
 | `-r, --run` | Do not start in single-step mode: run until a breakpoint, watchpoint, HLT or the frame limit. |
-| `--max-frames=N` | Stop after N frames, counted from power-on (the BIOS logo, about 250 frames, included; exit status 2 with `-x`). |
+| `--max-frames=N` | Stop after N frames, counted from power-on (StandardBios's logo, about 250 frames, included; StubBios has none; exit status 2 with `-x`). |
 | `--fast` | Do not throttle to real time. |
 | `--frame-us=N` | Wall-clock microseconds per frame. Default 16666; 0 = `--fast`. |
 | `--turbo[=report]` | `--fast`, plus spin-loop fast-forwarding and dropping a full GPU pixel queue instead of painting it (screenshots may be incomplete). `=report` prints what was skipped to stderr at exit. README "Speed and Turbo Mode". Off while anything watches single instructions. |
@@ -166,14 +166,14 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 
 | Option | Meaning |
 |---|---|
-| `--screenshot-at=FRAMES` | Write the screen (PNG) after these cartridge frames: `N`, `A-B`, `A-B/STEP`, comma separated. Frame 0 is the first frame that ends with the program counter in the cartridge, that is after the BIOS has handed over (the stock BIOS's logo takes about 250 frames, which `--max-frames` also counts). Frames the run never reached are reported on stderr at exit. |
+| `--screenshot-at=FRAMES` | Write the screen (PNG) after these cartridge frames: `N`, `A-B`, `A-B/STEP`, comma separated. Frame 0 is the first frame that ends with the program counter in the cartridge, that is after the BIOS has handed over (StandardBios's logo takes about 250 frames, which `--max-frames` also counts; the bundled StubBios hands over at frame 2). Frames the run never reached are reported on stderr at exit. |
 | `--screenshot-file=PAT` | File name for those; `%d` = the frame (printf-style, e.g. `%05d`). Default `v32sim-shot-%05d.png`. |
 | `--screengrid[=SPEC]` | Grid over screenshots: `DX[xDY]`, `color=C`, `alpha=N`, `labels`/`nolabels`, comma separated. Default 40x40. |
 | `--highlight=T:R[:COLOR]` | Outline texture T region R (`bios:R` for the BIOS texture); comma separated. |
 | `--noextra` | No grid and no outlines. |
 | `--console-color=MODE` | Text console colors: `none`, `16`, `256`, `true`, `auto`. Default: `auto` with `--tty`, plain text otherwise. |
 | `--cursor-color=COLOR` | Recolor the cursor block (BIOS character 20): a name, `#RRGGBB` or `off`. |
-| `-v, --verbose` | More output (to stderr). |
+| `-v, --verbose` | More output (to stderr), including `[v32sim] BIOS: PATH`. |
 | `-D, --debug` | Simulator debug output (development; to stderr). |
 
 ### Profiling, statistics and traces
@@ -181,7 +181,7 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 | Option | Meaning |
 |---|---|
 | `--frame-stats=FILE` (`--stats`) | One CSV row per frame (cycles, CPU %, GPU pixels, GPU %, then GPU/SPU/bus counters); summary (mean, p50, p95, p99, max, total, busiest regions) to stderr at exit. |
-| `--frame-stats-skip=N` (`--stats-skip`) | Leave the first N frames (the BIOS logo, about 250) out of the summary. |
+| `--frame-stats-skip=N` (`--stats-skip`) | Leave the first N frames (StandardBios's logo, about 250) out of the summary. |
 | `--frame-stats-top=N` (`--stats-top`) | List the N regions charged the most GPU pixels (default 8; 0 = none). |
 | `--stats-format=csv\|json` | `json`: JSON Lines with stable dotted names and a summary line last. |
 | `--profile-out=FILE` | At the end of the run write how often each instruction address was executed (needs no prompt and no `-p`); a debug file adds a label column. |
@@ -202,6 +202,7 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 
 | Variable | Used for |
 |---|---|
+| `V32BIOS` | The BIOS to load when `-B` is not given (tried before the StandardBios install and the bundled StubBios). Also read by the scripts in `tools/` and `tests/`. |
 | `V32_INPUT`, `V32_INPUT2` | Gamepad scripts used when `--input` / `--input2` are not given (a note goes to stderr). |
 | `V32DEV_DISABLE` | Any value but `0`: a card is an ordinary card, no v32dev mailbox; with `--v32dev-host` or `V32DEV_SERVER` a warning, the host does not start. |
 | `V32DEV_SERVER` | Set (and not `0`): the built-in v32dev server, as in the DesktopEmulator patch of the v32io project: the card needs no formatting, the mailbox lives in memory only and never reaches the card file, and the channels come from `V32DEV_CH0`..`V32DEV_CH3`. Unset or `0`: those variables are not looked at. |
@@ -209,7 +210,7 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 | `NO_COLOR`, `COLORTERM`, `TERM` | What `--console-color=auto` (and `--tty`) chooses: none if `NO_COLOR` is set non-empty; true color for `truecolor`/`24bit`; 256 for `*256color`; 16 for other terminals except `dumb`. |
 | `HOME`, `INPUTRC`, `TERM` | Read by GNU readline for the prompt (line editing, history in memory only). |
 
-The helper scripts in `tools/` also read `V32SIM` (path of the binary), `V32SIM_FLAGS` (extra options), `V32BIOS`, `V32TC`
+The helper scripts in `tools/` also read `V32SIM` (path of the binary), `V32SIM_FLAGS` (extra options), `V32TC`
 (toolchain directory) and `V32SIM_HOME` (for the oracle tools); see [TOOLS.md](TOOLS.md).
 
 ## Files
@@ -218,7 +219,7 @@ Read:
 
 | File | |
 |---|---|
-| BIOS | `-B FILE`, else `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32`. |
+| BIOS | `-B FILE`, else `$V32BIOS`, else `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32`, else the bundled `StubBios.v32` (and its `StubBios.vbin.debug`, loaded with it): beside the binary (release zip), `../bios/` of a checkout's `bin/`, `~/.local/lib/v32sim/bios/` (`make install`), `$(VROOT)/v32sim/bios/` (`make sysinstall`). See `bios/README.md`. |
 | Cartridge | `CARTFILE.v32`. |
 | `NAME.vbin.debug`, `NAME.asm.debug` | Labels and line table (assembler, compiler) of the cartridge and the BIOS, beside it, in `obj/`, `../obj/`, `--debug-dir`. |
 | `NAME.asm.sym`, `NAME.vbin.sym`, `NAME.asm` | Data symbols (v32cc `-g`; v32as `-g`; the `%define global_NAME` lines). |

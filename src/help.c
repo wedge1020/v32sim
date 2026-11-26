@@ -74,7 +74,7 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --input2=SCRIPT       the same for gamepad 2 (port 1; V32TRACE input2=, @FILE reads its V32_INPUT2= line)\n");
     fprintf (stdout, "     --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma\n");
     fprintf (stdout, "                           separated); frame 0 is the first one the cartridge runs, after the BIOS hands over\n");
-    fprintf (stdout, "                           (the BIOS logo takes ~250 frames, and --max-frames counts them too)\n");
+    fprintf (stdout, "                           (StandardBios's logo takes ~250 frames, and --max-frames counts them too)\n");
     fprintf (stdout, "     --screenshot-file=PAT   file name for those; %%d = the frame (default v32sim-shot-%%05d.png)\n");
     fprintf (stdout, "     --screengrid[=SPEC]     grid over screenshots: DX[xDY],color=C,alpha=N,labels|nolabels (default 40x40)\n");
     fprintf (stdout, "     --highlight=T:R[:COLOR] outline texture T region R (or bios:R) in screenshots; comma separated\n");
@@ -85,7 +85,7 @@ void  usage (int8_t *program)
     fprintf (stdout, "     --stats-format=json   --frame-stats FILE as JSON Lines (stable dotted names, a summary line at the end)\n");
     fprintf (stdout, "     --frame-stats-top=N   list the N regions charged the most GPU pixels in that summary (default 8, 0 = none)\n");
     fprintf (stdout, "     --stats-top=N         the same as --frame-stats-top\n");
-    fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary\n");
+    fprintf (stdout, "     --frame-stats-skip=N  leave the first N frames (StandardBios's logo, ~250) out of that summary\n");
     fprintf (stdout, "     --stats-skip=N        the same as --frame-stats-skip\n");
     fprintf (stdout, "     --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N [free=N blocks=N] (with --gc arena also\n");
     fprintf (stdout, "                           floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %%define symbols are read from the\n");

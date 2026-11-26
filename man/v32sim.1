@@ -49,8 +49,16 @@ take it only in the attached form,
 .TP
 .BI \-B ", " \-\-biosfile= FILE
 BIOS V32 file.
-Default:
-.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 .
+Default, in order:
+.BR $V32BIOS ,
+.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 ,
+then the bundled
+.I StubBios.v32
+(see
+.BR FILES ).
+If none exists the StandardBios path is used, so the error message names it.
+.B \-v
+prints the one loaded.
 .TP
 .BI \-M ", " \-\-memcfile= FILE
 Memory card file.
@@ -187,7 +195,8 @@ Do not start in single-step mode.
 .BI \-\-max\-frames= N
 Stop after
 .I N
-frames, counted from power-on (the BIOS logo, about 250 frames, included).
+frames, counted from power-on (StandardBios's logo, about 250 frames, included;
+StubBios has none).
 .TP
 .B \-\-fast
 Do not throttle to real time.
@@ -401,10 +410,10 @@ or
 .IR A\-B/STEP ,
 comma separated.
 Frame 0 is the first frame that ends with the program counter in the
-cartridge, that is after the BIOS has handed over (the stock BIOS's logo takes
+cartridge, that is after the BIOS has handed over (StandardBios's logo takes
 about 250 frames, which
 .B \-\-max\-frames
-also counts).
+also counts; the bundled StubBios hands over at frame 2).
 Frames the run never reached are reported on standard error at exit.
 .TP
 .BI \-\-screenshot\-file= PATTERN
@@ -453,7 +462,8 @@ or
 .BR off .
 .TP
 .BR \-v ", " \-\-verbose
-More verbose output.
+More verbose output, including
+.RB " [v32sim] BIOS: " \fIPATH\fP.
 .TP
 .BR \-D ", " \-\-debug
 Simulator debug output (development).
@@ -471,7 +481,7 @@ busiest regions) on standard error at exit.
 .BI \-\-stats\-skip= N
 Leave the first
 .I N
-frames (the BIOS logo takes about 250) out of the summary.
+frames (StandardBios's logo takes about 250) out of the summary.
 .TP
 .BI \-\-frame\-stats\-top= N
 .TP
@@ -811,6 +821,15 @@ drop a marker in the report.
 Display help.
 .SH ENVIRONMENT
 .TP
+.B V32BIOS
+The BIOS to load when
+.B \-B
+is not given, tried before the StandardBios install and the bundled StubBios.
+Also read by the scripts in
+.I tools/
+and
+.IR tests/ .
+.TP
 .BR V32_INPUT ", " V32_INPUT2
 Gamepad scripts used when
 .B \-\-input
@@ -857,7 +876,26 @@ Read by GNU readline for the prompt.
 .SH FILES
 .TP
 .I /usr/local/Vircon32/Emulator/Bios/StandardBios.v32
-The default BIOS.
+The default BIOS when
+.B $V32BIOS
+is not set.
+.TP
+.I StubBios.v32
+The bundled BIOS, used when neither of the above exists, with its
+.IR StubBios.vbin.debug .
+Searched for beside the binary (release zip),
+in
+.I ../bios/
+of a checkout's
+.IR bin/ ,
+in
+.I ~/.local/lib/v32sim/bios/
+.RB ( make\ install )
+and in
+.I $(VROOT)/v32sim/bios/
+.RB ( make\ sysinstall ).
+See
+.IR bios/README.md .
 .TP
 .IR NAME .vbin.debug ", " NAME .asm.debug
 Labels and line information, searched for as described under

@@ -23,6 +23,8 @@ run() { # name command...
     else echo "FAIL  (status $st)"; echo "$out" | grep -E "FAIL|fail" | head -5 | sed 's/^/        /'; fail=$((fail+1)); names="$names $n"; fi
 }
 skipit() { printf '%-34sSKIP  %s\n' "$1" "$2"; skip=$((skip+1)); }
+run stubbios env STOCK="${V32BIOS:-$TC/StandardBios.v32}" bash "$T/run_stubbios_tests.sh"
+run present bash "$T/run_present_tests.sh"
 run batch   bash "$T/run_batch_tests.sh" "$TC"
 run src     bash "$T/run_src_tests.sh" "$TC"
 run stack   bash "$T/run_stack_tests.sh" "$TC"

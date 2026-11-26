@@ -42,8 +42,10 @@ tools/               scripts for people who test other projects with v32sim (doc
   vprof2cmd.py         v32prof/v32peek input scripts -> v32sim commands
   v32io-script.py      keyboard/mouse actions -> input script (from v32cxx)
   v32sim-statdiff.py   compare two --frame-stats CSVs (mean/p95/max per column, --fail-over gate)
+  v32sim-statediff.py  compare two `save` state files section by section (--ignore, --ram-range; exit 0 same, 1 differ)
   build-nogen.sh       build v32sim with cc + readline only, using gen/ (from v32nix / V32DOS)
   oracle/              C++ tools on the stock ConsoleLogic: v32orun (the one runner; refrun v32run vrun v32prof v32peek v32shot are wrappers) sysprof (+ build.sh)
+bios/                StubBios.v32 (+ .vbin.debug; the bundled BIOS, the default when no -B), src/ (its source and build.sh), debuggerBIOS.v32; bios/README.md
 tests/               the suites; run_harness_tests.sh covers tools/ (examples/ holds its cartridges)
 man/                 v32sim.1 and its Spanish / French translations (v32sim.es.1, v32sim.fr.1)
 docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TOOLS TESTING PROFILING PERFORMANCE AGENTS-SNIPPET
@@ -62,8 +64,9 @@ docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TO
   against `refrun`), `run_clock.sh` (start-up clock vs the oracle across time zones/DST, `LD_PRELOAD` time shim, 37 checks),
   `run_memcard.sh` (memory card + v32dev mailbox vs the oracle via `vrun`, 14 checks), `run_tests.sh` (v32dev, v32kbd, card persistence), `run_turbo_tests.sh` (`--turbo`, deferred GPU), `run_heap_tests.sh` (`--heap`, `--expect-reach`; needs v32lua, 69 checks),
   `run_harness_tests.sh` (the tools/ scripts and their agreement with the oracle; 98 checks with ORACLE and V32IO set). `make test` runs
-  `run_kbd_sync_tests.sh` and `run_cli_tests.sh` (command line, help texts, exit statuses; 144 checks), which need no toolchain; `make check TC=DIR` runs them all.
+  `run_kbd_sync_tests.sh`, `run_cli_tests.sh` (command line, help texts, exit statuses; 144 checks) , `run_stubbios_tests.sh` (21 checks, 22 with `STOCK=StandardBios.v32`) and `run_present_tests.sh` (3 checks), which need no toolchain; `make check TC=DIR` runs them all.
   Passing one suite proves little: a CPU/GPU change needs the differential ones, a scripting change the batch one.
+- BIOS: after editing `bios/src/StubBios.asm` run `bios/src/build.sh` and commit `bios/StubBios.v32` and `bios/StubBios.vbin.debug`.
 - Add an option: `src/args.c` (long option number), `src/help.c`, `inc/globals.h`, README "Usage", `docs/USAGE.md`, `man/v32sim.1`
   (and the translations, see Docs), and a test. A new prompt command goes in `src/lexer.l`, `src/parser.y`, `src/command.c`
   (its command table) and `src/help.c`, and in README "Commands".

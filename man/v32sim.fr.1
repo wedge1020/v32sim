@@ -51,8 +51,16 @@ ne la prennent que sous la forme attach\('ee,
 .TP
 .BI \-B ", " \-\-biosfile= FILE
 Fichier V32 du BIOS.
-Par d\('efaut :
-.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 .
+Par d\('efaut, dans l'ordre :
+.BR $V32BIOS ,
+.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 ,
+puis le
+.I StubBios.v32
+fourni (voir
+.BR FICHIERS ).
+Si aucun n'existe, le chemin de StandardBios est utilis\('e, et le message d'erreur le nomme.
+.B \-v
+affiche celui qui est charg\('e.
 .TP
 .BI \-M ", " \-\-memcfile= FILE
 Fichier de carte m\('emoire.
@@ -188,7 +196,7 @@ Ne d\('emarre pas en mode pas \(`a pas.
 .BI \-\-max\-frames= N
 S'arr\(^ete apr\(`es
 .I N
-images, compt\('ees depuis la mise sous tension (le logo du BIOS, environ 250 images, compris).
+images, compt\('ees depuis la mise sous tension (le logo de StandardBios, environ 250 images, compris ; StubBios n'en a pas).
 .TP
 .B \-\-fast
 Ne bride pas \(`a la vitesse du temps r\('eel.
@@ -402,9 +410,9 @@ ou
 s\('epar\('es par des virgules.
 L'image 0 est la premi\(`ere image qui se termine avec le compteur de programme
 dans la cartouche, c'est-\(`a-dire une fois que le BIOS a pass\('e la main (le logo du
-BIOS standard dure environ 250 images, que
+de StandardBios dure environ 250 images, que
 .B \-\-max\-frames
-compte aussi).
+compte aussi ; le StubBios fourni passe la main \(`a l'image 2).
 Les images que l'ex\('ecution n'a jamais atteintes sont signal\('ees sur la sortie
 d'erreur standard \(`a la sortie.
 .TP
@@ -454,7 +462,8 @@ ou
 .BR off .
 .TP
 .BR \-v ", " \-\-verbose
-Sortie plus d\('etaill\('ee.
+Sortie plus d\('etaill\('ee, dont
+.RB " [v32sim] BIOS: " \fICHEMIN\fP.
 .TP
 .BR \-D ", " \-\-debug
 Sortie de d\('ebogage du simulateur (d\('eveloppement).
@@ -472,7 +481,7 @@ r\('egions les plus charg\('ees) sur la sortie d'erreur standard \(`a la sortie.
 .BI \-\-stats\-skip= N
 Laisse les
 .I N
-premi\(`eres images (le logo du BIOS en prend environ 250) hors du r\('esum\('e.
+premi\(`eres images (le logo de StandardBios en prend environ 250) hors du r\('esum\('e.
 .TP
 .BI \-\-frame\-stats\-top= N
 .TP
@@ -811,6 +820,15 @@ d\('epose un marqueur dans le rapport.
 Affiche l'aide.
 .SH ENVIRONNEMENT
 .TP
+.B V32BIOS
+Le BIOS \(`a charger quand
+.B \-B
+n'est pas donn\('e, essay\('e avant l'installation de StandardBios et le StubBios fourni.
+Aussi lue par les scripts de
+.I tools/
+et
+.IR tests/ .
+.TP
 .BR V32_INPUT ", " V32_INPUT2
 Scripts de manette utilis\('es quand
 .B \-\-input
@@ -857,7 +875,26 @@ Lues par GNU readline pour l'invite.
 .SH FICHIERS
 .TP
 .I /usr/local/Vircon32/Emulator/Bios/StandardBios.v32
-Le BIOS par d\('efaut.
+Le BIOS par d\('efaut quand
+.B $V32BIOS
+n'est pas d\('efini.
+.TP
+.I StubBios.v32
+Le BIOS fourni, utilis\('e quand aucun des pr\('ec\('edents n'existe, avec son
+.IR StubBios.vbin.debug .
+Cherch\('e \(`a c\^ot\('e du binaire (zip de la version),
+dans
+.I ../bios/
+du
+.I bin/
+d'une copie de travail, dans
+.I ~/.local/lib/v32sim/bios/
+.RB ( make\ install )
+et dans
+.I $(VROOT)/v32sim/bios/
+.RB ( make\ sysinstall ).
+Voir
+.IR bios/README.md .
 .TP
 .IR NAME .vbin.debug ", " NAME .asm.debug
 \('Etiquettes et informations de lignes, cherch\('ees comme d\('ecrit sous

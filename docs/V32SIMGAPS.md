@@ -474,6 +474,18 @@ For reference, these were compared and no difference was found:
     pause/resume/stop commands, 735 samples per frame.
   * Memory card: write-back at the end of each frame; BIOS and CART are read-only and
     sized to the loaded program ROM.
+  * Frame presentation (checked 2026-11-26): the DesktopEmulator shows the framebuffer as
+    `RunNextFrame` leaves it, and a frame ends at `WAIT` or at the 250,000th cycle, so a frame
+    that misses its `WAIT` is shown half drawn. v32sim ends frames the same way
+    (`update_cycle()`), and everything that looks at "the screen of frame N" reads the
+    framebuffer at that end: `--screenshot-at`, `run N` + `screenshot`, `until`, the text
+    console, `--frame-stats` (`end` = `b` for the budget, `w` for `WAIT`). Deferred painting
+    (`gpu_flush`) gives the same pixels. Nothing waits for `WAIT` to present. A cartridge that
+    overruns every other frame therefore alternates partial and finished screens on both;
+    the DesktopEmulator window can run two frames between two presents when the host lags,
+    and the eye blends a 30 Hz alternation, so a single screenshot and the window can seem
+    to disagree. Compare a run of consecutive frames (`--screenshot-at=N-M`), not one.
+    `tests/run_present_tests.sh`.
 
 ## Upstream quirks
 

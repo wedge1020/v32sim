@@ -80,7 +80,7 @@ Las opciones marcadas (forma corta) tienen una: `-B`, etc. «Por defecto» es lo
 
 | Opción | Significado |
 |---|---|
-| `-B, --biosfile=ARCHIVO` | Archivo V32 de la BIOS. Por defecto: `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32` (la instalación del DesktopEmulator). |
+| `-B, --biosfile=ARCHIVO` | Archivo V32 de la BIOS. Por defecto, por orden: `$V32BIOS`, `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32` (la instalación del DesktopEmulator), la `StubBios.v32` incluida (ver Archivos); si no existe ninguna, la ruta de StandardBios, y el error la nombra. `-v` imprime la cargada. |
 | `-M, --memcfile=ARCHIVO` | Archivo de tarjeta de memoria (`V32-MEMC` + 262144 palabras). Los cambios se escriben de vuelta al final de cada cuadro. Ver *Tarjeta de memoria* más abajo. |
 | `-E, --entry-point=OFFSET` | Empieza a ejecutar en OFFSET (hex) en lugar de en el inicio de la BIOS. |
 | `-S, --bios-start` | Empieza en el inicio del código de la BIOS (lo predeterminado; se conserva por compatibilidad, y `-E` lo anula). |
@@ -117,7 +117,7 @@ Las opciones marcadas (forma corta) tienen una: `-B`, etc. «Por defecto» es lo
 | Opción | Significado |
 |---|---|
 | `-r, --run` | No empieza en modo paso a paso: ejecuta hasta un punto de ruptura, un punto de vigilancia, HLT o el límite de cuadros. |
-| `--max-frames=N` | Se detiene tras N cuadros, contados desde el encendido (el logotipo de la BIOS, unos 250 cuadros, incluido; estado de salida 2 con `-x`). |
+| `--max-frames=N` | Se detiene tras N cuadros, contados desde el encendido (el logotipo de StandardBios, unos 250 cuadros, incluido; StubBios no tiene; estado de salida 2 con `-x`). |
 | `--fast` | No limita la velocidad al tiempo real. |
 | `--frame-us=N` | Microsegundos de reloj de pared por cuadro. Por defecto 16666; 0 = `--fast`. |
 | `--turbo[=report]` | `--fast`, más avance rápido de los bucles de espera y descarte de una cola de píxeles de la GPU llena en lugar de pintarla (las capturas de pantalla pueden salir incompletas). `=report` imprime en stderr al salir lo que se omitió. README «Velocidad y modo turbo». Desactivado mientras algo vigile instrucciones individuales. |
@@ -169,14 +169,14 @@ externo (`v32dev.py serve`) o el propio v32sim:
 
 | Opción | Significado |
 |---|---|
-| `--screenshot-at=CUADROS` | Escribe la pantalla (PNG) tras estos cuadros del cartucho: `N`, `A-B`, `A-B/PASO`, separados por comas. El cuadro 0 es el primer cuadro que termina con el contador de programa en el cartucho, es decir, después de que la BIOS ha cedido el control (el logotipo de la BIOS estándar dura unos 250 cuadros, que `--max-frames` también cuenta). Los cuadros que la ejecución no llegó a alcanzar se notifican por stderr al salir. |
+| `--screenshot-at=CUADROS` | Escribe la pantalla (PNG) tras estos cuadros del cartucho: `N`, `A-B`, `A-B/PASO`, separados por comas. El cuadro 0 es el primer cuadro que termina con el contador de programa en el cartucho, es decir, después de que la BIOS ha cedido el control (el logotipo de StandardBios dura unos 250 cuadros, que `--max-frames` también cuenta; la StubBios incluida cede el control en el cuadro 2). Los cuadros que la ejecución no llegó a alcanzar se notifican por stderr al salir. |
 | `--screenshot-file=PAT` | Nombre de archivo para ellas; `%d` = el cuadro (estilo printf, p. ej. `%05d`). Por defecto `v32sim-shot-%05d.png`. |
 | `--screengrid[=SPEC]` | Cuadrícula sobre las capturas: `DX[xDY]`, `color=C`, `alpha=N`, `labels`/`nolabels`, separados por comas. Por defecto 40x40. |
 | `--highlight=T:R[:COLOR]` | Perfila la región R de la textura T (`bios:R` para la textura de la BIOS); separados por comas. |
 | `--noextra` | Sin cuadrícula ni perfiles. |
 | `--console-color=MODO` | Colores de la consola de texto: `none`, `16`, `256`, `true`, `auto`. Por defecto: `auto` con `--tty`, texto sin formato en los demás casos. |
 | `--cursor-color=COLOR` | Cambia el color del bloque del cursor (carácter 20 de la BIOS): un nombre, `#RRGGBB` u `off`. |
-| `-v, --verbose` | Más salida (a stderr). |
+| `-v, --verbose` | Más salida (a stderr), incluida `[v32sim] BIOS: RUTA`. |
 | `-D, --debug` | Salida de depuración del simulador (desarrollo; a stderr). |
 
 ### Perfilado, estadísticas y trazas
@@ -184,7 +184,7 @@ externo (`v32dev.py serve`) o el propio v32sim:
 | Opción | Significado |
 |---|---|
 | `--frame-stats=ARCHIVO` (`--stats`) | Una fila CSV por cuadro (ciclos, % de CPU, píxeles de GPU, % de GPU, y luego los contadores de GPU/SPU/bus); resumen (media, p50, p95, p99, máximo, total, regiones más ocupadas) a stderr al salir. |
-| `--frame-stats-skip=N` (`--stats-skip`) | Deja fuera del resumen los primeros N cuadros (el logotipo de la BIOS, unos 250). |
+| `--frame-stats-skip=N` (`--stats-skip`) | Deja fuera del resumen los primeros N cuadros (el logotipo de StandardBios, unos 250). |
 | `--frame-stats-top=N` (`--stats-top`) | Lista las N regiones a las que se cargaron más píxeles de GPU (por defecto 8; 0 = ninguna). |
 | `--stats-format=csv\|json` | `json`: JSON Lines con nombres con puntos estables y una línea de resumen al final. |
 | `--profile-out=ARCHIVO` | Al final de la ejecución escribe cuántas veces se ejecutó cada dirección de instrucción (no necesita indicador ni `-p`); un archivo de depuración añade una columna de etiqueta. |
@@ -205,6 +205,7 @@ externo (`v32dev.py serve`) o el propio v32sim:
 
 | Variable | Se usa para |
 |---|---|
+| `V32BIOS` | La BIOS que se carga cuando no se da `-B` (se prueba antes que la instalación de StandardBios y la StubBios incluida). También la leen los scripts de `tools/` y `tests/`. |
 | `V32_INPUT`, `V32_INPUT2` | Guiones de mando que se usan cuando no se dan `--input` / `--input2` (se avisa con una nota en stderr). |
 | `V32DEV_DISABLE` | Cualquier valor salvo `0`: una tarjeta es una tarjeta ordinaria, sin buzón v32dev; con `--v32dev-host` o `V32DEV_SERVER` un aviso, y el anfitrión no arranca. |
 | `V32DEV_SERVER` | Definida (y no `0`): el servidor v32dev integrado, como en el parche del DesktopEmulator del proyecto v32io: la tarjeta no necesita formato, el buzón vive solo en la memoria y nunca llega al archivo de la tarjeta, y los canales vienen de `V32DEV_CH0`..`V32DEV_CH3`. Sin definir o `0`: esas variables no se miran. |
@@ -212,7 +213,7 @@ externo (`v32dev.py serve`) o el propio v32sim:
 | `NO_COLOR`, `COLORTERM`, `TERM` | Lo que elige `--console-color=auto` (y `--tty`): ninguno si `NO_COLOR` está definida y no vacía; color verdadero para `truecolor`/`24bit`; 256 para `*256color`; 16 para otros terminales salvo `dumb`. |
 | `HOME`, `INPUTRC`, `TERM` | Los lee GNU readline para el indicador (edición de línea, historial solo en memoria). |
 
-Los scripts auxiliares de `tools/` leen además `V32SIM` (ruta del binario), `V32SIM_FLAGS` (opciones adicionales), `V32BIOS`, `V32TC`
+Los scripts auxiliares de `tools/` leen además `V32SIM` (ruta del binario), `V32SIM_FLAGS` (opciones adicionales), `V32TC`
 (directorio de la cadena de herramientas) y `V32SIM_HOME` (para las herramientas del oráculo); ver [TOOLS.md](TOOLS.md).
 
 ## Archivos
@@ -221,7 +222,7 @@ Leídos:
 
 | Archivo | |
 |---|---|
-| BIOS | `-B ARCHIVO`, si no `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32`. |
+| BIOS | `-B ARCHIVO`, si no `$V32BIOS`, si no `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32`, si no la `StubBios.v32` incluida (y su `StubBios.vbin.debug`, que se carga con ella): junto al binario (zip de la versión), `../bios/` del `bin/` de una copia de trabajo, `~/.local/lib/v32sim/bios/` (`make install`), `$(VROOT)/v32sim/bios/` (`make sysinstall`). Ver `bios/README.md`. |
 | Cartucho | `CARTFILE.v32`. |
 | `NOMBRE.vbin.debug`, `NOMBRE.asm.debug` | Etiquetas y tabla de líneas (ensamblador, compilador) del cartucho y de la BIOS, junto a él, en `obj/`, `../obj/`, `--debug-dir`. |
 | `NOMBRE.asm.sym`, `NOMBRE.vbin.sym`, `NOMBRE.asm` | Símbolos de datos (v32cc `-g`; v32as `-g`; las líneas `%define global_NOMBRE`). |

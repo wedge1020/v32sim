@@ -52,8 +52,16 @@ lo admiten solo en la forma pegada,
 .TP
 .BI \-B ", " \-\-biosfile= ARCHIVO
 Archivo V32 de la BIOS.
-Por defecto:
-.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 .
+Por defecto, por orden:
+.BR $V32BIOS ,
+.IR /usr/local/Vircon32/Emulator/Bios/StandardBios.v32 ,
+luego la
+.I StubBios.v32
+incluida (ver
+.BR ARCHIVOS ).
+Si no existe ninguna se usa la ruta de StandardBios, y el mensaje de error la nombra.
+.B \-v
+imprime la cargada.
 .TP
 .BI \-M ", " \-\-memcfile= ARCHIVO
 Archivo de tarjeta de memoria.
@@ -189,8 +197,8 @@ No empieza en modo paso a paso.
 .BI \-\-max\-frames= N
 Se detiene tras
 .I N
-cuadros, contados desde el encendido (el logotipo de la BIOS, unos 250
-cuadros, incluido).
+cuadros, contados desde el encendido (el logotipo de StandardBios, unos 250
+cuadros, incluido; StubBios no tiene).
 .TP
 .B \-\-fast
 No limita la velocidad al tiempo real.
@@ -409,9 +417,9 @@ o
 separados por comas.
 El cuadro 0 es el primer cuadro que termina con el contador de programa en el
 cartucho, es decir, despu\('es de que la BIOS ha cedido el control (el logotipo
-de la BIOS est\('andar dura unos 250 cuadros, que
+de StandardBios dura unos 250 cuadros, que
 .B \-\-max\-frames
-tambi\('en cuenta).
+tambi\('en cuenta; la StubBios incluida cede el control en el cuadro 2).
 Los cuadros que la ejecuci\('on no lleg\('o a alcanzar se notifican por la salida de
 errores al salir.
 .TP
@@ -462,7 +470,8 @@ u
 .BR off .
 .TP
 .BR \-v ", " \-\-verbose
-Salida m\('as detallada.
+Salida m\('as detallada, incluida
+.RB " [v32sim] BIOS: " \fIRUTA\fP.
 .TP
 .BR \-D ", " \-\-debug
 Salida de depuraci\('on del simulador (desarrollo).
@@ -481,7 +490,7 @@ salir.
 .BI \-\-stats\-skip= N
 Deja fuera del resumen los primeros
 .I N
-cuadros (el logotipo de la BIOS ocupa unos 250).
+cuadros (el logotipo de StandardBios ocupa unos 250).
 .TP
 .BI \-\-frame\-stats\-top= N
 .TP
@@ -825,6 +834,15 @@ deja un marcador en el informe.
 Muestra la ayuda.
 .SH ENTORNO
 .TP
+.B V32BIOS
+La BIOS que se carga cuando no se da
+.BR \-B ,
+que se prueba antes que la instalaci\('on de StandardBios y la StubBios incluida.
+Tambi\('en la leen los scripts de
+.I tools/
+y
+.IR tests/ .
+.TP
 .BR V32_INPUT ", " V32_INPUT2
 Guiones de mando que se usan cuando no se da
 .B \-\-input
@@ -870,7 +888,26 @@ Los lee GNU readline para el indicador.
 .SH ARCHIVOS
 .TP
 .I /usr/local/Vircon32/Emulator/Bios/StandardBios.v32
-La BIOS por defecto.
+La BIOS por defecto cuando
+.B $V32BIOS
+no est\('a definida.
+.TP
+.I StubBios.v32
+La BIOS incluida, que se usa cuando no existe ninguna de las anteriores, con su
+.IR StubBios.vbin.debug .
+Se busca junto al binario (zip de la versi\('on),
+en
+.I ../bios/
+del
+.I bin/
+de una copia de trabajo, en
+.I ~/.local/lib/v32sim/bios/
+.RB ( make\ install )
+y en
+.I $(VROOT)/v32sim/bios/
+.RB ( make\ sysinstall ).
+Ver
+.IR bios/README.md .
 .TP
 .IR NOMBRE .vbin.debug ", " NOMBRE .asm.debug
 Etiquetas e informaci\('on de l\('ineas, que se buscan como se describe en

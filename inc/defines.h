@@ -20,6 +20,9 @@
 #include "globals.h"
 
 #define  DEFAULT_BIOS            "/usr/local/Vircon32/Emulator/Bios/StandardBios.v32"
+#ifndef  STUB_BIOS_SYSTEM
+#define  STUB_BIOS_SYSTEM        "/usr/local/Vircon32/v32tools/v32sim/bios/StubBios.v32"   // make sysinstall
+#endif
 
 #define  NUM_MEMORY_PAGES        4
 #define  V32_PAGE_RAM            0

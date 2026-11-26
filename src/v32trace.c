@@ -17,9 +17,10 @@
 //                          [input], [perf], [host], series, hot spots, [markers]
 //
 // the same files the DesktopEmulator recorder writes, so a translator's gap-filling tool
-// reads either. After a trap the cartridge is restarted from its entry point once the
-// trap screen has been up for 60 frames (--v32trace-norestart turns this off), so one
-// unattended run can meet several gaps. `mark [NOTE]` drops a marker (F8 in the recorder),
+// reads either. When the meta has `resume` (spec 3.6: without it a recorder MUST NOT
+// restart), after a trap the cartridge is restarted from its entry point (or the resume
+// label) once the trap screen has been up for 60 frames (--v32trace-norestart turns this
+// off), so one unattended run can meet several gaps. `mark [NOTE]` drops a marker (F8 in the recorder),
 // `series NAME ADDR` lines of the meta are sampled every frame, and [host] uses the
 // recorder's quad / video-batch model (gpu.c); host milliseconds are absent, as in the
 // recorder's headless runs.
@@ -691,7 +692,7 @@ void  v32trace_frame (void)
     int  i;
 
     if (cartframe >= 0)  cartframe = cartframe + 1;
-    if ((!trapped) || (v32trace_norestart) || (gave_up))  return;
+    if ((!trapped) || (!have_resume) || (v32trace_norestart) || (gave_up))  return;   // spec 3.6: no `resume`, no restart
     held = held + 1;
     if (held < VT_HOLD_FRAMES)  return;
     if (repeat_run >= 2)
@@ -1248,7 +1249,7 @@ static void  write_report (void)
         }
     }
     if (dropped)  fprintf (f, "(%u more distinct traps or events were not recorded: the limit is %d)\n", dropped, VT_MAX_HITS);
-    if ((restarts) || (trapped && !v32trace_norestart))
+    if ((restarts) || (trapped && have_resume && !v32trace_norestart))
         fprintf (f, "the cartridge was restarted %u time%s after traps; frames spent in trap routines are left out of [perf], [host] and the hot spots\n",
                  restarts, restarts == 1 ? "" : "s");
 

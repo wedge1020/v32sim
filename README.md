@@ -132,9 +132,9 @@ software — and to automate cart testing.
 ├── obj/                  objects, dependency files, and the generated
 │                         lexer.c / parser.c / parser.h and the asm_* equivalents
 ├── bin/                  the compiled v32sim binary (generated)
-├── bios/                 BIOS data files
+├── bios/                 StubBios.v32 (the bundled BIOS, source in bios/src/) and debuggerBIOS.v32; see bios/README.md
 ├── gen/                  flex/bison output, checked in (`make gen`), for builds without flex/bison
-├── tools/                scripts and oracle tools for testing other projects (docs/TOOLS.md)
+├── tools/                scripts and oracle tools for testing other projects (docs/TOOLS.md); v32sim-statediff.py compares two `save` files
 │   └── oracle/           C++ tools on the stock ConsoleLogic: v32orun (refrun v32run vrun v32prof v32peek v32shot wrap it) sysprof
 ├── tests/                the test suites (see Tests below), cartridge sources, differential cases (tests/gaps)
 ├── docs/                 USAGE.md (command-line reference, with the Spanish and French USAGE.es.md / USAGE.fr.md),
@@ -167,7 +167,7 @@ make debug      # -DDEBUG -g -O0 build   -> bin/v32sim
 make asan       # AddressSanitizer + UBSan build, for hunting memory errors
 make gen        # refresh gen/ (the flex/bison output) after editing a .l or .y file
 make version    # stamp inc/version.h's version into TODO.md and the man pages' .TH lines (VERSION=X, or V=X, writes X into inc/version.h first)
-make test       # tests/run_kbd_sync_tests.sh, run_cli_tests.sh, run_v32dev_server_tests.sh: need no toolchain
+make test       # tests/run_kbd_sync_tests.sh, run_cli_tests.sh, run_stubbios_tests.sh, run_v32dev_server_tests.sh: need no toolchain
 make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]   # every suite from one toolchain directory (tools/v32sim-check.sh)
 make test-harness                              # tests/run_harness_tests.sh (V32TC, V32BIOS, ORACLE in the environment)
 make oracle COMPUTERSOFTWARE=DIR               # build the stock-console-logic tools (tools/oracle/build.sh)
@@ -192,6 +192,7 @@ make install      # the binary to ~/bin/bin.<arch>/ (or ~/bin/, created when mis
                   # the man page (gzipped) to ~/.local/share/man/man1
 make sysinstall   # the binary to /usr/local/bin/; the tools/ tree to /usr/local/Vircon32/v32tools/v32sim/tools;
                   # the man page (gzipped) to /usr/local/share/man/man1
+                  # (both also install the bundled BIOS: ~/.local/lib/v32sim/bios/, /usr/local/Vircon32/v32tools/v32sim/bios/)
 make uninstall    # and make sysuninstall
 ```
 
@@ -285,7 +286,7 @@ Mandatory arguments to long options are mandatory for short options too.
      --input2=SCRIPT       the same for gamepad 2 (port 1; V32TRACE input2=, @FILE reads its V32_INPUT2= line)
      --screenshot-at=FRAMES  write the screen after these cartridge frames (N, A-B, A-B/STEP, comma
                            separated); frame 0 is the first one the cartridge runs, after the BIOS hands over
-                           (the BIOS logo takes ~250 frames, and --max-frames counts them too)
+                           (StandardBios's logo takes ~250 frames, and --max-frames counts them too)
      --screenshot-file=PAT   file name for those; %d = the frame (default v32sim-shot-%05d.png)
      --screengrid[=SPEC]     grid over screenshots: DX[xDY],color=C,alpha=N,labels|nolabels (default 40x40)
      --highlight=T:R[:COLOR] outline texture T region R (or bios:R) in screenshots; comma separated
@@ -296,7 +297,7 @@ Mandatory arguments to long options are mandatory for short options too.
      --stats-format=json   --frame-stats FILE as JSON Lines (stable dotted names, a summary line at the end)
      --frame-stats-top=N   list the N regions charged the most GPU pixels in that summary (default 8, 0 = none)
      --stats-top=N         the same as --frame-stats-top
-     --frame-stats-skip=N  leave the first N frames (the BIOS logo, ~250) out of that summary
+     --frame-stats-skip=N  leave the first N frames (StandardBios's logo, ~250) out of that summary
      --stats-skip=N        the same as --frame-stats-skip
      --heap[=PROG.asm]     v32lua carts: at each frame end print HEAP F<frame> ptr=0x.. used=N peak=N [free=N blocks=N] (with --gc arena also
                            floor= pin= depth= stack=) and HEAP PEAK / HEAP END at exit; the %define symbols are read from the
@@ -335,7 +336,7 @@ known label (or function) is that label even when it is also a hex number (`add`
 otherwise it is a hex OFFSET, with or without `0x`; a value that is none of these is reported on stderr. `-L MODE` must be `C`, `lua` or `src`;
 another value is an error (message on stderr, exit status 1). `-S` starts at the BIOS code start, which is the default (`-E` starts elsewhere).
 `--screenshot-at` counts cartridge frames: frame 0 is the first frame that ends with the program counter in the cartridge, that is
-after the BIOS has handed over (the stock BIOS's logo takes about 250 frames); `--max-frames` counts every frame from power-on, logo
+after the BIOS has handed over (StandardBios's logo takes about 250 frames; the bundled StubBios hands over at frame 2); `--max-frames` counts every frame from power-on, logo
 included, so give it enough frames (`--max-frames=400` for cartridge frame 120). Frames the run never reached are reported on
 stderr at the end (`[WARNING] --screenshot-at: ...`).
 
@@ -354,8 +355,13 @@ v32sim -L lua -r cart.v32           # Lua value display
 v32sim -q --fast cart.v32 < t.cmd   # scripted run, see Scripting
 ```
 
-By  default  the simulator  loads  `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32`
-(the standard Vircon32 ComputerSoftware install location); override with `--biosfile`.
+Without `--biosfile` the simulator loads, in order, `$V32BIOS`, `/usr/local/Vircon32/Emulator/Bios/StandardBios.v32`
+(the standard Vircon32 ComputerSoftware install location), then the bundled `StubBios.v32` (beside the binary as in the release zip,
+`../bios/` of a checkout's `bin/`, `~/.local/lib/v32sim/bios/` after `make install`, `$(VROOT)/v32sim/bios/` after `make sysinstall`);
+when none exists it names the StandardBios path in its error. `-v` prints `[v32sim] BIOS: PATH`.
+StubBios has StandardBios's texture and sound but no logo and no boot sound: the cartridge starts at frame 2, in the machine
+state StandardBios hands over (only the timers differ), and a hardware error is written in RAM and on the text console
+(`V32ERR` line); see `bios/README.md`.
 Execution starts at the first BIOS instruction (`0x10000004`) unless `--entry-point` says otherwise.
 
 ## Memory Map
@@ -538,6 +544,10 @@ little-endian with zero runs compressed, and records checksums of the BIOS and
 cartridge: it is only restored into a machine with the same ones. Breakpoints,
 watchpoints, the display list, labels, and profiling data are part of the
 debugging session and are not saved.
+
+`tools/v32sim-statediff.py A.sav B.sav` compares two such files section by section (header, reg, port, ram, card, gpu-regions,
+framebuffer, spu, gamepad, devhost) and answers "is the machine state the same at this point in two runs?". `--ignore SECTIONS`,
+`--ignore-port NAMES`, `--ram-range LO-HI`, `--max-lines N` and `--quiet` narrow it; exit status 0 same, 1 differ, 2 bad file or usage.
 
 ### Display List
 
@@ -871,7 +881,7 @@ v32term's default key source will not see your keys.
 ## Running Unattended
 
   * `--fast` / `--frame-us=N`: do not sleep to hold 60 frames per second (or
-    wait N microseconds per frame). `--max-frames=N` stops after N frames, counted from power-on (the BIOS logo, about 250 frames, included).
+    wait N microseconds per frame). `--max-frames=N` stops after N frames, counted from power-on (StandardBios's logo, about 250 frames, included; StubBios has none).
   * `-x` / `--exit-status`: the exit status tells how the run ended: 0 the
     program halted, 2 the frame limit was reached, 3 a system error (the run
     stops there instead of entering the BIOS error handler).
@@ -895,7 +905,7 @@ v32term's default key source will not see your keys.
 `--frame-stats=FILE` writes one CSV row per frame, `frame,cycles,cpu_pct,gpu_pixels,gpu_pct,end` (cycles against the 250,000
 budget, GPU pixels against the 9-screen capacity; `end` is `w` for a frame ended by `WAIT`, `b` when the budget ran out), and
 prints a summary (mean, 95th percentile, maximum, frames at 100%) to stderr when the run ends. `--frame-stats-skip=N`
-leaves the first N frames (the BIOS logo takes about 250) out of the summary. After those columns come the GPU / SPU counters
+leaves the first N frames (StandardBios's logo takes about 250) out of the summary. After those columns come the GPU / SPU counters
 (`draws,dropped,clears,tex_switches,region_switches,regions,spu_cmds,spu_plays`, then `scaled_draws,rotated_draws,region_defs,color_changes,
 blend_changes,spu_assigns,spu_params,movs_words,sets_words,gamepad_reads,instructions,memcard_accesses,spu_playing`), and the summary lists them (mean, p50, p95, p99,
 max, total) and the regions charged the most pixels. `--stats-format=json` writes JSON Lines instead (one object per frame with the stable
@@ -1162,6 +1172,8 @@ interactive prompt is unchanged.
 `tests/run_src_tests.sh [V32AS_DIR]` checks the source-level commands (54 checks) on
 `tests/src/bench.asm`, assembly written the way `v32lua -g` writes it, with `v32as` only: the
 cartridge is made by `tests/mkcart.py`, and the BIOS is `tests/gaps/bios.asm`.
+
+`tests/run_stubbios_tests.sh` (`make test`; no toolchain; 21 checks, 22 with `STOCK=StandardBios.v32`, which adds the comparison of the machine state at the hand-over with `tools/v32sim-statediff.py`) checks the bundled StubBios: boot, errors and the `V32ERR` record.
 
 `tests/run_kbd_sync_tests.sh` (`make test`; 22 checks, no toolchain: v32kbd delivery with a busy program, `--kbd-sync`, `--warn-halt`,
 `--halt-status`, `regex:`) and `tests/run_cli_tests.sh` (also `make test`; 144 checks, no toolchain: the command line, the help

@@ -41,6 +41,8 @@ LTO     ?= $(shell for f in -flto=auto -flto; do echo 'int main(void){return 0;}
 CFLAGS  = -Wall --std=gnu18 -funsigned-char -Wno-unused-value $(OPT) $(LTO) -ffp-contract=off
 CFLAGS += -Wno-pointer-sign -Wno-main -Wno-int-conversion
 CFLAGS += -Wno-unused-but-set-variable
+# where `make sysinstall` puts the bundled BIOS, for the default BIOS lookup (src/main.c default_bios())
+CFLAGS += -DSTUB_BIOS_SYSTEM='"$(VROOT)/v32sim/bios/StubBios.v32"'
 
 # generated flex/bison sources are not ours to keep warning-free
 GENFLAGS = -Wno-unused-function -Wno-sign-compare -Wno-unused-parameter -Wno-implicit-fallthrough
@@ -144,10 +146,12 @@ check: $(BIN)
 
 # tests that need no toolchain (the cartridges are written by tests/kbd_probe.py): v32kbd delivery and --kbd-sync, --warn-halt, regex: patterns;
 # the command line, help texts and exit statuses (run_cli_tests.sh); the built-in v32dev server: V32DEV_SERVER/V32DEV_CHn, serial:tcp,
-# SPEC parsing, `dev format` types (run_v32dev_server_tests.sh)
+# SPEC parsing, `dev format` types (run_v32dev_server_tests.sh); the bundled BIOS bios/StubBios.v32 (run_stubbios_tests.sh); frames that miss WAIT are shown as the tick left them (run_present_tests.sh)
 test: $(BIN)
 	tests/run_kbd_sync_tests.sh
 	tests/run_cli_tests.sh
+	tests/run_stubbios_tests.sh
+	tests/run_present_tests.sh
 	tests/run_v32dev_server_tests.sh
 
 # tests of the consolidated tools (needs V32TC, V32BIOS; ORACLE for the comparisons with the stock console logic)
@@ -231,6 +235,8 @@ install: $(BIN)
 		gzip -9cn $(MANPAGE) > $(USRMAN)/$(TARGET).1.gz && chmod 644 $(USRMAN)/$(TARGET).1.gz
 	@echo "Installing the tools to $(USRLIB)/tools"; rm -rf $(USRLIB)/tools ~/share/v32sim; mkdir -p $(USRLIB) && \
 		cp -R tools $(USRLIB)/ && find $(USRLIB)/tools -type f -name '*.o' -delete
+	@echo "Installing the bundled BIOS to $(USRLIB)/bios"; mkdir -p $(USRLIB)/bios && \
+		install -m 644 bios/StubBios.v32 bios/StubBios.vbin.debug $(USRLIB)/bios/
 
 uninstall:
 	rm -f ~/bin/bin.$(ARCH)/$(TARGET) ~/bin/$(TARGET) $(USRMAN)/$(TARGET).1 $(USRMAN)/$(TARGET).1.gz; rm -rf $(USRLIB) ~/share/v32sim
@@ -243,6 +249,7 @@ sysinstall: $(BIN)
 	chmod 644 $(DESTDIR)$(MANDIR)/$(TARGET).1.gz
 	rm -rf $(DESTDIR)$(VROOT)/v32sim/tools $(DESTDIR)$(PREFIX)/share/v32sim
 	cp -R tools $(DESTDIR)$(VROOT)/v32sim/ && find $(DESTDIR)$(VROOT)/v32sim/tools -type f -name '*.o' -delete
+	install -d $(DESTDIR)$(VROOT)/v32sim/bios && install -m 644 bios/StubBios.v32 bios/StubBios.vbin.debug $(DESTDIR)$(VROOT)/v32sim/bios/
 	@echo "Installed $(TARGET) to $(PREFIX)/bin, its manual page ($(MANPAGE), gzipped) to $(MANDIR) and the tools to $(VROOT)/v32sim/tools"
 ifneq ($(filter es fr,$(DOC_LANG)),)
 ifeq ($(MANPAGE),man/$(TARGET).1)
@@ -279,6 +286,7 @@ dist: $(BIN)
 	rm -rf dist $(DISTZIP)
 	mkdir -p dist/docs/$(TARGET)/docs dist/tools
 	cp $(BIN) dist/$(TARGET)
+	cp bios/StubBios.v32 bios/StubBios.vbin.debug dist/
 	cp README*.md dist/docs/$(TARGET)/
 	if [ -f LICENSE ]; then cp LICENSE dist/; fi
 	cp docs/USAGE*.md dist/docs/$(TARGET)/docs/

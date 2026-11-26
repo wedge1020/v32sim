@@ -33,6 +33,8 @@ first: if they agree with the emulator, it is a v32sim bug (see `docs/V32SIMGAPS
 | replay gamepad / keyboard / mouse input from a script | `--input=A@40-44,...` (cart frames, V32_INPUT syntax), `tools/vprof2cmd.py` (v32prof scripts), `tools/v32io-script.py` (actions -> script), `kbd` and `mouse` commands |
 | see CPU and GPU load per frame, p95, frames over budget | `--frame-stats=FILE` ([PROFILING.md](PROFILING.md)); `v32prof` on the oracle |
 | how many draws / region switches per frame, which regions cost the pixels; did a change make it slower | `--frame-stats=FILE` columns and summary, `stats`, `stats expect`; `tools/v32sim-statdiff.py BEFORE.csv AFTER.csv` |
+| is the machine state the same at this point in two runs (two builds, two BIOSes, before / after a change) | `save` in each run, then `tools/v32sim-statediff.py A.sav B.sav` (section by section: registers, ports, RAM, GPU regions, framebuffer, SPU...; `--ignore`, `--ignore-port`, `--ram-range`; exit 0 same, 1 differ) |
+| run a cartridge with no ComputerSoftware install, or read a hardware error without `-x` | the bundled `bios/StubBios.v32` (the default when no `-B`, `$V32BIOS` or StandardBios; `bios/README.md`) |
 | find the hot functions | `--profile-by=function --profile-top=N`; `tools/v32sim-addrprof.py` across kernel / BIOS / loaded modules |
 | profile an OS: kernel plus programs swapped into a window | `tools/oracle` `sysprof` |
 | screenshot at chosen frames | `screenshot FILE` (PNG) in a session; `--screenshot-at=FRAMES` (PNG, with `screengrid` / `highlight` extras) from a run; `v32shot` (PPM, the stock core's quads) on the oracle |

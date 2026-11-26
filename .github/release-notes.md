@@ -9,6 +9,7 @@
 - **v32io keyboard and mouse.** A `v32kbd` and a `v32mouse` on any gamepad port, driven from the prompt or from a terminal, pipe, FIFO or file.
 - **Memory card and v32dev.** The memory card file is kept current every frame; a card formatted for v32dev talks to a real `v32dev.py serve` host process.
 - **Turbo mode.** `--turbo` for speed when you do not need a faithful frame-by-frame GPU.
+- **Bundled BIOS.** `StubBios.v32` has StandardBios's texture and sound but no logo: cartridges start at frame 2 and run with no ComputerSoftware install and no `-B`. A hardware error is written in RAM and on the text console (`V32ERR`).
 - **Oracle tools and a tools folder.** Helper scripts and the stock-console ("oracle") comparison tools that other Vircon32 projects use to test, debug and profile their programs.
 - **Documented.** The README, the command-line reference (`docs/USAGE.md`) and the `v32sim(1)` manual page in English, Spanish and French.
 
@@ -24,7 +25,7 @@ Pick the zip for your system: `v32sim-@VERSION@-<os>-<arch>.zip`.
 
 Windows (x86_64) is experimental: when its build succeeded, `v32sim-@VERSION@-windows-x86_64.zip` holds `v32sim.exe` built in MSYS2's POSIX environment, with the MSYS runtime DLLs beside it (keep them together). On Windows on ARM it runs under emulation.
 
-Each zip unpacks straight into your `v32tools` folder (`/usr/local/Vircon32/v32tools`) and holds `v32sim`, the README, user manual and manual page in English, Spanish and French under `docs/v32sim/`, the helper scripts in `tools/v32sim/` (they find `v32sim` through `$V32SIM` or your `PATH`) and the LICENSE. Check a download against `SHA256SUMS.txt`.
+Each zip unpacks straight into your `v32tools` folder (`/usr/local/Vircon32/v32tools`) and holds `v32sim`, the bundled BIOS (`StubBios.v32`), the README, user manual and manual page in English, Spanish and French under `docs/v32sim/`, the helper scripts in `tools/v32sim/` (they find `v32sim` through `$V32SIM` or your `PATH`) and the LICENSE. Check a download against `SHA256SUMS.txt`.
 
 **Runtime requirements.** GNU readline is linked dynamically: on Debian/Ubuntu install `libreadline8`, on Fedora `readline`, and on macOS `brew install readline` (the system libedit is not used). Some tools in `tools/` need `python3`; running source-level and cartridge tests needs the Vircon32 DevTools.
 

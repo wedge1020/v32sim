@@ -1,4 +1,5 @@
 #include "defines.h"
+#include <unistd.h>
 #include "devhost.h"
 #include "command.h"
 
@@ -204,6 +205,57 @@ static void  show_fetch_fault (void)
                      REG(IP) + fetch_fault - 1);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// default_bios(): the BIOS to load when -B is not given. In order: $V32BIOS; the stock
+// install (DEFAULT_BIOS); the StubBios shipped with v32sim (StubBios.v32 beside the
+// binary, bios/StubBios.v32 of a checkout, the per-user and system installs). When none
+// of them exists, DEFAULT_BIOS (so the error names the stock path).
+//
+static int  bios_exists (const char *path)
+{
+    return ((path != NULL) && (path[0] != '\0') && (access (path, R_OK) == 0));
+}
+
+static const char  *default_bios (void)
+{
+    static char         buf[4096];
+    static const char  *rel[] = { "StubBios.v32", "../bios/StubBios.v32", "bios/StubBios.v32",
+                                  "../lib/v32sim/bios/StubBios.v32", NULL };
+    const char         *env    = getenv ("V32BIOS");
+    const char         *home   = getenv ("HOME");
+    char                exe[4096];
+    ssize_t             n      = 0;
+    char               *slash  = NULL;
+    int                 i      = 0;
+
+    if (bios_exists (env))           return (env);
+    if (bios_exists (DEFAULT_BIOS))  return (DEFAULT_BIOS);
+
+    n  = readlink ("/proc/self/exe", exe, sizeof (exe) - 1);
+    if (n > 0)
+    {
+        exe[n]  = '\0';
+        slash   = strrchr (exe, '/');
+        if (slash != NULL)
+        {
+            slash[1]  = '\0';
+            for (i = 0; rel[i] != NULL; i++)
+            {
+                snprintf (buf, sizeof (buf), "%s%s", exe, rel[i]);
+                if (bios_exists (buf))  return (buf);
+            }
+        }
+    }
+    if (home != NULL)
+    {
+        snprintf (buf, sizeof (buf), "%s/.local/lib/v32sim/bios/StubBios.v32", home);
+        if (bios_exists (buf))  return (buf);
+    }
+    if (bios_exists (STUB_BIOS_SYSTEM))  return (STUB_BIOS_SYSTEM);
+    return (DEFAULT_BIOS);
+}
+
 int32_t   main (int32_t  argc, char **argv)
 {
     ////////////////////////////////////////////////////////////////////////////////////
@@ -211,7 +263,6 @@ int32_t   main (int32_t  argc, char **argv)
     // declare and initialize variables
     //
     linked_l *btmp                  = NULL;
-    size_t    len                   = 0;
     uint8_t   chk                   = FALSE;
     uint8_t   errorflag             = FLAG_NONE;
     uint8_t   processflag           = FALSE;
@@ -332,16 +383,17 @@ int32_t   main (int32_t  argc, char **argv)
     //
     if (biosfile                   == NULL)
     {
-        len                         = strlen (DEFAULT_BIOS) + 1;
+        const char  *found          = default_bios ();
         biosfile                    = (int8_t *) ralloc (sizeof (int8_t),
-                                                         strlen (DEFAULT_BIOS) + 1,
+                                                         strlen (found) + 1,
                                                          FLAG_NONE);
         if (biosfile               == NULL)
         {
             fprintf (stderr, "[ERROR] Allocation for '%s' failed\n", "biosfile");
             exit (STRING_ALLOC_FAIL);
         }
-        strcpy (biosfile, DEFAULT_BIOS);
+        strcpy (biosfile, found);
+        DPRINTF(verbose, "[v32sim] BIOS: %s\n", biosfile);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////
