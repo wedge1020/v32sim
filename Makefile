@@ -154,8 +154,8 @@ test: $(BIN)
 test-harness: $(BIN)
 	tests/run_harness_tests.sh
 
-# make version            print the version
-# make version VERSION=x  stamp x into inc/version.h, TODO.md's "Status as of version" line and the .TH line of every man page
+# make version            stamp the version in inc/version.h into TODO.md and every man page .TH line
+# make version VERSION=x  write x into inc/version.h first, then stamp it the same way (V=x is the old spelling)
 #                         that exists (man/v32sim.1, .es.1, .fr.1: the version, and the month in the page's language, spelled
 #                         out here rather than through locales, which may not be installed). These are the only places the
 #                         version is written. A VERSION= given with the same value changes nothing but the month of the man pages.
@@ -169,17 +169,21 @@ MONTHS_FR = janvier f\\[u00E9]vrier mars avril mai juin juillet ao\\[u00FB]t sep
 MONTH_en := $(word $(MONTH_N),$(MONTHS_EN)) $(YEAR)
 MONTH_es := $(word $(MONTH_N),$(MONTHS_ES)) de $(YEAR)
 MONTH_fr := $(word $(MONTH_N),$(MONTHS_FR)) $(YEAR)
-ifeq ($(origin VERSION),command line)
+# V=x is an older spelling of VERSION=x
+# With neither, `make version` stamps the version inc/version.h already has.
+NEWVER := $(if $(filter command line,$(origin VERSION)),$(VERSION),$(if $(filter command line,$(origin V)),$(V),$(VERSION_STRING)))
+ifneq ($(strip $(NEWVER)),)
 version:
-	@sed 's/^\(\#define  *VERSION  *\)"[^"]*"/\1"$(VERSION)"/' inc/version.h > inc/version.h.tmp && mv inc/version.h.tmp inc/version.h
-	@sed 's/^\(Status as of version `\)[^`]*`/\1$(VERSION)`/' TODO.md > TODO.md.tmp && mv TODO.md.tmp TODO.md
+	@case '$(NEWVER)' in ''|*[!A-Za-z0-9._+-]*) echo "make version: '$(NEWVER)' is not a valid version (letters, digits and . _ + - only)" >&2; exit 1 ;; esac
+	@sed 's/^\(\#define  *VERSION  *\)"[^"]*"/\1"$(NEWVER)"/' inc/version.h > inc/version.h.tmp && mv inc/version.h.tmp inc/version.h
+	@sed 's/^\(Status as of version `\)[^`]*`/\1$(NEWVER)`/' TODO.md > TODO.md.tmp && mv TODO.md.tmp TODO.md
 	@for l in en es fr; do \
 		f=man/$(TARGET).$$l.1; [ $$l = en ] && f=man/$(TARGET).1; \
 		[ -f $$f ] || continue; \
 		case $$l in en) m='$(MONTH_en)' ;; es) m='$(MONTH_es)' ;; fr) m='$(MONTH_fr)' ;; esac; \
-		sed "s/^\.TH V32SIM 1 \"[^\"]*\" \"v32sim [^\"]*\"/.TH V32SIM 1 \"$$m\" \"v32sim $(VERSION)\"/" $$f > $$f.tmp && mv $$f.tmp $$f; \
+		sed "s/^\.TH V32SIM 1 \"[^\"]*\" \"v32sim [^\"]*\"/.TH V32SIM 1 \"$$m\" \"v32sim $(NEWVER)\"/" $$f > $$f.tmp && mv $$f.tmp $$f; \
 	done
-	@echo "$(TARGET) $(VERSION)"
+	@echo "$(TARGET) $(NEWVER)"
 else
 version:
 	@echo "$(TARGET) $(VERSION_STRING)"
@@ -219,11 +223,9 @@ install: $(BIN)
 	@if [ -d ~/bin/bin.$(ARCH) ]; then \
 		echo "Installing $(TARGET) to ~/bin/bin.$(ARCH)/"; \
 		install -m 755 $(BIN) ~/bin/bin.$(ARCH)/$(TARGET); \
-	elif [ -d ~/bin ]; then \
-		echo "Installing $(TARGET) to ~/bin/"; \
-		install -m 755 $(BIN) ~/bin/$(TARGET); \
 	else \
-		echo "Skipping: neither ~/bin/bin.$(ARCH) nor ~/bin exist"; \
+		echo "Installing $(TARGET) to ~/bin/"; \
+		mkdir -p ~/bin && install -m 755 $(BIN) ~/bin/$(TARGET); \
 	fi
 	@echo "Installing the manual page to $(USRMAN)"; mkdir -p $(USRMAN) && rm -f $(USRMAN)/$(TARGET).1 && \
 		gzip -9cn $(MANPAGE) > $(USRMAN)/$(TARGET).1.gz && chmod 644 $(USRMAN)/$(TARGET).1.gz
@@ -252,16 +254,22 @@ sysuninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET) $(DESTDIR)$(MANDIR)/$(TARGET).1 $(DESTDIR)$(MANDIR)/$(TARGET).1.gz; rm -rf $(DESTDIR)$(VROOT)/v32sim $(DESTDIR)$(PREFIX)/share/v32sim
 
 # the archive carries the date of the version: ../v32sim-project-YYYYMMDD.zip; it holds everything in the project directory
-# (src, inc, docs, man, tools, tests, ..., and .github, which `*` would skip)
+# (src, inc, docs, man, tools, tests, ..., and the dotfiles `*` would skip: .github, .gitignore, .gitattributes)
 ARCHIVE = ../v32sim-project-$(shell echo $(VERSION_STRING) | cut -c1-8).zip
 
 archive: clean
 	@rm -f $(ARCHIVE)
-	@zip -r $(ARCHIVE) * $(wildcard .github)
+	@zip -r $(ARCHIVE) * $(wildcard .github .gitignore .gitattributes) -x '*.zip' '*.patch' 'obj/*' 'bin/v32sim' 'dist/*' 'tools/oracle/bin/*'
 
-# make dist [DIST_OS=linux DIST_ARCH=x86_64]: a release zip, v32sim-<version>-<os>-<arch>.zip, laid out like the checkout so the
-# tools/ scripts find the binary at ../bin/v32sim: bin/v32sim, README*.md, LICENSE, docs/USAGE*.md, man/*.1 and tools/. It
-# packages what is built (run `make` first; the release workflow also strips the binary); needs zip. The staging directory is dist/.
+# make dist [DIST_OS=linux DIST_ARCH=x86_64]: a release zip, v32sim-<version>-<os>-<arch>.zip, laid out for unpacking into
+# <Program Files>/Vircon32/v32tools (or /usr/local/Vircon32/v32tools), like the other v32 tools:
+#     v32sim                       the binary (stripped by the release workflow), at the top
+#     LICENSE
+#     docs/v32sim/README*.md       every language, with docs/ beside them so their links work
+#     docs/v32sim/docs/USAGE*.md
+#     docs/v32sim/v32sim*.1        the manual pages (English, Spanish, French)
+#     tools/v32sim/                the helper scripts; they find the binary through $V32SIM or $PATH
+# It packages what is built (run `make` first); needs zip. The staging directory is dist/.
 DIST_OS   ?= $(shell uname -s | tr 'A-Z' 'a-z' | sed 's/^darwin$$/macos/')
 DIST_ARCH ?= $(shell uname -m | sed 's/^aarch64$$/arm64/;s/^amd64$$/x86_64/')
 DISTZIP    = $(TARGET)-$(VERSION_STRING)-$(DIST_OS)-$(DIST_ARCH).zip
@@ -269,13 +277,13 @@ DISTZIP    = $(TARGET)-$(VERSION_STRING)-$(DIST_OS)-$(DIST_ARCH).zip
 dist: $(BIN)
 	@test -n "$(VERSION_STRING)" || { echo "dist: no VERSION in inc/version.h"; exit 1; }
 	rm -rf dist $(DISTZIP)
-	mkdir -p dist/bin dist/docs dist/man
-	cp $(BIN) dist/bin/
-	cp README*.md dist/
+	mkdir -p dist/docs/$(TARGET)/docs dist/tools
+	cp $(BIN) dist/$(TARGET)
+	cp README*.md dist/docs/$(TARGET)/
 	if [ -f LICENSE ]; then cp LICENSE dist/; fi
-	cp docs/USAGE*.md dist/docs/
-	cp man/*.1 dist/man/
-	cp -R tools dist/ && find dist/tools -type f -name '*.o' -delete
+	cp docs/USAGE*.md dist/docs/$(TARGET)/docs/
+	cp man/*.1 dist/docs/$(TARGET)/
+	cp -R tools dist/tools/$(TARGET) && rm -rf dist/tools/$(TARGET)/oracle/bin && find dist/tools -type f -name '*.o' -delete
 	cd dist && zip -qr ../$(DISTZIP) .
 	rm -rf dist
 	@echo "built $(DISTZIP)"

@@ -18,21 +18,26 @@ Pick the zip for your system: `v32sim-@VERSION@-<os>-<arch>.zip`.
 
 | System | Architectures |
 | --- | --- |
-| Linux | x86_64, arm64 |
+| Linux | x86_64, arm64, armv7 and armv8 (Raspberry Pi) |
 | macOS | x86_64 (Intel), arm64 (Apple silicon) |
+| OpenBSD, Haiku | included when their (optional) builds succeeded |
 
-Windows is not offered yet: v32sim currently relies on POSIX features (termios, signals, regex) that need porting first.
+Windows (x86_64) is experimental: when its build succeeded, `v32sim-@VERSION@-windows-x86_64.zip` holds `v32sim.exe` built in MSYS2's POSIX environment, with the MSYS runtime DLLs beside it (keep them together). On Windows on ARM it runs under emulation.
 
-Each zip unpacks into a folder with `bin/v32sim`, the README and LICENSE, `docs/`, the man pages in `man/` and the helper scripts in `tools/` (they find `bin/v32sim` beside themselves). Check a download against `SHA256SUMS.txt`.
+Each zip unpacks straight into your `v32tools` folder (`/usr/local/Vircon32/v32tools`) and holds `v32sim`, the README, user manual and manual page in English, Spanish and French under `docs/v32sim/`, the helper scripts in `tools/v32sim/` (they find `v32sim` through `$V32SIM` or your `PATH`) and the LICENSE. Check a download against `SHA256SUMS.txt`.
 
 **Runtime requirements.** GNU readline is linked dynamically: on Debian/Ubuntu install `libreadline8`, on Fedora `readline`, and on macOS `brew install readline` (the system libedit is not used). Some tools in `tools/` need `python3`; running source-level and cartridge tests needs the Vircon32 DevTools.
+
+## What is new in @VERSION@
+
+Release preparation: `make version`, `make archive` and `make dist` reworked, `make install` creates `~/bin`, a `.gitignore`, Raspberry Pi, OpenBSD and Haiku builds, and the Spanish and French documents checked against the English ones. See `CHANGELOG.md` for the earlier changes (closures in dumps, `--heap`, `--expect-reach`, a built-in v32dev server).
 
 ## Quick start
 
 ```sh
-bin/v32sim --help
-bin/v32sim -B StandardBios.v32 cart.v32  # interactive prompt
-man -l man/v32sim.1                      # the manual page
+v32sim --help
+v32sim -B StandardBios.v32 cart.v32  # interactive prompt
+man -l docs/v32sim/v32sim.1          # the manual page
 ```
 
 See the [README](https://github.com/wedge1020/v32sim#readme) for the full feature list, the command reference and the known limitations. Bug reports and feature requests are welcome in the issues.

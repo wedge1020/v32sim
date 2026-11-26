@@ -1,5 +1,15 @@
 # Changelog
 
+## 20261126-dev
+- **Release preparation.** `make version VERSION=X` (or the older `V=X`) validates X and stamps `inc/version.h`, `TODO.md` and the `.TH` line of the three man pages; plain `make version` stamps the version `inc/version.h` already has into the same places.
+- **`make archive`** now also stores `.gitignore` (and `.gitattributes`), leaves out `*.zip`, `*.patch` and the built `tools/oracle/bin/`; the date in `../v32sim-project-YYYYMMDD.zip` is that of VERSION.
+- **`make dist`** lays the zip out like the other v32 tools, for `<Program Files>/Vircon32/v32tools`: `v32sim` at the top, `docs/v32sim/` (README, `docs/USAGE*.md`, man pages, every language), `tools/v32sim/`.
+- **Windows x86_64, experimental**: an optional release job builds v32sim unchanged in MSYS2's POSIX ("MSYS") environment and zips the MSYS runtime DLLs beside `v32sim.exe`; it stays out of the release checklist until it has been seen to pass. AGENTS.md lists what a native UCRT64 build would need.
+- **`make install`** creates `~/bin` when it is missing instead of silently skipping the binary.
+- New top-level `.gitignore` (`*.zip`, `*.patch`, `obj/`, `bin/v32sim`, `dist/`, the oracle build); `gen/` stays committed.
+- **Release workflow** reworked: linux x86_64/arm64, Raspberry Pi (armv7, armv8: built in a Debian bookworm container), macOS x86_64/arm64, optional OpenBSD and Haiku; smoke test; release job with package check, `SHA256SUMS.txt`, draft and pre-release. `.github/release-notes.md` updated. Windows is still not offered (termios, SIGBUS, POSIX regex).
+- Spanish and French README, USAGE and man pages checked against the English ones (same options and sections); README documents `make dist`, `make archive` and the zip layout in all three languages.
+
 ## 20261124-dev
 - **Closures in dumps** (v32lua request 1): a function-tagged value with bit 21 set (`(w & 0xFFE00000) == 0x7FA00000`) is shown as a closure, with its RAM record `[code, nupvals, cell_ptr...]` at `(w & 0x1FFFFF) << 1`: v32orun `CANON NAME closure 0xREC code=0x.. nupvals=N` (ROM functions still `CANON NAME function`), `closure@0xREC(code=.. nupvals=N)` in `-d` / `-D` / `-m`; v32sim `x/B` and `locals` print `closure: 0x.. (code 0x.., N upvalues)`.
 - **`--heap[=PROG.asm]`** (v32sim) and **`--heap`** (v32orun, with `-a`), request 2: `HEAP F<frame> ptr= used= peak=` at every frame end (`used` = HEAP_POINTER - HEAP_START), with `--gc arena` also `floor= pin= depth= stack=`; `HEAP PEAK` and `HEAP END` at exit. The peak is read after every instruction. Read-only: RAM dumps and exit statuses are the same with and without it (`src/heapwatch.c`).

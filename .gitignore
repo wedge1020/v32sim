@@ -1,116 +1,28 @@
-# Prerequisites
-*.d
-
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
-
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
-
-# debug information files
-*.dwo
-
-# config folders
-.obsidian/
-
-# git repositories
-*.git
-
-# temporary files
-*.tmp
-*.bak
-*.swp
-*.pyc
-*.out
-*.old
-*.tally
-.nfs*
-*.raw
-errors
-.DS_Store
-*.bin
-*.core
-*.save
-*~
-*.db
-
-# Compiler byproducts
-*.class
-
-# Vircon32
-*.memc
-*.vtex
-*.vbin
-*.vsnd
-*.v32
-
-# archives
-*.gz
-*.rle
-*.tar
+# release archives and patches
 *.zip
-*.xz
-*.bz2
+*.patch
 
-# images
-*.bmp
-*.pnm
-*.png
-*.jpg
+# build outputs (gen/ holds the committed flex/bison output: keep it)
+/obj/
+/bin/*
+!/bin/.filler
+/dist/
 
-# audio files
-*.mp3
-*.wav
+# editor and OS leftovers
+*.swp
+*.swo
+*~
+*.save*
+.DS_Store
+core
+errors
 
-# TIC-80
-*.tic
+# python caches
+__pycache__/
+*.pyc
 
-# v32sim repo
-v32sim
-bin/*
-obj/*
-bios/*
+# compiled oracle tools
+/tools/oracle/bin/
+
+bios/
+cart/

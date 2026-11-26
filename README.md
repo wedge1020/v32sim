@@ -166,12 +166,13 @@ make LTO=       # without link-time optimization (default: -O2 -flto when the co
 make debug      # -DDEBUG -g -O0 build   -> bin/v32sim
 make asan       # AddressSanitizer + UBSan build, for hunting memory errors
 make gen        # refresh gen/ (the flex/bison output) after editing a .l or .y file
-make version    # print the version string (make version VERSION=X stamps inc/version.h, TODO.md and the .TH line of the man pages)
+make version    # stamp inc/version.h's version into TODO.md and the man pages' .TH lines (VERSION=X, or V=X, writes X into inc/version.h first)
 make test       # tests/run_kbd_sync_tests.sh, run_cli_tests.sh, run_v32dev_server_tests.sh: need no toolchain
 make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]   # every suite from one toolchain directory (tools/v32sim-check.sh)
 make test-harness                              # tests/run_harness_tests.sh (V32TC, V32BIOS, ORACLE in the environment)
 make oracle COMPUTERSOFTWARE=DIR               # build the stock-console-logic tools (tools/oracle/build.sh)
-make archive    # ../v32sim-project-YYYYMMDD.zip of the cleaned tree
+make archive    # ../v32sim-project-YYYYMMDD.zip (the date of VERSION) of the cleaned tree, with .github and .gitignore
+make dist       # v32sim-<version>-<os>-<arch>.zip for <Program Files>/Vircon32/v32tools: v32sim, docs/v32sim/, tools/v32sim/ (run make first)
 make clean      # remove obj/ contents (including generated parser) and bin/v32sim
 ```
 
@@ -187,7 +188,7 @@ default, `debug`, and `asan` builds.
 ## Installing
 
 ```
-make install      # the binary to ~/bin/bin.<arch>/ (or ~/bin/ when that does not exist); the tools/ tree to ~/.local/lib/v32sim/tools;
+make install      # the binary to ~/bin/bin.<arch>/ (or ~/bin/, created when missing); the tools/ tree to ~/.local/lib/v32sim/tools;
                   # the man page (gzipped) to ~/.local/share/man/man1
 make sysinstall   # the binary to /usr/local/bin/; the tools/ tree to /usr/local/Vircon32/v32tools/v32sim/tools;
                   # the man page (gzipped) to /usr/local/share/man/man1
@@ -200,6 +201,8 @@ make uninstall    # and make sysuninstall
 it; unset or `all` installs the English one. The tools in `tools/` look for `v32sim` beside themselves (`../bin/v32sim`, in a checkout),
 then on `$PATH`; other projects reach them through `$V32SIM_HOME/tools`. Both targets remove what an older version installed in
 `share/v32sim`.
+
+The release zips (`make dist`) unpack into `<Program Files>/Vircon32/v32tools` (or `/usr/local/Vircon32/v32tools`): `v32sim` at the top, the README, the user manual and the man pages in English, Spanish and French under `docs/v32sim/`, the helper scripts under `tools/v32sim/` (they find the binary through `$V32SIM` or `$PATH`). Windows (x86_64) is an optional, experimental build: it is made in MSYS2's POSIX environment and its zip carries the MSYS runtime DLLs beside `v32sim.exe`; it is published only when that build succeeded. The rest of `docs/` (design, status and proposal documents) is English only.
 
 ## Usage
 

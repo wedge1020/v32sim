@@ -81,5 +81,9 @@ docs/                USAGE (command-line reference; USAGE.es.md, USAGE.fr.md) TO
   and arm64, natively, from `gen/` with `HAVE_GEN_TOOLS=no`; macOS uses Homebrew readline through `READLINE_PREFIX`), runs
   `make test` and packs `make dist`; a `release` run then makes the GitHub release `v<VERSION>` from `.github/release-notes.md`
   (`@VERSION@` is replaced), a draft unless `publish_release` is ticked, and refuses man pages not stamped by `make version`.
-  Keep the release text's feature list in step with the README. Windows is left out: termios (`src/v32io.c`), SIGBUS
-  (`src/main.c`, `src/signal.c`) and POSIX `<regex.h>` (`src/gpu.c`) would need a portability layer first.
+  Keep the release text's feature list in step with the README. Windows x86_64 is an optional job built in MSYS2's
+  POSIX "MSYS" environment (unchanged sources; msys-2.0.dll and the readline/ncurses DLLs are zipped beside the binary).
+  A native UCRT64/MinGW build would need a small `#ifdef _WIN32` layer first: the termios keyboard source in `src/v32io.c`
+  (console API instead), BSD sockets and `fcntl(O_NONBLOCK)` in `src/devhost.c` (winsock, `ioctlsocket`), `O_BINARY` on the
+  card and storage `open()`s (`src/memc.c`, `src/devhost.c`), `getline()` (`src/input.c`), SIGBUS (`src/main.c`,
+  `src/signal.c`), and `<regex.h>` from MSYS2's libsystre (`src/gpu.c`, link `-lsystre`).

@@ -187,12 +187,13 @@ make LTO=       # sans optimisation à l'édition de liens (par défaut : -O2 -f
 make debug      # compilation -DDEBUG -g -O0   -> bin/v32sim
 make asan       # compilation AddressSanitizer + UBSan, pour traquer les erreurs mémoire
 make gen        # rafraîchit gen/ (la sortie de flex/bison) après modification d'un fichier .l ou .y
-make version    # affiche la chaîne de version (make version VERSION=X estampille inc/version.h, TODO.md et la ligne .TH des pages de manuel)
+make version    # inscrit la version de inc/version.h dans TODO.md et la ligne .TH des pages de manuel (VERSION=X, ou V=X, écrit d'abord X dans inc/version.h)
 make test       # tests/run_kbd_sync_tests.sh, run_cli_tests.sh, run_v32dev_server_tests.sh : n'ont besoin d'aucune chaîne d'outils
 make check TC=DIR [V32IO=DIR] [SRCMARK=FILE]   # chaque suite à partir d'un répertoire de chaîne d'outils (tools/v32sim-check.sh)
 make test-harness                              # tests/run_harness_tests.sh (V32TC, V32BIOS, ORACLE dans l'environnement)
 make oracle COMPUTERSOFTWARE=DIR               # compile les outils de la logique de console d'origine (tools/oracle/build.sh)
-make archive    # ../v32sim-project-YYYYMMDD.zip de l'arborescence nettoyée
+make archive    # ../v32sim-project-YYYYMMDD.zip (la date de VERSION) de l'arborescence nettoyée, avec .github et .gitignore
+make dist       # v32sim-<version>-<os>-<arch>.zip pour <Program Files>/Vircon32/v32tools : v32sim, docs/v32sim/, tools/v32sim/ (lancez make avant)
 make clean      # supprime le contenu de obj/ (y compris l'analyseur généré) et bin/v32sim
 ```
 
@@ -209,7 +210,7 @@ lancez `make clean` quand vous passez entre les compilations par défaut,
 ## Installation
 
 ```
-make install      # le binaire dans ~/bin/bin.<arch>/ (ou ~/bin/ s'il n'existe pas) ; l'arborescence tools/ dans ~/.local/lib/v32sim/tools ;
+make install      # le binaire dans ~/bin/bin.<arch>/ (ou ~/bin/, créé s'il manque) ; l'arborescence tools/ dans ~/.local/lib/v32sim/tools ;
                   # la page de manuel (compressée avec gzip) dans ~/.local/share/man/man1
 make sysinstall   # le binaire dans /usr/local/bin/ ; l'arborescence tools/ dans /usr/local/Vircon32/v32tools/v32sim/tools ;
                   # la page de manuel (compressée avec gzip) dans /usr/local/share/man/man1
@@ -222,6 +223,8 @@ make uninstall    # et make sysuninstall
 l'affiche ; non défini ou `all`, il installe la page anglaise. Les outils de `tools/` cherchent `v32sim` à côté d'eux (`../bin/v32sim`, dans une copie de travail),
 puis dans `$PATH` ; les autres projets les atteignent par `$V32SIM_HOME/tools`. Les deux cibles suppriment ce qu'une version plus ancienne avait installé dans
 `share/v32sim`.
+
+Les zips de version (`make dist`) se décompressent dans `<Program Files>/Vircon32/v32tools` (ou `/usr/local/Vircon32/v32tools`) : `v32sim` à la racine, le README, le manuel d'utilisation et les pages de manuel en anglais, espagnol et français dans `docs/v32sim/`, les scripts auxiliaires dans `tools/v32sim/` (ils trouvent le binaire via `$V32SIM` ou `$PATH`). Windows (x86_64) est une compilation facultative et expérimentale : elle est faite dans l'environnement POSIX de MSYS2 et son zip contient les DLL d'exécution de MSYS à côté de `v32sim.exe` ; elle n'est publiée que si cette compilation a réussi. Le reste de `docs/` (documents de conception, d'état et de propositions) n'existe qu'en anglais.
 
 ## Utilisation
 

@@ -87,6 +87,11 @@ jobs:
     needs: version
     runs-on: ${{ matrix.os-runner }}
 
+    # The OpenBSD and Haiku targets are a nice extra, not a requirement:
+    # if one of them fails, the job still counts as passed, so the release
+    # job below goes ahead with every package that did build.
+    continue-on-error: ${{ matrix.optional == true }}
+
     defaults:
       run:
         shell: bash
@@ -97,8 +102,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Every job builds natively (no cross-compiling), so every job can
-        # run `make test` and the --version check on the binary it built.
+        # Every native job builds on the machine it targets (no
+        # cross-compiling), so it can run `make test` and the --version
+        # check on the binary it built. The Raspberry Pi targets are built
+        # and tested inside a Debian bookworm container (the Raspberry Pi
+        # OS base) run through QEMU, which gives them the matching glibc
+        # and a real armhf / arm64 libreadline without multiarch tricks.
         #
         # Linux uses the oldest ubuntu runners, so the binaries need only an
         # older glibc. readline is linked dynamically (a static libreadline
@@ -112,6 +121,17 @@ jobs:
             arch: arm64
             os-runner: ubuntu-22.04-arm
 
+          # Raspberry Pi: 32-bit (armv7, Raspberry Pi OS 32-bit) and 64-bit
+          # (armv8, Raspberry Pi OS 64-bit), in a Debian container.
+          - os: linux
+            arch: armv7-rpi
+            os-runner: ubuntu-22.04
+            docker-platform: linux/arm/v7
+          - os: linux
+            arch: armv8-rpi
+            os-runner: ubuntu-22.04
+            docker-platform: linux/arm64
+
           # macOS: the system "readline" is libedit; GNU readline from
           # Homebrew is used instead (READLINE_PREFIX, see the Makefile).
           # macos-latest is Apple silicon; macos-15-intel is the Intel runner.
@@ -122,18 +142,65 @@ jobs:
             arch: x86_64
             os-runner: macos-15-intel
 
-          # Windows (MSYS2) is NOT built: v32sim uses termios (src/v32io.c),
-          # SIGBUS (src/main.c, src/signal.c) and POSIX <regex.h> (src/gpu.c),
-          # and ioctl-style tty handling, none of which MinGW provides. See
-          # AGENTS.md ("Releases") for what would have to change first.
+          # OpenBSD and Haiku (optional): built inside a QEMU virtual
+          # machine on a Linux runner by cross-platform-actions. GNU readline
+          # comes from the package manager (OpenBSD: /usr/local, Haiku:
+          # /system/develop). Nobody has to wait for these: a failure does
+          # not fail the run.
+          - os: openbsd
+            arch: x86_64
+            os-runner: ubuntu-latest
+            vm-arch: x86-64
+            vm-version: '7.9'
+            optional: true
+          - os: haiku
+            arch: x86_64
+            os-runner: ubuntu-latest
+            vm-arch: x86-64
+            vm-version: 'r1beta5'
+            optional: true
+
+          # Windows (optional, x86_64): built in MSYS2's "MSYS" environment,
+          # the POSIX layer (Cygwin-derived) that provides termios, BSD
+          # sockets, <regex.h> and SIGBUS, so the sources build unchanged.
+          # The binary needs msys-2.0.dll and the readline/ncurses DLLs, which
+          # are packed beside it. A native (UCRT64/MinGW) build would need a
+          # small Windows layer first (see AGENTS.md, "Releases"). Optional
+          # until it has been seen to pass; once it has, add windows-x86_64 to
+          # the release job's checklist and drop `optional`. On Windows on
+          # ARM the x86_64 zip runs under emulation.
+          - os: windows
+            arch: x86_64
+            os-runner: windows-latest
+            optional: true
+
+    defaults:
+      run:
+        shell: ${{ matrix.os == 'windows' && 'msys2 {0}' || 'bash' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # The flex/bison output is committed in gen/ and the Makefile copies it
+      # into obj/ when HAVE_GEN_TOOLS=no (below): the result does not depend
+      # on which flex/bison the runner has (macOS has an old bison; the VMs
+      # have none). `make gen` refreshes gen/ after a .l or .y edit.
+      - name: Name the Package
+        run: |
+          if [ "${{ inputs.build_type }}" = "test" ]; then
+            ZIP_NAME="${{ env.PROJECT_NAME }}-${VERSION}-test-${{ matrix.os }}-${{ matrix.arch }}.zip"
+            echo "RETENTION_DAYS=2" >> $GITHUB_ENV
+          else
+            ZIP_NAME="${{ env.PROJECT_NAME }}-${VERSION}-${{ matrix.os }}-${{ matrix.arch }}.zip"
+            echo "RETENTION_DAYS=0" >> $GITHUB_ENV
+          fi
+          echo "Packaging: $ZIP_NAME"
+          echo "FINAL_ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
       # --- ENVIRONMENT SETUP ---
       - name: Install Dependencies (Linux)
-        if: matrix.os == 'linux'
+        if: matrix.os == 'linux' && !matrix.docker-platform
         run: |
           sudo apt-get update
           sudo apt-get install -y libreadline-dev zip python3
@@ -142,19 +209,20 @@ jobs:
         run: |
           brew install readline
           echo "READLINE_PREFIX=$(brew --prefix readline)" >> "$GITHUB_ENV"
+      - name: Set up QEMU (Raspberry Pi)
+        if: matrix.docker-platform
+        uses: docker/setup-qemu-action@v3
 
-      # --- BUILD ---
-      # HAVE_GEN_TOOLS=no builds from the checked-in flex/bison output in
-      # gen/ (the same files tools/build-nogen.sh uses), so the result does
-      # not depend on which flex/bison the runner happens to have (macOS has
-      # an old bison). `make gen` refreshes gen/ after a .l or .y edit.
+      # --- BUILD, TEST AND PACKAGE (NATIVE) ---
       - name: Build
+        if: matrix.os == 'linux' && !matrix.docker-platform || matrix.os == 'macos'
         run: |
           make HAVE_GEN_TOOLS=no READLINE_PREFIX="$READLINE_PREFIX"
           strip bin/${{ env.PROJECT_NAME }}
           ls -l bin/
 
       - name: Check the Version
+        if: matrix.os == 'linux' && !matrix.docker-platform || matrix.os == 'macos'
         run: |
           OUT=$(./bin/${{ env.PROJECT_NAME }} --version)
           echo "$OUT"
@@ -166,25 +234,95 @@ jobs:
       # make test needs only python3 (tests/kbd_probe.py writes its own
       # cartridges); the suites that need the Vircon32 toolchain are not run.
       - name: Test
+        if: matrix.os == 'linux' && !matrix.docker-platform || matrix.os == 'macos'
         run: make test HAVE_GEN_TOOLS=no READLINE_PREFIX="$READLINE_PREFIX"
 
-      # --- PACKAGING ---
-      # `make dist` builds the zip: bin/v32sim, README*.md, LICENSE,
-      # docs/USAGE*.md, man/*.1 and the tools/ helpers, laid out like the
-      # checkout so the helpers find ../bin/v32sim.
+      # `make dist` builds the zip, laid out for
+      # <Program Files>/Vircon32/v32tools (see the Makefile):
+      #     v32sim                         the binary
+      #     LICENSE
+      #     docs/v32sim/README*.md         every language, with
+      #     docs/v32sim/docs/USAGE*.md     docs/ beside them so links work
+      #     docs/v32sim/v32sim*.1          the manual pages (en, es, fr)
+      #     tools/v32sim/                  the helper scripts
       - name: Create Zip Archive
+        if: matrix.os == 'linux' && !matrix.docker-platform || matrix.os == 'macos'
         run: |
-          if [ "${{ inputs.build_type }}" = "test" ]; then
-            ZIP_NAME="${{ env.PROJECT_NAME }}-${VERSION}-test-${{ matrix.os }}-${{ matrix.arch }}.zip"
-            echo "RETENTION_DAYS=2" >> $GITHUB_ENV
-          else
-            ZIP_NAME="${{ env.PROJECT_NAME }}-${VERSION}-${{ matrix.os }}-${{ matrix.arch }}.zip"
-            echo "RETENTION_DAYS=0" >> $GITHUB_ENV
-          fi
-          echo "Packaging: $ZIP_NAME"
-          make dist HAVE_GEN_TOOLS=no READLINE_PREFIX="$READLINE_PREFIX" DISTZIP="$ZIP_NAME"
-          unzip -l "$ZIP_NAME"
-          echo "FINAL_ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+          make dist HAVE_GEN_TOOLS=no READLINE_PREFIX="$READLINE_PREFIX" DISTZIP="$FINAL_ZIP_NAME"
+          unzip -l "$FINAL_ZIP_NAME"
+
+      # --- BUILD, TEST AND PACKAGE (WINDOWS, MSYS2 POSIX ENVIRONMENT) ---
+      - name: Setup MSYS2 (Windows)
+        if: matrix.os == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: gcc make zip unzip python libreadline-devel ncurses-devel
+      - name: Build, Test and Package (Windows)
+        if: matrix.os == 'windows'
+        run: |
+          make HAVE_GEN_TOOLS=no
+          strip bin/v32sim.exe 2>/dev/null || strip bin/v32sim
+          OUT=$(./bin/v32sim --version); echo "$OUT"
+          case "$OUT" in *"$VERSION"*) ;; *) echo "::error::--version printed '$OUT', expected $VERSION"; exit 1 ;; esac
+          make test HAVE_GEN_TOOLS=no || echo "::warning::make test failed on Windows (MSYS)"
+          make dist HAVE_GEN_TOOLS=no DISTZIP="$FINAL_ZIP_NAME"
+          # the MSYS runtime DLLs the binary loads, beside it in the zip
+          mkdir -p dlls
+          ldd bin/v32sim.exe | awk '$3 ~ "^/usr/bin/" { print $3 }' | sort -u | xargs -r -I{} cp {} dlls/
+          ls dlls
+          (cd dlls && zip -j "../$FINAL_ZIP_NAME" ./*.dll)
+          unzip -l "$FINAL_ZIP_NAME"
+
+      # --- BUILD, TEST AND PACKAGE (RASPBERRY PI, IN A CONTAINER) ---
+      - name: Build, Test and Package (Raspberry Pi container)
+        if: matrix.docker-platform
+        run: |
+          docker run --rm --platform ${{ matrix.docker-platform }} \
+            -v "$PWD:/work" -w /work -e VERSION -e FINAL_ZIP_NAME \
+            debian:bookworm bash -ec '
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential libreadline-dev zip unzip python3
+              uname -m
+              make HAVE_GEN_TOOLS=no
+              strip bin/v32sim
+              OUT=$(./bin/v32sim --version); echo "$OUT"
+              case "$OUT" in *"$VERSION"*) ;; *) echo "--version printed $OUT, expected $VERSION"; exit 1 ;; esac
+              make test HAVE_GEN_TOOLS=no
+              make dist HAVE_GEN_TOOLS=no DISTZIP="$FINAL_ZIP_NAME"
+              unzip -l "$FINAL_ZIP_NAME"
+            '
+
+      # --- OPENBSD / HAIKU (OPTIONAL, IN A VIRTUAL MACHINE) ---
+      # The VM is only started for these targets; the next step runs inside
+      # it (the checkout is synced in, and the zip back out).
+      - name: Start Virtual Machine (OpenBSD / Haiku)
+        if: matrix.os == 'openbsd' || matrix.os == 'haiku'
+        uses: cross-platform-actions/action@v1.4.0
+        with:
+          operating_system: ${{ matrix.os }}
+          architecture: ${{ matrix.vm-arch }}
+          version: ${{ matrix.vm-version }}
+          shell: sh
+          environment_variables: VERSION FINAL_ZIP_NAME
+          run: |
+            uname -a
+            if [ "$(uname -s)" = OpenBSD ]; then
+              doas pkg_add -I gmake zip python3 readline || sudo pkg_add -I gmake zip python3 readline
+              RL="READLINE_PREFIX=/usr/local"
+            else
+              pkgman install -y gcc make zip readline_devel python3 || true
+              RL=
+            fi
+            # GNU make is needed (OpenBSD: gmake, Haiku: make). Skip the
+            # generated sources' tools: the committed gen/ is used.
+            if command -v gmake >/dev/null 2>&1; then MAKE=gmake; else MAKE=make; fi
+            $MAKE HAVE_GEN_TOOLS=no $RL
+            strip bin/v32sim
+            ./bin/v32sim --version
+            $MAKE test HAVE_GEN_TOOLS=no $RL
+            $MAKE dist HAVE_GEN_TOOLS=no $RL DISTZIP="$FINAL_ZIP_NAME"
 
       # --- STAGE ZIP INTERNALLY ---
       - name: Upload Compressed Target Release Artifact
@@ -236,13 +374,14 @@ jobs:
           pattern: ${{ env.PROJECT_NAME }}-package-*
           merge-multiple: true
 
-      # Every target must be here, or the release would silently go out
-      # missing a platform.
+      # The OpenBSD and Haiku packages are optional (their job may fail
+      # without failing the run); every other target must be here, or the
+      # release would silently go out missing a platform.
       - name: Check the Packages
         shell: bash
         run: |
           MISSING=0
-          for target in macos-x86_64 macos-arm64 linux-x86_64 linux-arm64; do
+          for target in macos-x86_64 macos-arm64 linux-x86_64 linux-arm64 linux-armv7-rpi linux-armv8-rpi; do
             zip="artifacts/${{ env.PROJECT_NAME }}-${VERSION}-${target}.zip"
             [ -f "$zip" ] || { echo "::error::$zip is missing"; MISSING=1; }
           done
