@@ -4,7 +4,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
-// V32TRACE for the simulator (spec: V32TRACE-SPEC.md, version 2).
+// V32TRACE for the simulator (spec: V32TRACE-SPEC.md, version 2.3).
 //
 // With --v32trace=PREFIX the run reads the translator's <stem>.v32trace.meta and labels
 // file, watches the trap routines and soft events the meta names, and when the run ends
@@ -42,6 +42,7 @@
 #define  VF_OVERRAN      1                // the cartridge did not reach WAIT in time
 #define  VF_CPUERR       2                // the CPU raised a hardware error
 #define  VF_HELD         8                // the cartridge was stopped in a trap routine
+#define  VF_CLOCKED      16               // spec 2.3: the frame has ended and its inputclock sample is in clocks[]
 
 int8_t   *v32trace_out        = NULL;       // --v32trace=PREFIX
 int8_t   *v32trace_meta_file  = NULL;       // --v32trace-meta=FILE
@@ -71,7 +72,7 @@ typedef struct
     int       nxfer;
 }  hit_t;
 
-typedef struct { uint32_t cycles; uint8_t flags; uint8_t gpu; uint16_t quads; uint16_t flushes; }  vframe_t;
+typedef struct { uint32_t cycles; uint8_t flags; uint8_t gpu; uint16_t quads; uint16_t flushes; float gpuf; }  vframe_t;   // gpuf: gpu with decimals (spec 2.3 load line)
 typedef struct { int32_t frame; char text[320]; }  vevent_t;
 typedef struct { int32_t frame; char note[512]; uint64_t *snap; }  vmark_t;
 typedef struct { char name[64]; uint32_t addr; int32_t *val; }  vseries_t;
@@ -107,6 +108,9 @@ static int32_t   nvfr      = 0;         // frames recorded in vfr
 static vevent_t  events[VT_MAX_EVENTS]; static int nevents = 0;
 static vmark_t   marks[VT_MAX_MARKERS]; static int nmarks  = 0;
 static vseries_t series[VT_MAX_SERIES]; static int nseries = 0;
+static int       have_clock = 0;        // spec 2.3: the meta has `inputclock ADDR`
+static uint32_t  clock_addr = 0;        // RAM word address of the guest's frame clock
+static uint32_t *clocks     = NULL;     // the clock sampled at the end of each cart frame (same room as pads)
 
 
 // the controls in INP port order; the V32_INPUT names the recorders use (Y has none)
@@ -197,6 +201,13 @@ static void  parse_meta (FILE *f)
                 series[nseries].addr = ad;
                 nseries = nseries + 1;
             }
+        }
+        else if ((0 == strcmp (key, "inputclock")) && (a[0]) && (!have_clock))      // spec 2.3: the first line counts
+        {
+            char *end = NULL;
+            unsigned long  v = strtoul (a, &end, 16);
+
+            if ((end != NULL) && (end != a) && (*end == 0))  { have_clock = 1; clock_addr = (uint32_t) v; }
         }
         else if (0 == strcmp (key, "resume"))  { have_resume = 1; snprintf (resume_label, sizeof resume_label, "%s", a); }
         else if ((0 == strcmp (key, "block")) && (a[0]) && (npats < VT_MAX_PATS))
@@ -480,6 +491,14 @@ static int  ensure_frames (int32_t cf)
         vfr = nv;
         memset (pads + roompads, 0, (size_t) (r - roompads) * sizeof (uint16_t));
         memset (vfr + roompads, 0, (size_t) (r - roompads) * sizeof (vframe_t));
+        if (have_clock)
+        {
+            uint32_t *nc = realloc (clocks, (size_t) r * sizeof (uint32_t));
+
+            if (nc == NULL)  return (0);
+            clocks = nc;
+            memset (clocks + roompads, 0, (size_t) (r - roompads) * sizeof (uint32_t));
+        }
         for (i = 0; i < nseries; i = i + 1)
         {
             int32_t *ns = realloc (series[i].val, (size_t) r * sizeof (int32_t));
@@ -491,6 +510,28 @@ static int  ensure_frames (int32_t cf)
     }
     roompads = r;
     return (1);
+}
+
+// spec 2.3: the guest clock of a cart frame: the sample taken at the end of the frame; for a frame that has not ended
+// (a hit written while it runs) the clock's value now. FALSE when the meta has no `inputclock` or the frame is not known
+static int  clock_of (int32_t frame, uint32_t *out)
+{
+    mem_t *ram = memory + V32_PAGE_RAM;
+
+    if ((!have_clock) || (frame < 0))  return (0);
+    if ((frame < roompads) && (vfr[frame].flags & VF_CLOCKED))  *out = clocks[frame];
+    else  *out = (clock_addr < ram -> size) ? (ram -> data + clock_addr) -> value.raw : 0;
+    return (1);
+}
+
+// " clock=V" for the lines of the report and of traps.txt; "" without `inputclock`
+static const char  *clock_text (int32_t frame, char *buf, size_t len)
+{
+    uint32_t  v = 0;
+
+    buf[0] = 0;
+    if (clock_of (frame, &v))  snprintf (buf, len, " clock=%u", v);
+    return (buf);
 }
 
 static void  add_event (int32_t frame, const char *fmt, ...)
@@ -804,7 +845,10 @@ static void  write_files (void)
                 int    c;
                 uint32_t j;
 
-                fprintf (f, "%s n=%d cartframe=%d count=%u arch=%s", h -> event ? "EVENT" : "TRAP", i + 1, (int) h -> frame, h -> count, arch);
+                char  ck[32];
+
+                fprintf (f, "%s n=%d cartframe=%d%s count=%u arch=%s", h -> event ? "EVENT" : "TRAP", i + 1, (int) h -> frame,
+                         clock_text (h -> frame, ck, sizeof ck), h -> count, arch);
                 if (h -> event)  fprintf (f, " name=%s", h -> name);
                 if (h -> kind[0])  fprintf (f, " kind=%s", h -> kind);
                 for (c = 0; c < ncaps; c = c + 1)
@@ -923,6 +967,14 @@ void  v32trace_frame_end (void)
     used   = (uint32_t) ((9 * 640 * 360) - ((remain < 0) ? 0 : remain));
     load   = 100.0 * (double) used / (double) (9 * 640 * 360);
     vfr[cartframe].gpu      = (uint8_t) ((load < 0.0) ? 0.0 : ((load > 255.0) ? 255.0 : load));
+    vfr[cartframe].gpuf     = (float) ((load < 0.0) ? 0.0 : ((load > 255.0) ? 255.0 : load));
+    if (have_clock)                                  // spec 2.3: the guest's clock at the end of the cart frame
+    {
+        mem_t *ram = memory + V32_PAGE_RAM;
+
+        clocks[cartframe] = (clock_addr < ram -> size) ? (ram -> data + clock_addr) -> value.raw : 0;
+        vfr[cartframe].flags |= VF_CLOCKED;
+    }
     vfr[cartframe].quads    = (uint16_t) ((gpustat_quads > 65535) ? 65535 : gpustat_quads);
     vfr[cartframe].flushes  = (uint16_t) ((gpustat_flushes + (gpustat_pending > 0 ? 1 : 0) > 65535) ? 65535
                                           : gpustat_flushes + (gpustat_pending > 0 ? 1 : 0));
@@ -1092,6 +1144,109 @@ static void  series_summary (FILE *f, int32_t first, int32_t last, const char *i
     }
 }
 
+// spec 2.3: load over the non-trap frames first..last: cpu% = cycles used / 250000 * 100 (a frame at the cap is 100),
+// gpu% = the per-frame GPU load of [perf]; one decimal. Nothing when no frame counts
+static void  load_summary (FILE *f, int32_t first, int32_t last, const char *indent)
+{
+    double   cmin = 0, cmax = 0, csum = 0, gmin = 0, gmax = 0, gsum = 0;
+    int32_t  i, n = 0;
+
+    if ((cartframe < 0) || (last < first))  return;
+    for (i = first; i <= last && i < nvfr; i = i + 1)
+    {
+        double  c, g;
+
+        if (vfr[i].flags & VF_HELD)  continue;
+        c = 100.0 * (double) vfr[i].cycles / (double) V32_CYCLES_PER_FRAME;
+        g = (double) vfr[i].gpuf;
+        if ((n == 0) || (c < cmin))  cmin = c;
+        if ((n == 0) || (c > cmax))  cmax = c;
+        if ((n == 0) || (g < gmin))  gmin = g;
+        if ((n == 0) || (g > gmax))  gmax = g;
+        csum += c; gsum += g; n = n + 1;
+    }
+    if (n > 0)
+        fprintf (f, "%sload: cpu%% min %.1f avg %.1f max %.1f, gpu%% min %.1f avg %.1f max %.1f\n", indent, cmin, csum / n, cmax, gmin, gsum / n, gmax);
+}
+
+// spec 2.3: where the guest clock went backwards (a guest reset or restart) in cart frames 0..cf-1: the first frame of each new segment
+static int  clock_reset_at (int32_t fr)
+{
+    return ((fr > 0) && (fr < nvfr) && (clocks[fr] < clocks[fr - 1]));
+}
+
+// spec 2.3: the gamepad 1 history of cart frames 0..cf-1 as a script keyed by the guest clock sampled at the end of each cart frame:
+// BUTTON[+BUTTON]@FROM-TO,... with the clock of the first and of the last frame the button was held. Runs of one button are cut where the
+// clock goes backwards (segments are written in order) and merged when they overlap or touch in clock values (the guest cannot tell them apart)
+typedef struct { int32_t seg; uint32_t a, b; int btn; }  crun_t;
+static int  cmp_crun (const void *x, const void *y)
+{
+    const crun_t *p = x, *q = y;
+
+    if (p -> seg != q -> seg)  return ((p -> seg > q -> seg) - (p -> seg < q -> seg));
+    if (p -> a != q -> a)      return ((p -> a > q -> a) - (p -> a < q -> a));
+    if (p -> b != q -> b)      return ((p -> b > q -> b) - (p -> b < q -> b));
+    return (p -> btn - q -> btn);
+}
+
+static void  show_input_clock (FILE *f, int32_t cf)
+{
+    crun_t  *runs = NULL;
+    int      nruns = 0, room = 0, c, i, j, k, any = 0, ok = 1;
+    int32_t  fr, start, seg;
+
+    if (cf > npads)  cf = npads;
+    for (c = 0; c < 11 && ok; c = c + 1)
+    {
+        int  last = -1;                                   // index in runs of this button's latest run
+
+        if (vt_buttons[c] == NULL)  continue;
+        start = -1; seg = 0;
+        for (fr = 0; fr <= cf && ok; fr = fr + 1)
+        {
+            int  held = (fr < cf) && (pads[fr] & (1 << c));
+            int  cut  = (fr < cf) && clock_reset_at (fr);
+
+            if (((cut) || (!held)) && (start >= 0))        // the run [start, fr-1] ends here
+            {
+                uint32_t  a = clocks[start], b = clocks[fr - 1];
+
+                if ((last >= 0) && (runs[last].seg == seg) && ((uint64_t) a <= (uint64_t) runs[last].b + 1))
+                {
+                    if (b > runs[last].b)  runs[last].b = b;
+                }
+                else
+                {
+                    if (nruns == room)
+                    {
+                        crun_t *n = realloc (runs, (size_t) (room = room ? room * 2 : 64) * sizeof (crun_t));
+
+                        if (n == NULL)  { ok = 0; break; }
+                        runs = n;
+                    }
+                    runs[nruns].seg = seg; runs[nruns].a = a; runs[nruns].b = b; runs[nruns].btn = c;
+                    last = nruns; nruns = nruns + 1;
+                }
+                start = -1;
+            }
+            if (cut)  seg = seg + 1;
+            if (held && (start < 0))  start = fr;
+        }
+    }
+    if (!ok)  { free (runs); return; }
+    qsort (runs, (size_t) nruns, sizeof (crun_t), cmp_crun);
+    for (i = 0; i < nruns; i = j)                         // buttons that share both ends are one group: A+B@FROM-TO
+    {
+        for (j = i + 1; (j < nruns) && (runs[j].seg == runs[i].seg) && (runs[j].a == runs[i].a) && (runs[j].b == runs[i].b); j = j + 1)  ;
+        fprintf (f, "%s", any ? "," : "");
+        for (k = i; k < j; k = k + 1)  fprintf (f, "%s%s", (k > i) ? "+" : "", vt_buttons[runs[k].btn]);
+        fprintf (f, "@%u-%u", runs[i].a, runs[i].b);
+        any = 1;
+    }
+    if (!any)  fprintf (f, "-");
+    free (runs);
+}
+
 typedef struct { uint64_t n; size_t i; }  rank_t;
 static int  cmp_rank (const void *a, const void *b)
 {
@@ -1200,14 +1355,20 @@ static void  write_report (void)
 
     fprintf (f, "\n[events]\n");
     if ((nevents == 0) && (nhits == 0))  fprintf (f, "none\n");
-    for (i = 0; i < nevents; i = i + 1)  fprintf (f, "frame %d: %s\n", (int) events[i].frame, events[i].text);
+    for (i = 0; i < nevents; i = i + 1)
+    {
+        char  ck[32];
+
+        fprintf (f, "frame %d: %s%s\n", (int) events[i].frame, events[i].text, clock_text (events[i].frame, ck, sizeof ck));
+    }
     for (i = 0; i < nhits; i = i + 1)
     {
         hit_t  *h = hits + i;
         int     c, shown = 0, from;
+        char    ck[32];
 
-        fprintf (f, "%s #%d at frame %d: %s arch=%s, seen %u time%s%s%s\n", h -> event ? "EVENT" : "TRAP", i + 1, (int) h -> frame, h -> name, arch,
-                 h -> count, h -> count == 1 ? "" : "s", h -> kind[0] ? ", kind " : "", h -> kind);
+        fprintf (f, "%s #%d at frame %d: %s arch=%s, seen %u time%s%s%s%s\n", h -> event ? "EVENT" : "TRAP", i + 1, (int) h -> frame, h -> name, arch,
+                 h -> count, h -> count == 1 ? "" : "s", h -> kind[0] ? ", kind " : "", h -> kind, clock_text (h -> frame, ck, sizeof ck));
         for (c = 0; c < ncaps; c = c + 1)
         {
             uint32_t j, cnt = (caps[c].reg >= 0) ? 1 : caps[c].count;
@@ -1270,6 +1431,19 @@ static void  write_report (void)
         if (any & 0x06FF)  show_input (f, pads, 0, cf);    // the named buttons (Y has no name)
     }
     fprintf (f, "\n");
+    if (have_clock)                                          // spec 2.3: the same history keyed by the guest clock
+    {
+        uint16_t  any = 0;
+        int32_t   fr;
+
+        fprintf (f, "# inputclock %X: the same buttons keyed by the guest clock (RAM word %X sampled at the end of every cart frame), not by cart frames.\n", clock_addr, clock_addr);
+        fprintf (f, "# inputclock: for a profiler that runs in guest frames (the console drops frames, the guest does not); add the guest's input delay.\n");
+        for (fr = 1; fr < cf && fr < nvfr; fr = fr + 1)  if (clock_reset_at (fr))  fprintf (f, "# inputclock reset at cart frame %d\n", (int) fr);
+        fprintf (f, "V32_INPUT_CLOCK=");
+        for (i = 0; i < cf && i < npads; i = i + 1)  any = any | pads[i];
+        if ((cf > 0) && (any & 0x06FF))  show_input_clock (f, cf);
+        fprintf (f, "\n");
+    }
     if (pads2_used)                                          // spec 2.2: gamepad 2, replayed with --input-port=1
     {
         fprintf (f, "# gamepad 2 (replay with --input2=@this_file: it reads the V32_INPUT2= line)\n");
@@ -1304,6 +1478,7 @@ static void  write_report (void)
                      V32_CYCLES_PER_FRAME);
             fprintf (f, "frames where the cartridge missed its WAIT (dropped frames): %u; frames with a CPU error: %u; average GPU load %llu%%\n",
                      overran, errs, (unsigned long long) (gsum / valid));
+            load_summary (f, 0, cf - 1, "");                      // spec 2.3
             {
                 char  buf[1024] = "";
 
@@ -1377,11 +1552,18 @@ static void  write_report (void)
                 char            ind[300];
 
                 for (i = 0; i <= nlabs; i = i + 1)  seg[i] = (now && now[i] >= prev[i]) ? now[i] - prev[i] : 0;
-                if (m < nmarks)  fprintf (f, "marker %d at frame %d%s%s\n", m + 1, (int) marks[m].frame, marks[m].note[0] ? ": " : "", marks[m].note);
+                if (m < nmarks)
+                {
+                    char  ck[32];
+
+                    fprintf (f, "marker %d at frame %d%s%s%s\n", m + 1, (int) marks[m].frame, marks[m].note[0] ? ": " : "", marks[m].note,
+                             clock_text (marks[m].frame, ck, sizeof ck));
+                }
                 fprintf (f, "segment %d: ", m + 1);
                 profile (f, seg, pf, nf, 12);
                 fprintf (f, "  host ");
                 host_summary (f, pf, nf);
+                load_summary (f, pf, nf, "  ");                  // spec 2.3
                 snprintf (ind, sizeof ind, "  ");
                 series_summary (f, pf, nf, ind);
                 if ((m < nmarks) && (now != NULL))  { memcpy (prev, now, ((size_t) nlabs + 1) * sizeof (uint64_t)); pf = nf; }

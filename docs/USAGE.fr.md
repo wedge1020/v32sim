@@ -197,7 +197,7 @@ un processus externe (`v32dev.py serve`), soit v32sim lui-même :
 | `--frame-log=FILE` | Avec lui, une ligne par image de cette ventilation. |
 | `--gpu-trace=FILE`, `--spu-trace=FILE` | Enregistre les écritures de ports GPU / SPU par image (binaire, [TRACE-FORMAT.md](TRACE-FORMAT.md)). |
 | `--trace-dump=FILE` | Affiche un fichier de trace en texte et quitte. |
-| `--v32trace=PREFIX` | Enregistreur V32TRACE ([V32TRACE-SPEC.md](V32TRACE-SPEC.md) 2.1) : lit `<cart>.v32trace.meta` et les étiquettes, écrit `PREFIX.traps.txt`, `.blocks.txt`, `.trace.txt`. La cartouche redémarre après une trappe. |
+| `--v32trace=PREFIX` | Enregistreur V32TRACE ([V32TRACE-SPEC.md](V32TRACE-SPEC.md) 2.3) : lit `<cart>.v32trace.meta` et les étiquettes, écrit `PREFIX.traps.txt`, `.blocks.txt`, `.trace.txt`. La cartouche redémarre après une trappe. Une ligne `inputclock ADDR` du meta (spec 2.3) ajoute `V32_INPUT_CLOCK=` (les boutons indexés par l'horloge de trames du guest) et des champs `clock=` ; `[perf]` et chaque tronçon de marqueurs reçoivent une ligne `load:`. |
 | `--v32trace-meta=FILE`, `--v32trace-labels=FILE` | Désignent ces fichiers quand ils ne sont pas à côté de la cartouche. |
 | `--v32trace-norestart` | Reste dans la trappe. |
 

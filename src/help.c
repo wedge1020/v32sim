@@ -92,10 +92,12 @@ void  usage (int8_t *program)
     fprintf (stdout, "                           cart's .asm (found beside it) or from PROG.asm\n");
     fprintf (stdout, "     --expect-reach LABELS exit 0 with EXPECT REACHED <label> frame=N ip=0x.. when the CPU reaches one of the labels\n");
     fprintf (stdout, "                           (comma separated, from the debug files); otherwise EXPECT MISSED <labels> and exit status 1\n");
-    fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2.1): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
+    fprintf (stdout, "     --v32trace=PREFIX     V32TRACE (spec 2.3): read the translator's <cart>.v32trace.meta and labels, watch its trap\n");
     fprintf (stdout, "                           routines and events, write PREFIX.traps.txt, .blocks.txt and the .trace.txt report; after a trap the\n");
     fprintf (stdout, "                           cartridge restarts (--v32trace-norestart: stay in the trap); --v32trace-meta=FILE and\n");
-    fprintf (stdout, "                           --v32trace-labels=FILE name the files when they are not beside the cartridge\n");
+    fprintf (stdout, "                           --v32trace-labels=FILE name the files when they are not beside the cartridge;\n");
+    fprintf (stdout, "                           meta `inputclock ADDR` adds V32_INPUT_CLOCK (the buttons keyed by the guest's frame clock) and clock=\n");
+    fprintf (stdout, "                           fields to the report; the report's [perf] and marker stretches get a `load:` line (CPU and GPU %%)\n");
     fprintf (stdout, "     --fixed-cycles        reads of TIM_CycleCounter return 0 (programs seeding from it repeat)\n");
     fprintf (stdout, "     --symbol-file=FILE    also read data symbols from FILE (v32cc's NAME.asm.sym format); the ones\n");
     fprintf (stdout, "                           next to the V32 file are read automatically\n");

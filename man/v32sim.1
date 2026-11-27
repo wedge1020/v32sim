@@ -595,6 +595,9 @@ and labels, watch its trap routines and events, write
 and the report
 .IR PREFIX .trace.txt.
 After a trap the cartridge restarts.
+A meta line
+.B inputclock ADDR
+(spec 2.3) adds the buttons keyed by the guest's frame clock (V32_INPUT_CLOCK) and clock= fields; the report's [perf] and marker stretches carry a load: line.
 .TP
 .BI \-\-v32trace\-meta= FILE
 .TP

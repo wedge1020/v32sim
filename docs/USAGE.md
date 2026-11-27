@@ -194,7 +194,7 @@ Gamepad, keyboard and mouse can also be driven from the prompt (`gamepad`, `kbd`
 | `--frame-log=FILE` | With it, one row per frame of that breakdown. |
 | `--gpu-trace=FILE`, `--spu-trace=FILE` | Record the GPU / SPU port writes by frame (binary, [TRACE-FORMAT.md](TRACE-FORMAT.md)). |
 | `--trace-dump=FILE` | Print a trace file as text and exit. |
-| `--v32trace=PREFIX` | V32TRACE recorder ([V32TRACE-SPEC.md](V32TRACE-SPEC.md) 2.1): reads `<cart>.v32trace.meta` and labels, writes `PREFIX.traps.txt`, `.blocks.txt`, `.trace.txt`. The cartridge restarts after a trap. |
+| `--v32trace=PREFIX` | V32TRACE recorder ([V32TRACE-SPEC.md](V32TRACE-SPEC.md) 2.3): reads `<cart>.v32trace.meta` and labels, writes `PREFIX.traps.txt`, `.blocks.txt`, `.trace.txt`. The cartridge restarts after a trap. A meta line `inputclock ADDR` (spec 2.3) adds `V32_INPUT_CLOCK=` (the buttons keyed by the guest's frame clock) and `clock=` fields; `[perf]` and every marker stretch get a `load:` line. |
 | `--v32trace-meta=FILE`, `--v32trace-labels=FILE` | Name those files when they are not beside the cartridge. |
 | `--v32trace-norestart` | Stay in the trap. |
 

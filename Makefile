@@ -146,12 +146,13 @@ check: $(BIN)
 
 # tests that need no toolchain (the cartridges are written by tests/kbd_probe.py): v32kbd delivery and --kbd-sync, --warn-halt, regex: patterns;
 # the command line, help texts and exit statuses (run_cli_tests.sh); the built-in v32dev server: V32DEV_SERVER/V32DEV_CHn, serial:tcp,
-# SPEC parsing, `dev format` types (run_v32dev_server_tests.sh); the bundled BIOS bios/StubBios.v32 (run_stubbios_tests.sh); frames that miss WAIT are shown as the tick left them (run_present_tests.sh)
+# SPEC parsing, `dev format` types (run_v32dev_server_tests.sh); the bundled BIOS bios/StubBios.v32 (run_stubbios_tests.sh); frames that miss WAIT are shown as the tick left them (run_present_tests.sh); V32TRACE `inputclock` and the `load:` line (run_v32trace_clock.sh, needs an assembler, else skipped)
 test: $(BIN)
 	tests/run_kbd_sync_tests.sh
 	tests/run_cli_tests.sh
 	tests/run_stubbios_tests.sh
 	tests/run_present_tests.sh
+	tests/run_v32trace_clock.sh
 	tests/run_v32dev_server_tests.sh
 
 # tests of the consolidated tools (needs V32TC, V32BIOS; ORACLE for the comparisons with the stock console logic)
